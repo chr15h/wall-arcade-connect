@@ -8,7 +8,6 @@ verifier the platform runs, and the server leaderboard.
 | --- | --- |
 | Hub (cabinets, how it works, the kit) | https://6972mvu4.srstudio.dev/ |
 | UNBREAKABLE (the reference game of this repo) | https://7x2phv5j.srstudio.dev/ |
-| TAP THE NAME (second game, built here, no longer on the hub) | https://fgud7mby.srstudio.dev/ |
 
 This repository started from SuperRare's public template, [superrare/studio-games-example](https://github.com/superrare/studio-games-example)
 (MIT), on the published `@rareprotocol/connect@0.9.0-beta.0`.
@@ -26,7 +25,7 @@ This repository started from SuperRare's public template, [superrare/studio-game
 | Game seam (`GameAdapter`, `Stage`) | **Ours** | `src/shell/adapter.ts` |
 | One-screen page: bar, full-frame game, overlay (PLAY / PRACTICE / top 5 / end screen), wallet menu, buy screen, embedded Connect, boot guard | **Ours** (replaces the template's `main.ts` and page) | `src/shell/app.ts`, `src/index.html`, `src/shell/styles.css` |
 | Practice mode (local, unrecorded) | **Ours** | `src/shell/practice.ts` |
-| Game engines, verifiers, canvas / DOM clients | **Ours** | `src/games/*`, `src/verifiers/unbreakable.ts`, `src/verifiers/tap-the-name.ts`, `src/common/det.ts` |
+| Game engine, verifier, canvas client | **Ours** | `src/games/unbreakable/`, `src/verifiers/unbreakable.ts`, `src/common/det.ts` |
 | Wall data (names) and the Survivor hit feed of NFC's own backend | **Ours** | `src/shell/wall-data.ts`, `src/shell/hits.ts`, `src/generated/*`, `scripts/snapshot-wall.ts` |
 | Hub page | **Ours** | `hub/`, `scripts/build-hub.ts` |
 | Tests, coordinator stand-in, fake Connect SDK for walking the page | **Ours** | `tests/`, `src/dev/`, `scripts/dev-*.ts` |
@@ -48,6 +47,9 @@ Three pieces that must agree, plus the public config:
 4. **Config** (`deploy/<game>.config.json` → `config.json` in the archive): public identity and routing only
    (`appId`, `groupId`, origins, `display`, `game`, `hubUrl`). Never a key, token or treasury: payment terms come from
    Studio's quote. `scoring-config.json` (round length in ticks) comes from `scoringConfiguration()` in `src/shell/config.ts`.
+
+`src/games/tap-the-name/` is a second, experimental game kept for reference only: it is **not** a supported cabinet (in
+live play its first answer was not counted by the platform, a cause not identified yet; see `docs/friction-with-the-template.md`).
 
 UNBREAKABLE: a 180 Hz brick-breaker simulation, 9 steps per server tick, 3 minutes per run; `tests/unbreakable.test.ts`
 replays the original browser game against the port when it is available on the machine (otherwise the test is skipped).

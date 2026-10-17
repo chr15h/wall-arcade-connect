@@ -29,6 +29,13 @@ Observed 2026-10-17 while taking the studio-games-example template to two new ga
    although events have windows; the completed-runs feed is creator-only and has no wallet directory for payouts.
 10. **One treasury per group**: an artist cannot be paid per game inside a shared-credit group.
 
+16. **TAP THE NAME, open question (2026-10-17).** On the live platform, every run of the reaction game ended with score 0
+    at about start + 64 ticks: the first answer was not counted and the first question expired (completed-runs feed:
+    `last_tick` 91-103, ~5 s). Locally, a bot that always answers right wins: through the page with a simulated coordinator
+    (0 and 150 ms one-way latency) and through the deployed verifier bundle (same first question as the client, correct
+    answer accepted). The coordinator's exact handling (input acceptance/rejection, `inputTick`, catch-up) is not observable
+    from outside a paid run; a per-run input trace in the creator feed would settle it. The game is off the hub and the README.
+
 Added after v2 (one-screen page, embedded Connect):
 
 11. **The template has no embed path** although the live reference apps use one: we wrote the iframe adapter

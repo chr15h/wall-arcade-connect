@@ -6,14 +6,20 @@
 // Query parameters: ?credits=N (starting balance, default 0) · ?signed=1 (start signed in) · ?ticks=N (run length in
 // 50 ms ticks, default 400) · ?mismatch=1 (the claim is refused as "does not match this payment quote").
 import { ELIG } from '../generated/wall.js';
-import { createEngine } from '../games/unbreakable/engine.js';
+import { createEngine as createUb } from '../games/unbreakable/engine.js';
+import { createEngine as createTap } from '../games/tap-the-name/engine.js';
+import { scoringConfiguration } from '../shell/config.js';
+
+declare const __FAKE_GAME__: 'unbreakable' | 'tap-the-name';
 
 const params = new URLSearchParams(location.search);
 const ADDRESS = '0xdec0de0000000000000000000000000000000001';
 const TREASURY = '0xb6ede0158e1792ed25e1367edeec05a824d7c9ad';
 const USDC = '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48';
-const engine = createEngine(ELIG);
-const runTicks = Number(params.get('ticks') ?? 400);
+const GAME = typeof __FAKE_GAME__ === 'string' ? __FAKE_GAME__ : 'unbreakable';
+const engine = (GAME === 'tap-the-name' ? createTap(ELIG) : createUb(ELIG)) as unknown as ReturnType<typeof createUb>;
+const lagMs = Number(params.get('lag') ?? 0);          // one-way network delay, both directions
+const runTicks = Number(params.get('ticks') ?? scoringConfiguration(typeof __FAKE_GAME__ === 'string' ? __FAKE_GAME__ : 'unbreakable').roundTicks);
 const uuid = (): string => crypto.randomUUID();
 const later = (ms: number): string => new Date(Date.now() + ms).toISOString();
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
@@ -87,7 +93,7 @@ export function createSuperRareClient(options: any = {}) {
         authorization = { appId, groupId, address: store.session.address, expiresAt: later(900_000) };
         return { ...authorization };
       },
-      getTerms: async () => ({ title: 'UNBREAKABLE', credits: 1 }),
+      getTerms: async () => ({ title: GAME.toUpperCase(), credits: 1 }),
       credits: {
         getBalance: async () => ({ accountId: 'a', groupId, chainId: 1, address: ADDRESS, balance: store.balance, reserved: 0, available: store.balance }),
         createPurchase: async () => {
@@ -124,7 +130,7 @@ export function createSuperRareClient(options: any = {}) {
         const known = JSON.parse(localStorage.getItem(`fake:run:${idempotencyKey}`) ?? 'null');
         if (known) { runs.set(known.run.runId, runs.get(known.run.runId) ?? known.run.state); log('server run recovered', known.run.runId); return known; }
         const runId = uuid();
-        const config = { game: 'unbreakable', maxTicks: runTicks + 100, roundTicks: runTicks };
+        const config = { game: GAME, maxTicks: runTicks + 100, roundTicks: runTicks };
         const state = engine.createRun(Math.floor(Math.random() * 2 ** 32), config);
         runs.set(runId, state);
         log('server run', runId);
@@ -166,12 +172,18 @@ class FakeSocket extends EventTarget {
       const done = state.gameOver;
       const score = engine.score(state);
       if (done) { store.board.push({ name: ADDRESS, score }); log('run finished, score', score); }
-      this.dispatchEvent(new MessageEvent('message', { data: JSON.stringify({ runId, configDigest: 'c'.repeat(64), serverTick: this.tick, inputSeq: this.seq,
-        inputTick: this.inputTick, expiresAt: later(900_000), state, result: done ? { runId, score: String(score), status: 'completed' } : null }) }));
+      const data = JSON.stringify({ runId, configDigest: 'c'.repeat(64), serverTick: this.tick, inputSeq: this.seq,
+        inputTick: this.inputTick, expiresAt: later(900_000), state, result: done ? { runId, score: String(score), status: 'completed' } : null });
+      const deliver = (): void => { this.dispatchEvent(new MessageEvent('message', { data })); };
+      if (lagMs > 0) setTimeout(deliver, lagMs); else deliver();
       if (done) window.clearInterval(this.timer);
     }, 50);
   }
-  send(message: string): void { const packet = JSON.parse(message); this.queue.push({ seq: packet.seq, input: packet.input }); }
+  send(message: string): void {
+    const packet = JSON.parse(message);
+    const arrive = (): void => { this.queue.push({ seq: packet.seq, input: packet.input }); (window as any).__fakeInputs = [...((window as any).__fakeInputs ?? []), { at: this.tick, input: packet.input }]; };
+    if (lagMs > 0) setTimeout(arrive, lagMs); else arrive();
+  }
   close(): void { window.clearInterval(this.timer); this.readyState = 3; }
 }
 (window as any).WebSocket = function (url: string | URL, protocols?: string | string[]) {
