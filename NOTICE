@@ -1,0 +1,17 @@
+THE WALL ARCADE on SuperRare Connect
+Copyright (c) 2026 NFC Summit
+SPDX-License-Identifier: MIT
+
+The Connect plumbing under src/shell/ (paid-credit purchase and recovery UI,
+paid-round / server-run state machine, wallet-isolated storage, hosted-flow
+error mapping) and the verifier request protocol under src/verifiers/ are
+adapted from https://github.com/superrare/studio-games-example (MIT,
+Copyright (c) 2026 SuperRare), itself adapted from examples/target-game in
+@rareprotocol/connect (https://github.com/superrare/superrare-connect, MIT,
+Copyright (c) 2026 SuperRare). Upstream license retained in LICENSE.
+
+UNBREAKABLE and TAP THE NAME game rules, art direction and simulation are
+original to THE WALL ARCADE (NFC Summit).
+
+Runtime dependency @rareprotocol/connect is distributed under MIT.
+Other dependencies retain their own package license notices in node_modules.

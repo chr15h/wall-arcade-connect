@@ -1,0 +1,10 @@
+_ref/
+node_modules/
+.env
+.env.*
+*.log
+dist/
+*.tgz
+.DS_Store
+tools/
+deploy/private/
