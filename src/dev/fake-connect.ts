@@ -97,7 +97,7 @@ export function createSuperRareClient(options: any = {}) {
       credits: {
         getBalance: async () => ({ accountId: 'a', groupId, chainId: 1, address: ADDRESS, balance: store.balance, reserved: 0, available: store.balance }),
         createPurchase: async () => {
-          const purchase = { id: uuid(), accountId: 'a', paymentConfigId: 'p', chainId: 1, address: ADDRESS, treasuryAddress: TREASURY, usdcAddress: USDC,
+          const purchase = { id: uuid(), accountId: 'a', paymentConfigId: 'p', chainId: 1, address: ADDRESS, treasuryAddress: TREASURY, currency: 'USDC', tokenAddress: USDC,
             packPriceAtomic: '10000000', packCredits: 50, minBlock: '1', createdAt: new Date().toISOString(), expiresAt: later(600_000), transactionHash: null, creditedAt: null };
           store.purchases.set(purchase.id, purchase);
           log('quote', purchase.id);

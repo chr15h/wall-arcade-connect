@@ -5,7 +5,9 @@
   "description": "THE WALL ARCADE on SuperRare Connect: UNBREAKABLE, TAP THE NAME and the NFC hub, server-verified and sharing one credit group",
   "license": "MIT",
   "type": "module",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "build": "tsx scripts/build.ts",
     "build:hub": "tsx scripts/build-hub.ts",
@@ -13,7 +15,7 @@
     "test": "tsx --test tests/*.test.ts"
   },
   "dependencies": {
-    "@rareprotocol/connect": "0.9.0-beta.0",
+    "@rareprotocol/connect": "0.11.0",
     "zod": "4.3.6"
   },
   "devDependencies": {

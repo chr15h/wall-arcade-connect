@@ -13,7 +13,11 @@ const purchaseRecordSchema = z.object({
     chainId: z.number(),
     address: z.string(),
     treasuryAddress: z.string(),
-    usdcAddress: z.string(),
+    // Studio's purchase quote names the payment token `currency` + `tokenAddress` since 2026-10-19 (SDK 0.11); records
+    // saved before that carry `usdcAddress` instead. Both load, normalised to the current shape below.
+    currency: z.enum(['ETH', 'USDC']).optional(),
+    tokenAddress: z.string().nullable().optional(),
+    usdcAddress: z.string().optional(),
     packPriceAtomic: z.string(),
     packCredits: z.number(),
     minBlock: z.string(),
@@ -29,12 +33,22 @@ const purchaseRecordSchema = z.object({
   transactionHash: z.string().optional(),
   credited: z.boolean().optional(),
   claimRefused: z.boolean().optional(),
-}).passthrough();
+}).passthrough().transform((record) => {
+  const { usdcAddress, ...purchase } = record.purchase;
+  const tokenAddress = purchase.tokenAddress !== undefined ? purchase.tokenAddress : (usdcAddress ?? null);
+  return { ...record, purchase: { ...purchase, currency: purchase.currency ?? 'USDC', tokenAddress } } as PurchaseRecord;
+});
+/** A saved purchase record, in either shape (tests and recovery). */
+export const parseSavedPurchase = (value: unknown): PurchaseRecord => purchaseRecordSchema.parse(value);
 const archivedPurchasesSchema = z.array(z.object({
   record: purchaseRecordSchema,
   archivedAt: z.string(),
 }));
 const MAINNET_USDC = '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48';
+/** The quote is paid in canonical Ethereum-mainnet USDC (the token this arcade's pack is priced in). */
+export function quoteTokenIsUsdc(quote: { currency?: string; tokenAddress?: string | null }): boolean {
+  return quote.currency === 'USDC' && typeof quote.tokenAddress === 'string' && quote.tokenAddress.toLowerCase() === MAINNET_USDC;
+}
 /**
  * The pack this arcade's credit group sells (deploy/credit-group.json): 50 credits for 10 USDC. The single source of
  * truth for the price: the client refuses any quote that differs, and every price shown on the page is derived from it.
@@ -509,7 +523,7 @@ export class Credits {
       if (!packTermsMatch(quote)) {
         throw new Error(`This arcade requires ${formatPrice(EXPECTED_PACK_PRICE_ATOMIC)} for ${EXPECTED_PACK_CREDITS} credits, but the quote is ${formatPrice(quote.packPriceAtomic)} for ${quote.packCredits} credits. Ask the organizer to correct the payment configuration.`);
       }
-      if (quote.usdcAddress.toLowerCase() !== MAINNET_USDC) {
+      if (!quoteTokenIsUsdc(quote)) {
         throw new Error('The credit quote does not use the configured Ethereum mainnet USDC contract. No payment was started.');
       }
       if (quote.address.toLowerCase() !== authorization.address) {
@@ -573,7 +587,7 @@ export class Credits {
       this._say('This quote expired before payment. Cancel it and request a fresh quote; no transfer was started.');
       return;
     }
-    if (quote.chainId !== 1 || !packTermsMatch(quote) || quote.usdcAddress.toLowerCase() !== MAINNET_USDC || quote.address.toLowerCase() !== authorization.address) {
+    if (quote.chainId !== 1 || !packTermsMatch(quote) || !quoteTokenIsUsdc(quote) || quote.address.toLowerCase() !== authorization.address) {
       this._say('This quote no longer matches the connected mainnet wallet. No payment was started.');
       return;
     }

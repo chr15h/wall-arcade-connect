@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { EXPECTED_PACK_CREDITS, EXPECTED_PACK_PRICE_ATOMIC, formatPrice, packPriceLabel, packTermsMatch } from '../src/shell/credits.js';
+import { parseSavedPurchase, quoteTokenIsUsdc, EXPECTED_PACK_CREDITS, EXPECTED_PACK_PRICE_ATOMIC, formatPrice, packPriceLabel, packTermsMatch } from '../src/shell/credits.js';
 
 const group = JSON.parse(readFileSync(new URL('../deploy/credit-group.json', import.meta.url), 'utf8'));
 
@@ -12,7 +12,8 @@ test('the expected pack is the one the deployed credit group sells', () => {
   assert.equal(EXPECTED_PACK_PRICE_ATOMIC, '10000000');         // 10 USDC (6 decimals), the organizer's decision 2026-10-17
   assert.equal(EXPECTED_PACK_CREDITS, group.packCredits);
   assert.equal(group.chainId, 1);
-  assert.equal(group.usdcAddress, '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48');
+  assert.equal(group.currency, 'USDC');
+  assert.equal(group.tokenAddress, '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48');
 });
 
 test('packTermsMatch accepts the deployed pack only', () => {
@@ -50,4 +51,27 @@ test('both purchase guards go through packTermsMatch', () => {
 
 test('the price players read comes from the guard: 10 USDC', () => {
   assert.equal(packPriceLabel(), '10 USDC');
+});
+
+// Regression 2026-10-20: Studio's quote now says `currency` + `tokenAddress` (SDK 0.11); the old SDK refused it with
+// "purchase.usdcAddress expected string, received undefined" and no new player could buy.
+const USDC = '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48';
+test('the purchase guard reads the current quote shape: currency USDC + canonical token only', () => {
+  assert.equal(quoteTokenIsUsdc({ currency: 'USDC', tokenAddress: USDC }), true);
+  assert.equal(quoteTokenIsUsdc({ currency: 'USDC', tokenAddress: USDC.toUpperCase().replace('0X', '0x') }), true);
+  assert.equal(quoteTokenIsUsdc({ currency: 'ETH', tokenAddress: null }), false);
+  assert.equal(quoteTokenIsUsdc({ currency: 'USDC', tokenAddress: '0x0000000000000000000000000000000000000001' }), false);
+  assert.equal(quoteTokenIsUsdc({ tokenAddress: USDC }), false);
+});
+
+test('purchases saved before the change (usdcAddress) still load, normalised to currency + tokenAddress', () => {
+  const base = { id: 'p', accountId: 'a', paymentConfigId: 'c', chainId: 1, address: '0x1111111111111111111111111111111111111111',
+    treasuryAddress: '0xb6ede0158e1792ed25e1367edeec05a824d7c9ad', packPriceAtomic: '10000000', packCredits: 50, minBlock: '1',
+    createdAt: '2026-10-18T00:00:00Z', expiresAt: '2026-10-18T00:10:00Z', transactionHash: null, creditedAt: null };
+  const legacy = parseSavedPurchase({ purchase: { ...base, usdcAddress: USDC }, confirmPayment: true });
+  assert.equal(legacy.purchase.currency, 'USDC');
+  assert.equal(legacy.purchase.tokenAddress, USDC);
+  assert.equal('usdcAddress' in legacy.purchase, false);
+  const current = parseSavedPurchase({ purchase: { ...base, currency: 'USDC', tokenAddress: USDC } });
+  assert.equal(quoteTokenIsUsdc(current.purchase), true);
 });
