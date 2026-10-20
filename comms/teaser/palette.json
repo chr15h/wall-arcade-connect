@@ -1,0 +1,19 @@
+{
+  "_": "THE WALL ARCADE teaser: the 16 colours. Every pixel of the pixel world is one of these (scripts/teaser.ts).",
+  "black": "#0B0B0B",
+  "white": "#F8F6EE",
+  "blue": "#2E7FD6",
+  "blueLight": "#8CC4F2",
+  "night": "#121A3A",
+  "nightLight": "#26366E",
+  "yellow": "#FFD43B",
+  "orange": "#E38A1C",
+  "grass": "#5DBB46",
+  "leaf": "#2E8A3E",
+  "forest": "#18502E",
+  "path": "#C99A5B",
+  "trunk": "#6E4425",
+  "stoneLight": "#DDD6C2",
+  "stoneDark": "#8E877A",
+  "stoneShadow": "#4C4740"
+}

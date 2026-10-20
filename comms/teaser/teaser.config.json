@@ -1,0 +1,24 @@
+{
+  "_": "THE WALL ARCADE teaser (scripts/teaser.ts). Every text, the gameplay order and sources, the names on the plaques.",
+  "title": ["THE WALL", "ARCADE"],
+  "hudNames": null,
+  "plaques": { "start": 1, "skip": ["RESERVED", "ASDF", "MY-NAME"] },
+  "row": { "start": 2 },
+  "sequences": [
+    { "scene": "wall", "line": "A real wall in Lisbon. 550 names, painted by hand.",
+      "gameplay": { "label": "UNBREAKABLE · #01", "source": "comms/teaser/clips/unbreakable.mp4" } },
+    { "scene": "row", "line": "We turned it into an arcade.",
+      "gameplay": { "label": "FULL ROW · #02", "source": "comms/teaser/clips/full-row.mp4" } },
+    { "scene": "chest", "line": "You're a player? Play the artists' games. Best score of the week wins the pot.",
+      "gameplay": { "label": "STAR RUNNER · BY SUPERRARE", "source": "comms/teaser/clips/star-runner.mp4" } },
+    { "scene": "yourgame", "line": "You're an artist? Make your own game.",
+      "gameplay": { "label": "SKY HOPPER · BY SUPERRARE", "source": "comms/teaser/clips/sky-hopper.mp4" } }
+  ],
+  "end": {
+    "line": "Play the people of the wall.",
+    "url": "https://6972mvu4.srstudio.dev/",
+    "credit": "Built with SuperRare Studio · NFC Summit 2027 · Lisbon"
+  },
+  "yourGame": "YOUR GAME HERE",
+  "typing": { "cps": 25, "readable": 1.5, "start": 0.15 }
+}

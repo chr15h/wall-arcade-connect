@@ -18,3 +18,7 @@ Other dependencies retain their own package license notices in node_modules.
 
 The card service (cards/) embeds the fonts Anton (Copyright 2020 The Anton Project Authors) and IBM Plex Mono
 (Copyright 2017 IBM Corp.), both under the SIL Open Font License 1.1: see cards/assets/OFL.txt.
+
+The teaser (scripts/teaser.ts, comms/teaser/) embeds the pixel fonts Press Start 2P (Copyright 2012 The Press Start 2P
+Project Authors) and Silkscreen (Copyright 2001 The Silkscreen Project Authors), both under the SIL Open Font License 1.1,
+converted unchanged from the woff of their latin subsets: see comms/teaser/assets/OFL-*.txt.

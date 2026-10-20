@@ -19,6 +19,7 @@
     "zod": "4.3.6"
   },
   "devDependencies": {
+    "@napi-rs/canvas": "1.0.9",
     "@types/node": "22.15.21",
     "esbuild": "0.25.5",
     "fflate": "0.8.2",
