@@ -1,0 +1,5 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": { "types": ["node"], "allowImportingTsExtensions": false },
+  "include": ["src/**/*.ts", "netlify/**/*.mts", "test/**/*.ts", "../src/share/card-draw.ts", "../src/types.d.ts"]
+}

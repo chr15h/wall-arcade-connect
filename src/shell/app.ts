@@ -18,6 +18,8 @@ import { Credits, EXPECTED_PACK_CREDITS, packPriceLabel } from './credits.js';
 import { describeSdkFailure } from './hosted-flow.js';
 import { PaidRound } from './paid-round.js';
 import { Practice } from './practice.js';
+import { copyText, diag } from './diagnostics.js';
+import { wirePostLink } from '../share/post.js';
 
 function requiredElement<ElementType extends HTMLElement>(selector: string): ElementType {
   const element = document.querySelector<ElementType>(selector);
@@ -69,7 +71,7 @@ const ui = {
 };
 
 type Mode = 'loading' | 'entry' | 'busy' | 'recovery' | 'consent' | 'playing' | 'end' | 'practice' | 'practice-end';
-type BoardEntry = { rank: number; score: string; player: { kind: string; displayName: string } };
+type BoardEntry = { rank: number; score: string; player: { kind: string; displayName: string; ensName?: string | null } };
 
 export async function startApp(adapter: GameAdapter): Promise<void> {
   const response = await fetch('/config.json', { cache: 'no-store' });
@@ -82,6 +84,10 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
   requiredElement('#buy-pay').textContent = `Pay ${packPriceLabel()} with SuperRare Connect`;
   requiredElement('#overlay-fine').textContent = `Practice is free. Pay to compete. ${EXPECTED_PACK_CREDITS} plays for ${packPriceLabel()} (Ethereum mainnet, real USDC), one credit per run, shared by every cabinet of the arcade. Prizes are handled manually by the organizer.`;
   requiredElement('#game-title').textContent = adapter.title;
+  if (configuration.diagnostics) {
+    diag.rotate();
+    diag.enable({ game: adapter.id, appId: configuration.appId, groupId: configuration.groupId, display: configuration.display });
+  }
   if (configuration.hubUrl) {
     const hub = requiredElement<HTMLAnchorElement>('#hub-link');
     hub.href = configuration.hubUrl;
@@ -163,6 +169,7 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
     canInput: () => (practice?.active ? practice.canInput() : Boolean(round?.canInput())),
     estimatedTick: () => (practice?.active ? practice.tick() : round?.state?.run ? round.estimatedServerTick() : 0),
     pendingCount: () => (practice?.active ? 0 : round?.state?.run?.pendingInputs.length ?? 0),
+    playerAddress: () => client.auth.getSession()?.address.toLowerCase(),
   };
   const stage = adapter.createStage(arena, io);
   arena.append(ui.overlay, ui.banner);
@@ -259,6 +266,7 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
   }
   function showRecovery(): void {
     overlay('recovery', { eyebrow: 'Your paid round', line: '' });
+    copyLogButton();
     renderBoard();
   }
   function showConsent(): Promise<boolean> {
@@ -274,6 +282,16 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
       actionButton('Cancel', () => { consentResolve = null; resolve(false); }, 'secondary');
     });
   }
+  /** Diagnostic build: COPY LOG copies the journal of this page (and of the previous load, if it was reloaded). */
+  function copyLogButton(): void {
+    if (!diag.enabled) return;
+    const button = actionButton('Copy log', () => {
+      diag.add('copy', { mode, entries: diag.entries.length });
+      const previous = diag.previous();
+      const text = `THE WALL ARCADE diagnostic log · ${adapter.id} · ${new Date().toISOString()}\n${diag.text()}${previous ? `\n\n--- previous page load ---\n${previous}` : ''}`;
+      void copyText(text, ui.actions).then((ok) => { button.textContent = ok ? 'Log copied' : 'Select the text below and copy it'; });
+    }, 'secondary');
+  }
   function endActions(): void {
     ui.actions.replaceChildren();
     if (mode === 'practice-end') {
@@ -284,8 +302,10 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
     if (authenticated && credits?.balance && available() < 1) actionButton('Buy credits', () => void play(true), 'play');
     else actionButton('Play again · 1 credit', () => void play(), 'play');
     if (practice?.available) actionButton('Practice · no score', () => startPractice(), 'secondary');
+    copyLogButton();
   }
   function showEnd(score: number): void {
+    diag.add('end', { score, board: board.slice(0, 3).map((e) => e.score) });
     const wallet = address();
     rememberBest(wallet, score);
     overlay('end', { eyebrow: 'Server-verified · recorded by SuperRare', title: 'Run over', line: '', status: '', end: true });
@@ -296,6 +316,7 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
       { label: 'Rank', value: mine ? `#${mine.rank}` : '—' },
       { label: mine ? 'Best' : 'Best · this device', value: String(best) },
     ]);
+    reportEnd(score, false, mine ? `#${mine.rank}` : '—', String(best), mine ? 'Best' : 'Best · this device', mine);
     endActions();
     renderBoard();
     // The leaderboard may take a moment to include the run that just ended: read it again, then fill the rank in.
@@ -310,11 +331,18 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
     const wallet = address();
     const mine = myEntry(wallet);
     const best = Math.max(score, localBest(wallet) ?? 0, mine ? Number(mine.score) : 0);
+    const rank = mine ? `#${mine.rank}` : fresh && score < Number(board.at(-1)?.score ?? 0) && board.length >= 10 ? 'Not top 10' : '—';
     scoreGrid([
       { label: 'Score', value: String(score), main: true },
-      { label: 'Rank', value: mine ? `#${mine.rank}` : fresh && score < Number(board.at(-1)?.score ?? 0) && board.length >= 10 ? 'Not top 10' : '—' },
+      { label: 'Rank', value: rank },
       { label: mine ? 'Best' : 'Best · this device', value: String(best) },
     ]);
+    reportEnd(score, false, rank, String(best), mine ? 'Best' : 'Best · this device', mine);
+  }
+  /** The same figures, for a game that draws its own end screens (Stage.endStats). */
+  function reportEnd(score: number, isPractice: boolean, rank: string, best: string, bestLabel: string, mine?: BoardEntry): void {
+    const ens = mine?.player.ensName ?? board.find((entry) => entry.player.displayName.toLowerCase() === address())?.player.ensName;
+    stage.endStats?.({ score, practice: isPractice, rank, best, bestLabel, ...(ens ? { player: ens } : {}) });
   }
   function showPracticeEnd(score: number): void {
     overlay('practice-end', { eyebrow: "Practice · scores don't count", title: 'Practice over', line: '', status: '', end: true });
@@ -324,14 +352,34 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
       { label: 'Recorded', value: 'No' },
       { label: 'Your best (real)', value: best === null ? '—' : String(best) },
     ]);
+    reportEnd(score, true, '—', best === null ? '—' : String(best), 'Your best (real)');
     endActions();
     renderBoard();
   }
 
   /* ----------------------------- leaderboard ---------------------------- */
+  /* POST ON X under the leaderboard: a card made by the card service from the platform's own leaderboard (the rows are
+     read there, not sent from here), the player's line in blue; the link is ready before the tap. */
+  const boardPost = node('a', 'Post on X', 'board-post');
+  boardPost.hidden = true;
+  ui.board.querySelector('.board-title')?.after(boardPost);
+  let boardPostKey = '';
+  function prepareBoardPost(): void {
+    const wallet = address(), mine = myEntry(wallet);
+    const me = mine ? (mine.player.ensName ?? mine.player.displayName) : undefined;
+    const key = JSON.stringify([board.slice(0, 10).map((e) => [e.rank, e.score, e.player.displayName]), me]);
+    if (key === boardPostKey) return;
+    boardPostKey = key;
+    const cabinet = `${location.origin}/`, game = adapter.id === 'unbreakable' ? 'unbreakable' : 'full-row';
+    wirePostLink(boardPost, { kind: 'board', game, ...(me ? { me } : {}) },
+      (link) => (mine ? `#${mine.rank} on ${adapter.title} · ${mine.score} points. ${link}` : `The top 5 of ${adapter.title} on THE WALL ARCADE. ${link}`),
+      cabinet, 'Post on X', 'Post on X');
+  }
   function renderBoard(): void {
     const wallet = address();
     const top = board.slice(0, 5);
+    boardPost.hidden = !top.length || adapter.id === 'tap-the-name';
+    if (!boardPost.hidden) prepareBoardPost();
     if (!top.length) {
       ui.boardList.replaceChildren(node('li', boardFailed ? 'Scores could not be loaded right now.' : boardLoaded ? 'No server-verified score yet. Be the first.' : 'Loading scores…', 'empty'));
       return;

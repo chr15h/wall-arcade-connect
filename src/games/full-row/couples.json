@@ -1,0 +1,7 @@
+{
+  "note": "FULL ROW · COUPLE: two names of one couple of the wall in the same cleared line (cosmetic: a flash and a sound, no point). Names as painted on the wall.",
+  "couples": [
+    { "names": ["LUDO", "MARIE-LOU"] },
+    { "names": ["VIOLET", "TREVOR"], "aka": "Violet + Trevor Jones (the panel reads TREVOR)" }
+  ]
+}

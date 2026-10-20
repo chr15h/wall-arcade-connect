@@ -1,0 +1,10 @@
+# THE WALL ARCADE share cards (its own Netlify site; not otw-arcade). Deploy from this folder:
+#   npx netlify-cli deploy --prod
+# The function renders with @napi-rs/canvas: its Linux x64 binary must be in node_modules (npm run linux-binary).
+[build]
+  publish = "public"
+
+[functions]
+  node_bundler = "esbuild"
+  external_node_modules = ["@napi-rs/canvas"]
+  included_files = ["node_modules/@napi-rs/canvas-linux-x64-gnu/**"]

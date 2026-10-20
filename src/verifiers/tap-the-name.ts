@@ -1,8 +1,8 @@
 import { createEngine, stateSchema } from '../games/tap-the-name/engine.js';
-import { ELIG } from '../generated/wall.js';
+import { TAP_POOL } from '../generated/wall.js';
 import { makeVerifier } from './protocol.js';
 
-const engine = createEngine(ELIG);
+const engine = createEngine(TAP_POOL);
 export default makeVerifier({
   stateSchema,
   createRun: engine.createRun, advance: engine.advance, applyInput: engine.applyInput,

@@ -4,10 +4,11 @@ import type { GameAdapter, Stage, StageIO } from '../../shell/adapter.js';
 import { createSavedRoundParser } from '../../shell/saved-round.js';
 import { HitFeed } from '../../shell/hits.js';
 import { nameOf } from '../../shell/wall-data.js';
-import { ELIG } from '../../generated/wall.js';
+import { diag } from '../../shell/diagnostics.js';
+import { TAP_POOL } from '../../generated/wall.js';
 import { createEngine, inputSchema, snapshotSchema, stateSchema, TICK_MS, type TapQuestion, type TapState } from './engine.js';
 
-const engine = createEngine(ELIG);
+const engine = createEngine(TAP_POOL);
 
 function node<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string): HTMLElementTagNameMap[K] {
   const element = document.createElement(tag);
@@ -48,6 +49,9 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
       button.type = 'button';
       button.dataset.pos = String(position);
       button.addEventListener('click', () => {
+        diag.add('click', { questionId: question.id, pos: position, name: button.textContent, target: question.target, targetName: promptName.textContent,
+          correctByName: button.textContent === promptName.textContent, startTick: question.startTick, deadlineTick: question.deadlineTick,
+          estTick: io.estimatedTick(), canInput: io.canInput(), pending: io.pendingCount() });
         if (!io.canInput()) return;
         tapped = position;
         io.sendInput({ action: 'choose', questionId: question.id, pos: position });
@@ -113,4 +117,8 @@ export const tapAdapter: GameAdapter = {
     return `Streak ${state.score} · ${left.toFixed(1)}s`;
   },
   createStage,
+  diagSummary: (s: TapState) => ({
+    tick: s.tick, started: s.started, startTick: s.startTick, score: s.score, last: s.last, gameOver: s.gameOver, nextRoundAt: s.nextRoundAt,
+    q: s.question ? { id: s.question.id, start: s.question.startTick, deadline: s.question.deadlineTick, target: s.question.target, options: s.question.options } : null,
+  }),
 };

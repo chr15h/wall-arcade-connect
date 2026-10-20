@@ -8,6 +8,7 @@ verifier the platform runs, and the server leaderboard.
 | --- | --- |
 | Hub (cabinets, how it works, the kit) | https://6972mvu4.srstudio.dev/ |
 | UNBREAKABLE (the reference game of this repo) | https://7x2phv5j.srstudio.dev/ |
+| FULL ROW (cabinet #02: Block Blast rules, the names of the wall on the pieces) | https://yfq52eu3.srstudio.dev/ |
 
 This repository started from SuperRare's public template, [superrare/studio-games-example](https://github.com/superrare/studio-games-example)
 (MIT), on the published `@rareprotocol/connect@0.9.0-beta.0`.
@@ -48,6 +49,28 @@ Three pieces that must agree, plus the public config:
    (`appId`, `groupId`, origins, `display`, `game`, `hubUrl`). Never a key, token or treasury: payment terms come from
    Studio's quote. `scoring-config.json` (round length in ticks) comes from `scoringConfiguration()` in `src/shell/config.ts`.
 
+`src/games/full-row/` is cabinet #02, **FULL ROW**: a copy of the most common
+Block Blast / 1010! rules (8×8 grid, three pieces in a tray, full rows and columns clear, combo, the run ends when no piece
+fits; 8-minute server cap, LAST MINUTE shown only in its last minute). One input, `{action:'place', slot, x, y}`; the generator is a pure function of the run seed
+(weights and the "one piece of 3 cells or fewer per trio" guarantee are in its `RULES`). The names of the wall are a client
+skin over the pieces' draw index (`names.ts`), never seen by the engine. `scripts/calibrate-full-row.ts` plays a random and a
+greedy bot through the built verifier.
+
+Before a game, FULL ROW's entry says it in one sentence; the first full row of a run gets a one-second ROW PAINTED
+moment. After a run, both games show one screen (`src/share/end-screen.ts`): RUN OVER (score, rank, record), what the
+run painted, a blue POST … ON X, a line to the open panels; PLAY AGAIN stays the page's button (the page passes its end
+figures through the optional `Stage.endStats`).
+
+**POST ON X** (`src/share/post.ts`): one link to `x.com/intent/post` with the tweet written (X handles of the names
+when known, the wall name otherwise, ≤ 280 characters) and a card link. The link is made by the **card service**
+(`cards/`, its own Netlify site, https://wall-arcade-cards.netlify.app): `POST /api/cards` validates the card (names of
+the wall only, integer scores, a player that is an ENS name or a shortened address; a leaderboard card's rows are read
+from the platform's public leaderboard, never sent by the page), renders it server-side with the same drawing code
+(`src/share/card-draw.ts`, @napi-rs/canvas, embedded Anton and IBM Plex Mono) and stores it in Netlify Blobs;
+`/r/<id>` carries the og: / twitter: tags (summary_large_image, a 1200 × 630 preview with the whole card) and sends a
+person on to the cabinet; `/r/<id>.png` is the 1080 × 1080 card. Deploy: `cd cards && npm install && npm run deploy`;
+tests: `cd cards && npm run assets && npm test`. No key in the repository (the Netlify CLI's own login).
+
 `src/games/tap-the-name/` is a second, experimental game kept for reference only: it is **not** a supported cabinet (in
 live play its first answer was not counted by the platform, a cause not identified yet; see `docs/friction-with-the-template.md`).
 
@@ -77,9 +100,10 @@ rare-profile app update <app-id> --zip dist/unbreakable.zip --max-attempts 10000
   `docs/organizer-runbook.md`, and what differs today in `docs/friction-with-the-template.md`.
 * The pack the client accepts is pinned in `src/shell/credits.ts` (`EXPECTED_PACK_PRICE_ATOMIC`, `EXPECTED_PACK_CREDITS`)
   and must equal the credit group's terms; `tests/credits-terms.test.ts` checks it against `deploy/credit-group.json`.
-* Walk the whole page without a wallet: `node --import tsx scripts/dev-flow.ts <dir>`, serve `<dir>` at its root
-  (fake sign-in, quote, checkout, claim and coordinator; `?credits=N&signed=1&ticks=N&mismatch=1`). It proves the page,
-  not SuperRare's side.
+* Walk the whole page without a wallet: `node --import tsx scripts/dev-flow.ts <dir> [unbreakable|full-row]`, serve `<dir>`
+  at its root (fake sign-in, quote, checkout, claim and coordinator; `?credits=N&signed=1&ticks=N&mismatch=1&address=0x…`).
+  It proves the page, not SuperRare's side. On a phone: `node --import tsx scripts/dev-serve.ts <dir> --lan` serves it over
+  HTTPS with a throwaway self-signed certificate (the paid flow needs a secure context) and prints the wifi address.
 
 ## The kit
 

@@ -5,15 +5,17 @@ import { packageGame } from '../scripts/package-game.js';
 import { scoringConfiguration, type Configuration } from '../src/shell/config.js';
 import { createEngine as createUb, MIN_ANGLE, MAX_ANGLE, type UbState } from '../src/games/unbreakable/engine.js';
 import { createEngine as createTap, MIN_REACTION_TICKS, type TapState, type TapQuestion } from '../src/games/tap-the-name/engine.js';
-import { ELIG } from '../src/generated/wall.js';
+import { createEngine as createFullRow, PIECES, RULES as FR_RULES, fits, type FrState, type Piece } from '../src/games/full-row/engine.js';
+import { ELIG, TAP_POOL } from '../src/generated/wall.js';
 import { mulberry32 } from '../src/common/det.js';
 import { Coordinator, loadBuiltVerifier } from './helpers/coordinator.js';
 
 const base = { groupId: '00000000-0000-4000-8000-000000000000', studioUrl: 'https://studio.superrare.com', apiUrl: 'https://api.superrare.com',
   connectUrl: 'https://connect.superrare.com', display: 'popup' } as const;
-const CONFIGS: Record<'unbreakable' | 'tap-the-name', Configuration> = {
+const CONFIGS: Record<'unbreakable' | 'tap-the-name' | 'full-row', Configuration> = {
   unbreakable: { ...base, appId: 'c5285ae3-512e-464a-aceb-17571e1fe3e9', appOrigin: 'https://7x2phv5j.srstudio.dev', game: 'unbreakable' },
   'tap-the-name': { ...base, appId: '62a44855-272e-4b15-bc3b-f5fc803129ad', appOrigin: 'https://fgud7mby.srstudio.dev', game: 'tap-the-name' },
+  'full-row': { ...base, appId: '5932be45-7ccb-483a-916d-0dcebff40ca2', appOrigin: 'https://yfq52eu3.srstudio.dev', game: 'full-row' },
 };
 
 async function built(game: keyof typeof CONFIGS) {
@@ -22,7 +24,7 @@ async function built(game: keyof typeof CONFIGS) {
   return { files, verifier, config: JSON.parse(strFromU8(files['scoring-config.json'] as Uint8Array)) as Record<string, unknown> };
 }
 
-for (const game of ['unbreakable', 'tap-the-name'] as const) {
+for (const game of ['unbreakable', 'tap-the-name', 'full-row'] as const) {
   test(`${game}: the archive has Studio's required root layout and a matching scoring config`, async () => {
     const { files, config } = await built(game);
     for (const required of ['index.html', 'config.json', 'server-verifier.js', 'scoring-config.json']) assert.ok(files[required], `missing ${required}`);
@@ -81,7 +83,7 @@ test('unbreakable: a full 3-minute run through the BUILT verifier equals the eng
 
 test('tap-the-name: a full run through the BUILT verifier, with a wrong answer and with a horizon end', async () => {
   const { verifier, config } = await built('tap-the-name');
-  const engine = createTap(ELIG);
+  const engine = createTap(TAP_POOL);
   async function play(seed: number, mistakeAt: number | null): Promise<{ run: Coordinator<TapState>; local: TapState }> {
     const run = new Coordinator<TapState>(verifier, config, seed);
     let local = engine.createRun(seed, config);
@@ -105,4 +107,58 @@ test('tap-the-name: a full run through the BUILT verifier, with a wrong answer a
   assert.equal(perfect.run.state.last, 'horizon'); assert.deepEqual(perfect.run.state, perfect.local);
   assert.ok(await perfect.run.score() > 20, 'a protocol-legal bot is accepted by these rules (documented limitation)');
   console.log(`  tap-the-name built verifier: bot score ${await perfect.run.score()}, worst call ${perfect.run.worstMs.toFixed(2)} ms, state ${perfect.run.largestState} B`);
+});
+
+test('full-row: whole runs through the BUILT verifier equal the engine (replay), end on "nothing fits", stay small and fast', async () => {
+  const { verifier, config } = await built('full-row');
+  const engine = createFullRow();
+  for (const seed of [123456, 0, 0xfeedface]) {
+    const run = new Coordinator<FrState>(verifier, config, seed);
+    let local = engine.createRun(seed, config);
+    await run.create();
+    const sent: { input: unknown; tick: number }[] = [];
+    const send = async (input: unknown): Promise<void> => { await run.input(input); sent.push({ input, tick: run.tick }); local = engine.applyInput(local, input, run.tick); };
+    await send({ action: 'start' });
+    const rnd = mulberry32(seed ^ 0x77);
+    while (!run.state.gameOver && run.tick < 7000) {
+      if (run.state.play.stuckTick !== null) { await run.advanceTo(run.tick + 4); local = engine.advance(local, run.tick); continue; }
+      const moves: { slot: number; x: number; y: number }[] = [];
+      run.state.play.hand.forEach((id, slot) => {
+        if (id < 0) return;
+        const piece = PIECES[id] as Piece;
+        for (let y = 0; y + piece.h <= 8; y++) for (let x = 0; x + piece.w <= 8; x++) if (fits(run.state.play.rows, piece, x, y)) moves.push({ slot, x, y });
+      });
+      await send({ action: 'place', ...moves[Math.floor(rnd() * moves.length)] });
+      await run.advanceTo(run.tick + 2); local = engine.advance(local, run.tick);
+    }
+    assert.equal(run.state.gameOver, true); assert.notEqual(run.state.play.stuckTick, null, 'ended because nothing fit');
+    assert.deepEqual(run.state, local, 'bundled verifier state equals the engine run in-process');
+    assert.equal(await run.isFinished(), true); assert.equal(await run.score(), run.state.play.score);
+    // replay: the same seed and the same inputs (at the same ticks) on a fresh coordinator give the same state and score
+    const again = new Coordinator<FrState>(verifier, config, seed);
+    await again.create();
+    for (const { input, tick } of sent) await again.input(input, tick);
+    await again.advanceTo(run.tick);
+    assert.deepEqual(again.state, run.state); assert.equal(await again.score(), await run.score());
+    console.log(`  full-row built verifier (seed ${seed}): ${run.calls} calls, ${run.state.play.placed} placements, score ${await run.score()}, largest state ${run.largestState} B, worst call ${run.worstMs.toFixed(2)} ms`);
+    assert.ok(run.largestState < 1024); assert.ok(run.worstMs < 10, `worst call ${run.worstMs} ms`);
+  }
+});
+
+test('full-row: the BUILT verifier keeps the combo rule (×(1 + 0.5 × combo), capped at 10) and has no schema library inside', async () => {
+  const { files, verifier, config } = await built('full-row');
+  assert.ok(!/zod|ZodError|\$ZodType/.test(new TextDecoder().decode(files['server-verifier.js'] as Uint8Array)), 'zod-free verifier');
+  assert.equal(FR_RULES.comboCap, 10);
+  const run = new Coordinator<FrState>(verifier, config, 5);
+  await run.create(); await run.input({ action: 'start' });
+  const dot = PIECES.findIndex((piece) => piece.key === '1');
+  const almost = 0b0111_1111;
+  // a coordinator-held state at the cap: the next clear pays 80 × 6 and the combo stays at 10
+  run.state = { ...run.state, play: { ...run.state.play, rows: [almost, almost, 0, 0, 0, 0, 1, 0], hand: [dot, dot, dot], combo: 9 } };
+  await run.input({ action: 'place', slot: 0, x: 7, y: 0 });
+  assert.equal(run.state.play.combo, 10); assert.equal(run.state.play.score, 1 + 80 * (1 + 0.5 * 9));
+  await run.input({ action: 'place', slot: 1, x: 7, y: 1 });
+  assert.equal(run.state.play.combo, 10, 'capped'); assert.equal(run.state.play.score, 1 + 80 * 5.5 + 1 + 80 * 6);
+  await run.input({ action: 'place', slot: 2, x: 0, y: 3 });
+  assert.equal(run.state.play.combo, 0, 'a placement that clears nothing resets it');
 });

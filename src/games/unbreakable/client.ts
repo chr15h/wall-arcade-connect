@@ -8,6 +8,9 @@ import { allNames, infoOf, namedPanelCount, wallIsLive } from '../../shell/wall-
 import { ELIG } from '../../generated/wall.js';
 import { scoringConfiguration } from '../../shell/config.js';
 import dragonUrl from '../../assets/dragon.jpg';
+import type { EndStats } from '../../shell/adapter.js';
+import { renderEndScreen } from '../../share/end-screen.js';
+import { fitTweet, tag } from '../../share/post.js';
 import {
   COLS, CELL, END_ROW, FLOOR, GT, HDR, MAX_ANGLE, MIN_ANGLE, NOW_Y, R, RULES, TICK_MS, W,
   createEngine, inputSchema, snapshotSchema, stateSchema, type Cell, type SimEvent, type UbState,
@@ -25,7 +28,7 @@ type Mode = 'idle' | 'play' | 'end';
 
 function createStage(host: HTMLElement, io: StageIO): Stage {
   const hits = new HitFeed('unbreakable-connect');
-  host.classList.add('ub-arena');
+  host.classList.add('ub-arena', 'own-end');
   host.replaceChildren();
   const canvas = document.createElement('canvas');
   canvas.className = 'ub-canvas';
@@ -33,7 +36,10 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
   canvas.setAttribute('aria-label', 'UNBREAKABLE game board. Aim with the pointer or the arrow keys, fire with a click, a release or Space.');
   const soundButton = document.createElement('button');
   soundButton.type = 'button'; soundButton.className = 'ub-sound secondary';
-  host.append(canvas, soundButton);
+  // end of a run: one screen (src/share/end-screen.ts) above the canvas, the page's PLAY AGAIN bar under it
+  const endPanel = document.createElement('section');
+  endPanel.className = 'end-panel'; endPanel.hidden = true; endPanel.setAttribute('aria-label', 'Your run');
+  host.append(canvas, endPanel, soundButton);
   const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
 
   /* ------------------------------ stage state ------------------------------ */
@@ -47,10 +53,10 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
   let particles: { x: number; y: number; vx: number; vy: number; life: number; sz: number }[] = [];
   let shake = 0, nowText = '', nowT = 0, desc = 0, aimA100 = 9000, aiming = false, fireLock = 0, tSec = 0, lastFrame = performance.now();
   let painted: Painted[] = [], paintedSet = new Set<number>();
+  let bounced = new Set<number>();            // every panel a ball hit this run (the share card's "people of the wall")
   let scoreHigh = 0, turnHigh = 1, brokenHigh = 0, firedHigh = 0, plusHigh = 0;   // cumulative counters: events replayed after a rebuild are not new
   let dirty = true, DPRc = 1, scale = 1;
   const ptr = { id: -1, sx: 0, sy: 0, moved: 0, drag: false };
-  const endHits: { x: number; y: number; w: number; h: number; handle: string }[] = [];
 
   /* ------------------------------ text helpers ----------------------------- */
   function mono(s: string, x: number, y: number, size: number, col: string, align: string, sp = 0.16, weight = 400): number {
@@ -185,6 +191,7 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
     if (type === 'brick') {
       if (S.score <= scoreHigh) return;
       scoreHigh = S.score;
+      if (c) bounced.add(c);
       if (c && !practice) hits.add(c);
       const cell = a !== undefined && b !== undefined ? S.rows[a]?.cells[b] : null;
       SND.brick(cell && cell.t === 1 ? cell.hp : 0);
@@ -235,6 +242,7 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
       list.forEach((old, i) => {
         const now = remaining[i];
         const drop = now ? Math.max(0, old.hp - now.hp) : old.hp;
+        if (drop > 0) bounced.add(pos);
         for (let k = 0; k < drop && budget > 0; k++, budget--) if (!practice) hits.add(pos);
         if (!now && S.broken > brokenHigh) paintName(pos, old.r, old.c);
       });
@@ -320,35 +328,16 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
     drawDragon(W - 205, H - 300, 300);
   }
   function drawEnd(view: UbState | null): void {
-    endHits.length = 0;
+    // the words are the end screen's (DOM, above): the canvas keeps the header and one big dragon cut by the edges
     const score = final ? final.score : (view ? view.sim.score : 0);
-    header(`ROW ${view ? Math.max(1, view.sim.turn - (view.sim.phase === 2 ? 0 : 0)) : 1} · SCORE ${score}`);
-    const n = painted.length, half = Math.round(H * 0.5);
-    mono(practice ? "PRACTICE · SCORES DON'T COUNT" : 'SERVER-VERIFIED', 16, 62, 8.5, LABEL, 'left', 0.2);
-    anton('YOU PAINTED', 16, 98, 40, INK); anton(`${n}${n === 1 ? ' NAME' : ' NAMES'}`, 16, 138, 40, INK); anton('ON THE WALL', 16, 178, 40, INK);
-    ctx.font = `500 9.5px ${F_MONO}`; ctx.textBaseline = 'middle';
-    const adv = 9.5 * 0.6 + 9.5 * 0.1, maxLines = Math.max(3, Math.floor((half - 236) / 16));
-    let x = 16, y = 214, line = 0, shown = 0;
-    for (const t of painted) {
-      const label = (t.name || `#${t.pos}`) + (t.handle ? ' ↗' : ''), w = label.length * adv;
-      if (x + w > W - 16) { x = 16; y += 16; line++; }
-      if (line >= maxLines) break;
-      mono(label, x, y, 9.5, INK, 'left', 0.1, 500);
-      if (t.handle) { ctx.fillStyle = INK; ctx.fillRect(x, y + 7, w - adv * 1.5, 1); endHits.push({ x: x - 2, y: y - 8, w: w + 6, h: 16, handle: t.handle }); }
-      x += w + 12; shown++;
-    }
-    if (shown < painted.length) mono(`+ ${painted.length - shown} MORE`, 16, y + 18, 9, LABEL, 'left', 0.2);
-    ctx.fillStyle = INK; ctx.fillRect(0, half, W, 1);
-    anton('SCORE', 16, half + 46, 36, INK); anton(String(score), W - 16, half + 46, 64, BLUE, 'right');
-    mono(practice ? 'HIT POINTS REMOVED · NOT RECORDED' : 'HIT POINTS REMOVED · RECORDED BY THE PLATFORM', 16, half + 82, 8.5, LABEL, 'left', 0.14);
-    wrap(message, 34).slice(0, 5).forEach((s, i) => mono(s, 16, half + 116 + i * 16, 9, INK, 'left', 0.12, 500));
-    drawDragon(W - 150, H - 250, 300);
+    header(`ROW ${view ? Math.max(1, view.sim.turn) : 1} · SCORE ${score}`);
+    drawDragon(W - 260, H - 330, 420);
   }
   function draw(): void {
     const pw = Math.round(W * DPRc), ph = Math.round(H * DPRc);
     if (!wmCanvas || wmCanvas.width !== pw || wmCanvas.height !== ph) buildWatermark();
     if (paintCv && (paintCv.width !== pw || paintCv.height !== ph)) rebuildPaint();
-    const bg = (mode === 'idle' || !paintCv) ? wmCanvas : paintCv;
+    const bg = (mode !== 'play' || !paintCv) ? wmCanvas : paintCv;    // the stamped names belong to the run, not to the end screen
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(bg as HTMLCanvasElement, 0, 0, canvas.width, canvas.height);
     ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
     if (shake > 0.3) ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
@@ -375,7 +364,6 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
   canvas.addEventListener('pointerdown', (e) => {
     initAudio(); const [x, y] = point(e);
     if (mode === 'end') {
-      for (const r of endHits) if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) { try { window.open(`https://x.com/${r.handle}`, '_blank', 'noopener'); } catch { /* blocked */ } return; }
       return;
     }
     if (mode !== 'play') return;
@@ -417,6 +405,7 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
     canvas.style.width = `${cssW}px`; canvas.style.height = `${cssH}px`;
     host.style.width = `${cssW}px`; host.style.height = `${cssH}px`;
     canvas.width = Math.round(cssW * DPRc); canvas.height = Math.round(cssH * DPRc);
+    host.style.setProperty('--fr-scale', String(cssW / W));      // the end screen's top margin follows the canvas header
     wmCanvas = null; dirty = true;
   }
   new ResizeObserver(() => layout()).observe(frameEl);
@@ -447,24 +436,48 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
 
   /* -------------------------------- Stage API ------------------------------- */
   function resetRunMemory(): void {
-    painted = []; paintedSet = new Set(); scoreHigh = 0; turnHigh = 1; brokenHigh = 0; firedHigh = 0; plusHigh = 0;
+    painted = []; paintedSet = new Set(); bounced = new Set(); endStats = null; postMemo.key = ''; postMemo.anchor = null; endPanel.hidden = true; scoreHigh = 0; turnHigh = 1; brokenHigh = 0; firedHigh = 0; plusHigh = 0;
     particles = []; nowText = ''; nowT = 0; desc = 0; aimA100 = 9000; aiming = false; newPaintCanvas(); final = null;
   }
+  /* ------------------------------- end screen -------------------------------- */
+  let endStats: EndStats | null = null;
+  const postMemo: { key: string; anchor: HTMLAnchorElement | null } = { key: '', anchor: null };
+  function renderEnd(): void {
+    const score = final ? final.score : (local ? local.sim.score : 0);
+    // painted (broken) names first, then the ones only hit
+    const order = [...painted.map((p) => p.pos), ...[...bounced].filter((pos) => !paintedSet.has(pos))];
+    const names = order.map((pos) => (infoOf(pos).name || '').toUpperCase()).filter(Boolean);
+    const people = bounced.size, shown = names.slice(0, 16);
+    renderEndScreen(endPanel, {
+      practice, score, stats: endStats,
+      label: 'Your run',
+      headline: `I bounced off ${people} ${people === 1 ? 'person' : 'people'} of the wall`,
+      names: names.length > shown.length ? [...shown, `+ ${names.length - shown.length} more`] : shown,
+      card: people > 0 && names.length ? { kind: 'bounce', names: names.slice(0, 60), people: Math.max(people, new Set(names.slice(0, 60)).size), score, ...(practice ? { practice: true } : {}) } : null,
+      tweet: (link) => fitTweet(order.map((pos) => tag(infoOf(pos).name || '', infoOf(pos).handle)).filter(Boolean),
+        (list, more) => `I bounced off ${people} people of the wall: ${list}${more ? ' …' : '.'} Beat me: ${link}`, link),
+      postLabel: 'Post your run on X', cabinet: `${location.origin}/`,
+    }, postMemo);
+    endPanel.hidden = false;
+  }
+
   return {
     setMessage(text: string, extra?: { final?: number; view?: unknown; practice?: boolean; idle?: boolean }): void {
       message = text; dirty = true;
-      if (extra?.idle) { mode = 'idle'; return; }
+      if (extra?.idle) { mode = 'idle'; endPanel.hidden = true; return; }
       if (extra && typeof extra.final === 'number') {
         final = { score: extra.final };
         practice = Boolean(extra.practice);
         if (extra.view && typeof extra.view === 'object' && !local) { local = engine.clone(extra.view as UbState); }
         mode = 'end'; if (!practice) hits.flush();
+        renderEnd();
       } else if (mode !== 'end') mode = 'idle';
     },
-    hideRun(): void { if (mode === 'play') { mode = local && local.gameOver ? 'end' : 'idle'; dirty = true; } },
+    hideRun(): void { if (mode === 'play') { mode = local && local.gameOver ? 'end' : 'idle'; if (mode === 'end') renderEnd(); dirty = true; } },
+    endStats(stats: EndStats): void { endStats = stats; if (mode === 'end') renderEnd(); },
     showRun(view: UbState, info?: { practice?: boolean }): void {
       const nextPractice = Boolean(info?.practice);
-      if (mode !== 'play' || nextPractice !== practice) { resetRunMemory(); mode = 'play'; base = null; practice = nextPractice; }
+      if (mode !== 'play' || nextPractice !== practice) { resetRunMemory(); mode = 'play'; base = null; practice = nextPractice; endPanel.hidden = true; }
       if (view !== base) {                                           // a new authoritative snapshot (or a new queued shot)
         const shown = base === null ? null : local;
         base = view; local = engine.clone(view); tickNow = Math.max(local.tick, io.estimatedTick());

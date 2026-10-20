@@ -3,7 +3,7 @@ import type * as z from 'zod/mini';
 /** What PaidRound (the paid-start / server-run state machine) needs from one game. */
 export interface GameAdapter {
   /** Matches the public config's `game` and the state's `rules.game`. */
-  id: 'unbreakable' | 'tap-the-name';
+  id: 'unbreakable' | 'tap-the-name' | 'full-row';
   /** Page and arena label. */
   title: string;
   /** Section heading above the game card. */
@@ -21,6 +21,8 @@ export interface GameAdapter {
   scoreOf(state: any): number;
   statusLine(state: any, tick: number): string;
   createStage(host: HTMLElement, io: StageIO): Stage;
+  /** Diagnostics only: a compact, JSON-friendly view of a state (no secret ever lives in a state). */
+  diagSummary?(state: any): unknown;
   /**
    * Practice: the same rules run in the browser, with no server run, no credit and no score sent anywhere.
    * Absent for a game that offers no practice.
@@ -38,6 +40,8 @@ export interface StageIO {
   /** The platform tick the player is at right now, estimated from the last server snapshot. */
   estimatedTick(): number;
   pendingCount(): number;
+  /** The signed-in wallet (lowercase), if any: cosmetic use only (a game may greet a holder of the wall). */
+  playerAddress?(): string | undefined;
 }
 
 export interface RunInfo {
@@ -57,4 +61,19 @@ export interface Stage {
   hideRun(): void;
   /** A round is running: `view` is the authoritative state with the player's unacknowledged inputs applied. */
   showRun(view: any, info: RunInfo): void;
+  /**
+   * Optional: the end-of-run figures the page computed (rank and best come from the server leaderboard, refreshed a
+   * moment after the run), for a game that draws its own end screens. `player` is the best known public name of the
+   * signed-in wallet (ENS from the leaderboard), if any.
+   */
+  endStats?(stats: EndStats): void;
+}
+
+export interface EndStats {
+  score: number;
+  practice: boolean;
+  rank: string;
+  best: string;
+  bestLabel: string;
+  player?: string;
 }

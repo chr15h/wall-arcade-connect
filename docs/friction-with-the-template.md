@@ -34,7 +34,8 @@ Observed 2026-10-17 while taking the studio-games-example template to two new ga
     `last_tick` 91-103, ~5 s). Locally, a bot that always answers right wins: through the page with a simulated coordinator
     (0 and 150 ms one-way latency) and through the deployed verifier bundle (same first question as the client, correct
     answer accepted). The coordinator's exact handling (input acceptance/rejection, `inputTick`, catch-up) is not observable
-    from outside a paid run; a per-run input trace in the creator feed would settle it. The game is off the hub and the README.
+    from outside a paid run; a per-run input trace in the creator feed would settle it. The game is off the hub and the README,
+    and its product was unlisted on 2026-10-17 until this is understood. **Still open.**
 
 Added after v2 (one-screen page, embedded Connect):
 
@@ -50,3 +51,8 @@ Added after v2 (one-screen page, embedded Connect):
     page cannot reliably find the signed-in player's rank; there is no "my rank / my best" for server-verified runs.
 15. **Free plays**: no grant and no free session in a registered app, so "3 free plays a week for holders" can only be a
     local, unrecorded practice mode.
+
+17. **The run seed is the platform's, per run (2026-10-19, FULL ROW).** `createRun` receives the coordinator's seed; a game
+    cannot ask for "the same pieces for everyone this week" (a seed from the ISO week and a run number). FULL ROW's pieces are
+    a pure function of the seed it is given, so two runs with the same seed are identical, but whether two players ever share
+    a seed is up to the platform. A weekly shared puzzle would need a seed (or a seed salt) settable per event.

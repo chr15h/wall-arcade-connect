@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { ELIG } from '../src/generated/wall.js';
+import { ELIG, TAP_POOL, WALL_PANELS } from '../src/generated/wall.js';
+import { scoringConfiguration } from '../src/shell/config.js';
 import {
   createEngine, stateSchema, snapshotSchema, nextRoundMs, ticksForMs, MIN_REACTION_TICKS, PAUSE_TICKS,
   ROUND_START_MS, ROUND_MIN_MS, type TapState, type TapQuestion,
 } from '../src/games/tap-the-name/engine.js';
 
-const engine = createEngine(ELIG);
+const engine = createEngine(TAP_POOL);
 const CONFIG = { game: 'tap-the-name', maxTicks: 1900, roundTicks: 1800 } as const;
 const roundtrip = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 const started = (seed: number): TapState => engine.applyInput(engine.createRun(seed, CONFIG), { action: 'start' }, 0);
@@ -124,4 +125,16 @@ test('state is fully serialised: tick-by-tick JSON round trips equal one big jum
   assert.throws(() => snapshotSchema.parse({ ...snapshot, state: { ...jumped, score: -1 } }));
   assert.throws(() => snapshotSchema.parse({ ...snapshot, state: { ...jumped, extra: 1 } }));
   assert.ok(JSON.stringify(jumped).length < 1500);
+});
+
+test('no question shows two panels with the same name (duplicate names are out of the pool)', () => {
+  const name = new Map(WALL_PANELS.map((panel) => [panel.p, panel.n.trim().toUpperCase()]));
+  assert.ok(TAP_POOL.length >= ELIG.length - 10 && TAP_POOL.length < ELIG.length, 'the duplicated panels are left out, the rest stays');
+  let state = engine.applyInput(engine.createRun(77, scoringConfiguration('tap-the-name')), { action: 'start' }, 0);
+  for (let round = 0; round < 300 && !state.gameOver; round++) {
+    const q = state.question as NonNullable<typeof state.question>;
+    assert.equal(new Set(q.options.map((p) => name.get(p))).size, 4, `question ${q.id}: four distinct names`);
+    state = engine.applyInput(state, { action: 'choose', questionId: q.id, pos: q.target }, Math.min(q.startTick + 3, q.deadlineTick - 1));
+    state = engine.advance(state, state.nextRoundAt ?? state.tick);
+  }
 });

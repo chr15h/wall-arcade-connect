@@ -8,3 +8,6 @@ dist/
 .DS_Store
 tools/
 deploy/private/
+
+# Local Netlify folder
+.netlify

@@ -8,13 +8,15 @@ import { unbreakableAdapter } from '../games/unbreakable/client.js';
 import { tapAdapter } from '../games/tap-the-name/client.js';
 import { createEngine as createUb } from '../games/unbreakable/engine.js';
 import { createEngine as createTap } from '../games/tap-the-name/engine.js';
+import { fullRowAdapter } from '../games/full-row/client.js';
+import { createEngine as createFullRow } from '../games/full-row/engine.js';
 
 const params = new URLSearchParams(location.search);
-const game = params.get('game') === 'tap-the-name' ? 'tap-the-name' : 'unbreakable';
+const game = params.get('game') === 'tap-the-name' || params.get('game') === 'full-row' ? params.get('game') as 'tap-the-name' | 'full-row' : 'unbreakable';
 const seed = Number(params.get('seed') ?? 4242) >>> 0;
 const lagMs = Number(params.get('lag') ?? 0);
-const adapter = game === 'tap-the-name' ? tapAdapter : unbreakableAdapter;
-const engine = (game === 'tap-the-name' ? createTap(ELIG) : createUb(ELIG)) as ReturnType<typeof createUb>;
+const adapter = game === 'tap-the-name' ? tapAdapter : game === 'full-row' ? fullRowAdapter : unbreakableAdapter;
+const engine = (game === 'tap-the-name' ? createTap(ELIG) : game === 'full-row' ? createFullRow() : createUb(ELIG)) as unknown as ReturnType<typeof createUb>;
 
 const t0 = performance.now();
 const tick = (): number => Math.floor((performance.now() - t0) / 50);

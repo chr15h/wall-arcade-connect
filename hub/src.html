@@ -109,6 +109,9 @@ header nav a{text-decoration:none}header nav a:hover{color:var(--ink)}
 .top3{padding:0 14px 10px;font-size:11px}
 .top3 .lbl{font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--label);margin-bottom:4px}
 .top3 .row{display:flex;justify-content:space-between;padding:2px 0}
+.cab-post{display:flex;align-items:center;justify-content:center;margin-top:8px;min-height:36px;border:1px solid var(--ink);color:var(--ink);text-decoration:none;font-family:var(--mono);font-weight:500;font-size:11px;letter-spacing:.14em}
+.cab-post:hover{background:var(--ink);color:var(--chalk)}
+.cab-post.is-preparing{opacity:.45;pointer-events:none}
 .lastweek{padding:0 14px 10px;font-size:10.5px;color:var(--label);border-top:1px dashed var(--rule);margin:0 14px;padding-top:8px}
 .lastweek a{color:var(--blue);text-decoration:underline;text-underline-offset:2px}
 .cab-f{margin-top:auto;border-top:1px solid var(--ink);padding:12px}
@@ -276,11 +279,14 @@ footer{border-top:1px solid var(--ink);padding:28px var(--padx)}
 var GAMES = [
   { id: 'unbreakable', num: '01', title: 'UNBREAKABLE', artist: 'NFC',
     pitch: 'Aim and fire. Every brick is a name of the wall: break it and the name gets painted. Three minutes on the server clock.',
-    url: 'https://7x2phv5j.srstudio.dev/', appId: 'c5285ae3-512e-464a-aceb-17571e1fe3e9' },
-  { id: 'star-runner', num: '02', title: 'STAR RUNNER', artist: 'SuperRare Studio',
+    url: 'https://7x2phv5j.srstudio.dev/', appId: 'c5285ae3-512e-464a-aceb-17571e1fe3e9', share: true },
+  { id: 'full-row', num: '02', title: 'FULL ROW', artist: 'NFC',
+    pitch: 'Place the names of the wall. Full rows get painted.',
+    url: 'https://yfq52eu3.srstudio.dev/', appId: '5932be45-7ccb-483a-916d-0dcebff40ca2', share: true },
+  { id: 'star-runner', num: '03', title: 'STAR RUNNER', artist: 'SuperRare Studio',
     pitch: 'Collect stars, avoid spikes and reach the beacon in all three levels. From the Studio game template.',
     url: 'https://q77e66pg.srstudio.dev/', appId: '7d0a34a0-ca86-413a-871c-7b731adf4511' },
-  { id: 'sky-hopper', num: '03', title: 'SKY HOPPER', artist: 'SuperRare Studio',
+  { id: 'sky-hopper', num: '04', title: 'SKY HOPPER', artist: 'SuperRare Studio',
     pitch: 'Tap, press Space or the up arrow to flap between the pipes. From the Studio game template.',
     url: 'https://tu9zzywe.srstudio.dev/', appId: 'f89bd492-1479-46ff-b455-1ec479e45684' }
 ];
@@ -405,6 +411,22 @@ function setCabinetState(g, art, playable) {
     by.textContent = 'by ' + g.artist + ' · being updated';
   }
 }
+/* Our two cabinets: POST ON X. The card service (wall-arcade-cards.netlify.app) makes the top-5 card from the platform's
+   own leaderboard and answers a link whose preview in X is the card; the button is a plain link to the X composer, ready
+   before the tap (it opens the X app on a phone). If the service cannot be reached, the tweet links to the cabinet. */
+var CARDS = 'https://wall-arcade-cards.netlify.app';
+function addBoardPost(g, slot) {
+  var a = document.createElement('a');
+  a.className = 'cab-post is-preparing'; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'PREPARING THE CARD…';
+  slot.appendChild(a);
+  var done = function (link) {
+    a.href = 'https://x.com/intent/post?text=' + encodeURIComponent('The top 5 of ' + g.title + ' on THE WALL ARCADE. ' + link);
+    a.className = 'cab-post'; a.textContent = 'POST ON X';
+  };
+  fetch(CARDS + '/api/cards', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'board', game: g.id }) })
+    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function (d) { done(d && typeof d.url === 'string' && d.url.indexOf(CARDS + '/r/') === 0 ? d.url : g.url); }, function () { done(g.url); });
+}
 function loadGameData() {
   GAMES.forEach(function (g) {
     var art = document.querySelector('[data-game="' + g.id + '"]'); if (!art) return;
@@ -418,6 +440,7 @@ function loadGameData() {
       if (!entries.length) { slot.innerHTML = '<div class="lbl">Server-verified scores</div><div class="row"><span>none yet</span><span>—</span></div>'; return; }
       var rows = entries.slice(0, 3).map(function (e) { return '<div class="row"><span>#' + e.rank + ' ' + esc(shortPlayer(e.player)) + '</span><span>' + esc(e.score) + '</span></div>'; }).join('');
       slot.innerHTML = '<div class="lbl">Best: ' + esc(entries[0].score) + ' · server-verified</div>' + rows;
+      if (g.share) addBoardPost(g, slot);
     }).catch(function () { slot.innerHTML = ''; });
   });
 }

@@ -8,6 +8,8 @@
 // Kinds: 'signed-out', 'ready' (a new paid play may start; detail.terms), 'busy', 'recovery', 'playing',
 // 'finished' (detail.score: the platform's recorded score).
 
+import { diag } from './diagnostics.js';
+
 const TICK_MILLISECONDS = 50;
 const MAX_PENDING_INPUTS = 32;
 const STORAGE_PREFIX = 'studio-games-round:';
@@ -114,6 +116,12 @@ export class PaidRound {
     if (kind === this.viewKind && kind !== 'finished' && kind !== 'ready') return;
     this.viewKind = kind;
     this.onView(kind, detail);
+  }
+
+  /** Diagnostics: a compact view of a state (the adapter's own summary when it has one). */
+  summary(state) {
+    try { return this.adapter.diagSummary ? this.adapter.diagSummary(state) : { tick: state?.tick, started: state?.started, gameOver: state?.gameOver }; }
+    catch { return null; }
   }
 
   announce(message) {
@@ -331,6 +339,7 @@ export class PaidRound {
         return;
       }
       const session = await this.game.startWithConsent({ ...attempt.request, consent });
+      diag.add('paid-start', { ok: true, credits: attempt.request.expectedCredits });
       if (this.storageKey !== accountKey || this.state !== attempt) return;
       this.acceptSession(session);
       await this.beginPlay();
@@ -373,6 +382,7 @@ export class PaidRound {
   }
 
   showRecoveryError(error, message = recoveryMessage(error)) {
+    diag.add('recovery', { message, error: errorMessage(error), code: error?.code, status: error?.status });
     this.announce(message);
     this.clearActions();
     this.button('Continue', () => void this.recover());
@@ -451,6 +461,7 @@ export class PaidRound {
   }
 
   markExpired(diagnostic = 'The saved PlaySession has expired.') {
+    diag.add('expired', { diagnostic });
     this.disconnectRun();
     try {
       localStorage.setItem(`${this.storageKey}:diagnostic:${this.state.key}`, JSON.stringify({
@@ -498,6 +509,7 @@ export class PaidRound {
       if (!attempt.run) throw new Error('The saved paid round is missing its original server-run identity.');
       attempt.phase = 'run_pending';
       this.save();
+      diag.add('run-req', { eventId: attempt.run.eventId, recovering: Boolean(attempt.run.runId) });
       const response = await this.scoringGame.startServerValidatedRun({
         sessionToken: attempt.session.token,
         eventId: attempt.run.eventId,
@@ -505,6 +517,7 @@ export class PaidRound {
       });
       if (this.state !== attempt || this.storageKey !== accountKey) return;
       const run = response.run;
+      diag.add('run', { runId: run.runId, eventId: run.eventId, engine: run.engine, configDigest: run.configDigest, startedAt: run.startedAt, expiresAt: run.expiresAt, state: this.summary(run.state) });
       if (run.eventId !== attempt.run.eventId || run.engine !== 'custom' || run.engineVersion !== 'custom-v1'
         || (attempt.run.runId && run.runId !== attempt.run.runId)
         || (attempt.run.configDigest && run.configDigest !== attempt.run.configDigest)) {
@@ -530,6 +543,8 @@ export class PaidRound {
       this.receivedSnapshot = false;
       const socket = new WebSocket(socketUrl);
       this.socket = socket;
+      diag.add('socket', { connecting: socketUrl.pathname });
+      socket.addEventListener('open', () => diag.add('socket', { open: true, estTick: this.estimatedServerTick() }));
       const ownsSocket = () => this.socket === socket && this.state === attempt
         && this.storageKey === accountKey && this.accountStorageKey() === accountKey;
       this.connectTimer = setTimeout(() => {
@@ -537,6 +552,7 @@ export class PaidRound {
       }, 12000);
       socket.addEventListener('message', (event) => {
         if (!ownsSocket()) return;
+        this.logPacket(event.data);
         try {
           this.acceptSnapshot(this.adapter.snapshotSchema.parse(JSON.parse(event.data)));
         } catch (error) {
@@ -544,9 +560,11 @@ export class PaidRound {
         }
       });
       socket.addEventListener('error', () => {
+        diag.add('socket', { error: true });
         if (ownsSocket()) this.showRunError(new Error('The platform game socket could not connect.'));
       });
-      socket.addEventListener('close', () => {
+      socket.addEventListener('close', (event) => {
+        diag.add('socket', { close: event.code, reason: event.reason, hadResult: Boolean(attempt.result) });
         if (ownsSocket() && !attempt.result) this.showRunError(new Error('The platform game socket was interrupted.'));
       });
       this.timer = setInterval(() => {
@@ -558,9 +576,23 @@ export class PaidRound {
     } catch (error) {
       if (this.state !== attempt || this.storageKey !== accountKey) return;
       this.runConnecting = false;
+      diag.add('run-err', { message: errorMessage(error), status: error?.status, code: error?.code });
       if (error?.status === 410 || error?.code === 'RUN_EXPIRED') this.markExpired('The platform reports this paid run has expired.');
       else this.showRunError(error);
     }
+  }
+
+  /** Diagnostics: every packet from the game socket, folded when nothing but the server tick changed. */
+  logPacket(raw) {
+    if (!diag.enabled) return;
+    let packet;
+    try { packet = JSON.parse(raw); } catch { diag.add('recv-bad', { raw: String(raw).slice(0, 300) }); return; }
+    const estTick = this.state?.run ? this.estimatedServerTick() : null;
+    if (packet.error) { diag.add('recv-err', { error: packet.error, serverTick: packet.serverTick, estTick, pending: this.state?.run?.pendingInputs?.map((i) => i.seq) }); return; }
+    const state = this.summary(packet.state);
+    const { tick: _tick, ...unchanged } = state ?? {};          // folded while only the clock moves
+    const key = JSON.stringify([packet.inputSeq, packet.inputTick, unchanged, packet.result]);
+    diag.add('recv', { serverTick: packet.serverTick, estTick, inputSeq: packet.inputSeq, inputTick: packet.inputTick, state, result: packet.result ?? null, expiresAt: packet.expiresAt }, 'recv:' + key);
   }
 
   estimatedServerTick() {
@@ -606,6 +638,7 @@ export class PaidRound {
       return;
     }
     if (packet.result && 'score' in packet.result) {
+      diag.add('result', { result: packet.result, serverTick: packet.serverTick, final: this.summary(packet.state) });
       this.state.result = packet.result;
       this.state.score = packet.result.score;
       this.state.phase = 'finalizing';
@@ -644,6 +677,7 @@ export class PaidRound {
     const last = run.pendingInputs.at(-1);
     const seq = (last?.seq ?? run.inputSeq) + 1;
     this.state.run.pendingInputs = [...run.pendingInputs, { seq, input, sent: false, tick: this.estimatedServerTick() }];
+    diag.add('queue', { seq, input, estTick: this.estimatedServerTick(), serverTick: run.serverTick, inputSeq: run.inputSeq, inputTick: run.inputTick, pending: this.state.run.pendingInputs.length });
     this.save();
     this.reconcilePrediction();
     this.flushInputs();
@@ -653,10 +687,15 @@ export class PaidRound {
   flushInputs() {
     if (this.socket?.readyState !== WebSocket.OPEN || !this.receivedSnapshot || this.state.result) return;
     const tick = this.estimatedServerTick();
-    if (tick <= Math.max(this.lastSentTick, this.state.run.inputTick)) return;
+    if (tick <= Math.max(this.lastSentTick, this.state.run.inputTick)) {
+      const waiting = this.state.run.pendingInputs.find((input) => !input.sent);
+      if (waiting) diag.add('wait', { seq: waiting.seq, estTick: tick, lastSentTick: this.lastSentTick, inputTick: this.state.run.inputTick }, 'wait:' + waiting.seq);
+      return;
+    }
     const next = this.state.run.pendingInputs.find((input) => !input.sent);
     if (!next) return;
     try {
+      diag.add('send', { seq: next.seq, input: next.input, estTick: tick, queuedAt: next.tick, lastSentTick: this.lastSentTick, inputTick: this.state.run.inputTick, serverTick: this.state.run.serverTick });
       this.socket.send(JSON.stringify({ type: 'input', seq: next.seq, input: next.input }));
       this.state.run.pendingInputs = this.state.run.pendingInputs.map((input) => input.seq === next.seq ? { ...input, sent: true, tick } : input);
       this.lastSentTick = tick;
@@ -672,7 +711,10 @@ export class PaidRound {
 
   /** An ordered input from the stage (a shot, an answer). Only ever a game action: never a score, time or state. */
   userInput(input) {
-    if (!this.canInput()) return;
+    if (!this.canInput()) {
+      diag.add('refused', { input, phase: this.state?.phase, started: this.predictedView?.started, gameOver: this.predictedView?.gameOver, pending: this.state?.run?.pendingInputs?.length });
+      return;
+    }
     try {
       this.queueInput(input);
     } catch (error) {
@@ -693,6 +735,7 @@ export class PaidRound {
   }
 
   showRunError(error) {
+    diag.add('run-err', { message: errorMessage(error) });
     this.disconnectRun();
     this.stage.setMessage('Continue reconnects this same paid round; its server clock does not restart.');
     this.showRecoveryError(error, 'Game connection interrupted. Continue recovers this same paid round without using another credit.');
@@ -709,6 +752,7 @@ export class PaidRound {
       this.save();
       if (!attempt.completed) {
         await this.game.complete({ sessionId: attempt.session.id, sessionToken: attempt.session.token });
+        diag.add('complete', { ok: true, score: attempt.result.score });
         if (this.state !== attempt || this.storageKey !== accountKey) return;
         attempt.completed = true;
       }

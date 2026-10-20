@@ -1,0 +1,21 @@
+{
+  "name": "wall-arcade-cards",
+  "private": true,
+  "description": "THE WALL ARCADE share cards: server-rendered 1080x1080 cards behind /r/<id> links (Netlify function)",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "assets": "node scripts/gen-assets.mjs",
+    "pretest": "npm run assets",
+    "test": "tsx --test test/*.test.ts",
+    "linux-binary": "npm install --no-save --force @napi-rs/canvas-linux-x64-gnu@1.0.9",
+    "deploy": "npm run assets && npm run linux-binary && npx -y netlify-cli@27.9.0 deploy --prod"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "1.0.9",
+    "@netlify/blobs": "11.1.2"
+  }
+}
