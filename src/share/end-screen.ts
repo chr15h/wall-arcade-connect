@@ -15,8 +15,8 @@ export type EndScreen = {
   post: CardRequest | null;
   tweet: (link: string) => string;
   postLabel: string;
-  /** The cabinet's address: shown on the card, and where the tweet points if the card service cannot be reached. */
-  cabinet: string;
+  /** The game's address: shown on the card, and where the tweet points if the card service cannot be reached. */
+  gameUrl: string;
 };
 
 /** "#3" -> 3; "—" or "Not top 10" -> undefined. */
@@ -38,7 +38,7 @@ export type EndMemo = { key: string; anchor: HTMLAnchorElement | null; drawn: st
 
 /** Draws the screen into `panel`. The post link is made once per card (`memo` keeps it across redraws). */
 export function renderEndScreen(panel: HTMLElement, data: EndScreen, memo: EndMemo): void {
-  const base: CardBase = { game: data.game, url: data.cabinet, wallNames: allNames(), dragon };
+  const base: CardBase = { game: data.game, url: data.gameUrl, wallNames: allNames(), dragon };
   const drawn = JSON.stringify([data.card, Boolean(dragon), base.wallNames.length]);
   let canvas = panel.querySelector<HTMLCanvasElement>('canvas.end-card');
   if (!canvas || memo.drawn !== drawn) {
@@ -55,7 +55,7 @@ export function renderEndScreen(panel: HTMLElement, data: EndScreen, memo: EndMe
   if (data.post && !anchor) {
     anchor = document.createElement('a');
     anchor.className = 'end-post';
-    wirePostLink(anchor, data.post, data.tweet, data.cabinet, data.postLabel);
+    wirePostLink(anchor, data.post, data.tweet, data.gameUrl, data.postLabel);
     memo.key = key; memo.anchor = anchor;
   }
   panel.replaceChildren(...(anchor ? [canvas, anchor] : [canvas]));

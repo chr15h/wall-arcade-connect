@@ -94,7 +94,7 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
   ui.walletBuy.textContent = `Buy ${EXPECTED_PACK_CREDITS} · ${packPriceLabel()}`;
   ui.buyPay.textContent = `Pay ${packPriceLabel()}`;
   requiredElement('#buy-explain').textContent = `SuperRare Connect opens and your wallet asks you to approve ${packPriceLabel()} on Ethereum mainnet, plus the network fee: nothing is sent before you confirm there. Pay from the wallet shown, because another wallet cannot claim the credits. The ${EXPECTED_PACK_CREDITS} credits arrive on this wallet a moment later.`;
-  requiredElement('#info-price').textContent = `${pack}, paid on Ethereum mainnet. One credit per paid run, and one balance for every cabinet of the arcade.`;
+  requiredElement('#info-price').textContent = `${pack}, paid on Ethereum mainnet. One credit per paid run, and one balance for every game of the arcade.`;
   if (configuration.diagnostics) {
     diag.rotate();
     diag.enable({ game: adapter.id, appId: configuration.appId, groupId: configuration.groupId, display: configuration.display });
@@ -404,10 +404,10 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
     const key = JSON.stringify([board.slice(0, 10).map((e) => [e.rank, e.score, e.player.displayName]), me]);
     if (key === boardPostKey) return;
     boardPostKey = key;
-    const cabinet = `${location.origin}/`, game = adapter.id === 'unbreakable' ? 'unbreakable' : 'full-row';
+    const gameUrl = `${location.origin}/`, game = adapter.id === 'unbreakable' ? 'unbreakable' : 'full-row';
     wirePostLink(boardPost, { kind: 'board', game, ...(me ? { me } : {}) },
       (link) => (mine ? `#${mine.rank} on ${adapter.title} this week · ${mine.score} points. ${link}` : `This week's top 5 of ${adapter.title} on THE WALL ARCADE. ${link}`),
-      cabinet, 'post on X', 'post on X');
+      gameUrl, 'post on X', 'post on X');
   }
   /** ENS when Studio resolved one, else the shortened address (the full address stays in the tooltip). */
   function playerLabel(entry: BoardEntry): string {
@@ -811,6 +811,6 @@ export function startAppSafely(adapter: GameAdapter): void {
     ui.overlay.hidden = false;
     ui.actions.replaceChildren();
     ui.title.textContent = adapter.title;
-    ui.status.textContent = `This cabinet could not start: ${describeSdkFailure(error)}`;
+    ui.status.textContent = `This game could not start: ${describeSdkFailure(error)}`;
   });
 }

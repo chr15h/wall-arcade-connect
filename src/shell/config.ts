@@ -27,7 +27,7 @@ export const configurationSchema = z.object({
   /** How SuperRare Connect's hosted sign-in and checkout open: a window over the page (embed) or a browser popup. */
   display: z.enum(['popup', 'embed']),
   game: z.enum(GAME_IDS),
-  /** The arcade hub (the NFC cabinet page) and the other cabinet that shares this credit group. */
+  /** The arcade hub (the NFC arcade page) and the other game that shares this credit group. */
   hubUrl: publicHttpsUrl.optional(),
   siblingUrl: publicHttpsUrl.optional(),
   siblingLabel: z.string().min(1).max(40).optional(),

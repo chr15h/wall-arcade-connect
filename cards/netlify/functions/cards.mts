@@ -30,7 +30,7 @@ function cardStore(): CardStore {
   };
 }
 
-// a board card's rows: the platform's public, read-only leaderboard of that cabinet (what the hub already shows)
+// a board card's rows: the platform's public, read-only leaderboard of that game (what the hub already shows)
 async function leaderboard(game: GameKey): Promise<LeaderEntry[]> {
   const g = GAMES[game];
   const week = lisbonWeek();                                            // THIS WEEK, as on the games and the hub

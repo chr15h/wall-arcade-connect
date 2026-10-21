@@ -8,7 +8,7 @@ verifier the platform runs, and the server leaderboard.
 | --- | --- |
 | Hub (the games; `builders.html`: make a game on the wall, the kit) | https://6972mvu4.srstudio.dev/ |
 | UNBREAKABLE (the reference game of this repo) | https://7x2phv5j.srstudio.dev/ |
-| FULL ROW (cabinet #02: Block Blast rules, the names of the wall on the pieces) | https://yfq52eu3.srstudio.dev/ |
+| FULL ROW (game #02: Block Blast rules, the names of the wall on the pieces) | https://yfq52eu3.srstudio.dev/ |
 
 This repository started from SuperRare's public template, [superrare/studio-games-example](https://github.com/superrare/studio-games-example)
 (MIT), on the published `@rareprotocol/connect@0.9.0-beta.0`.
@@ -49,7 +49,7 @@ Three pieces that must agree, plus the public config:
    (`appId`, `groupId`, origins, `display`, `game`, `hubUrl`). Never a key, token or treasury: payment terms come from
    Studio's quote. `scoring-config.json` (round length in ticks) comes from `scoringConfiguration()` in `src/shell/config.ts`.
 
-`src/games/full-row/` is cabinet #02, **FULL ROW**: a copy of the most common
+`src/games/full-row/` is game #02, **FULL ROW**: a copy of the most common
 Block Blast / 1010! rules (8×8 grid, three pieces in a tray, full rows and columns clear, combo, the run ends when no piece
 fits; 8-minute server cap, LAST MINUTE shown only in its last minute). One input, `{action:'place', slot, x, y}`; the generator is a pure function of the run seed
 (weights and the "one piece of 3 cells or fewer per trio" guarantee are in its `RULES`). The names of the wall are a client
@@ -73,10 +73,10 @@ the wall only, integer scores, a player that is an ENS name or a shortened addre
 from the platform's public leaderboard, never sent by the page), renders it server-side with the same drawing code
 (`src/share/card-draw.ts`, @napi-rs/canvas, embedded Anton and IBM Plex Mono) and stores it in Netlify Blobs;
 `/r/<id>` carries the og: / twitter: tags (summary_large_image, a 1200 × 630 preview with the whole card) and sends a
-person on to the cabinet; `/r/<id>.png` is the 1080 × 1080 card. Deploy: `cd cards && npm install && npm run deploy`;
+person on to the game; `/r/<id>.png` is the 1080 × 1080 card. Deploy: `cd cards && npm install && npm run deploy`;
 tests: `cd cards && npm run assets && npm test`. No key in the repository (the Netlify CLI's own login).
 
-`src/games/tap-the-name/` is a second, experimental game kept for reference only: it is **not** a supported cabinet (in
+`src/games/tap-the-name/` is a second, experimental game kept for reference only: it is **not** a supported game (in
 live play its first answer was not counted by the platform, a cause not identified yet; see `docs/friction-with-the-template.md`).
 
 UNBREAKABLE: a 180 Hz brick-breaker simulation, 9 steps per server tick, 3 minutes per run; `tests/unbreakable.test.ts`

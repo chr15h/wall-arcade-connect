@@ -1,6 +1,6 @@
 // The card service, independent of Netlify (the function in netlify/functions/cards.mts plugs in Netlify Blobs):
 //   POST /api/cards          a card's fields (validated) -> { id, url, image }; the card is stored and rendered once
-//   GET  /r/<id>             a page with the og: / twitter: tags of the card, which sends a person on to the cabinet
+//   GET  /r/<id>             a page with the og: / twitter: tags of the card, which sends a person on to the game
 //   GET  /r/<id>.png         the card (1080 × 1080)
 //   GET  /r/<id>.x.png       its link preview for X (1200 × 630, the whole card visible)
 // The id is a hash of the validated card: the same card always gets the same link.

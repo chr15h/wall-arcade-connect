@@ -579,13 +579,13 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
   }
   const postMemo: EndMemo = { key: '', anchor: null, drawn: '' };
   function renderEnd(): void {
-    const score = finalScore ?? view?.play.score ?? 0, cabinet = `${location.origin}/`;
+    const score = finalScore ?? view?.play.score ?? 0, gameUrl = `${location.origin}/`;
     const row = best && best.draws.length ? best : null;
     const player = cardPlayer(), rank = practice ? undefined : rankOf(endStats?.rank);
     const names = row ? row.draws.map(nameOfDraw) : [], grid = view ? [...view.play.rows] : undefined;
     const extra = { ...(grid ? { grid } : {}), ...(rank ? { rank } : {}), ...(player ? { player } : {}) };
     renderEndScreen(endPanel, {
-      game: 'FULL ROW', cabinet,
+      game: 'FULL ROW', gameUrl,
       card: { kind: 'row', data: { names, ...(row ? { line: row.label } : {}), score, practice, ...extra } },
       post: row && !practice ? { kind: 'row', names, line: row.label, score, ...extra } : null,
       tweet: (link) => fitTweet(row ? row.draws.map((d) => tag(nameOfDraw(d), handleOfDraw(d))) : [],

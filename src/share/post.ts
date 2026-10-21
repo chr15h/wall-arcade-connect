@@ -1,6 +1,6 @@
 // POST ON X: one button, one ready tweet. The card is created by the card service (cards/, a Netlify function on its
 // own site): it renders the image server-side and answers a link, /r/<id>, whose preview in X is the card and which
-// sends people on to the cabinet. The button is a plain link to x.com/intent/post (the X app on a phone), filled in
+// sends people on to the game. The button is a plain link to x.com/intent/post (the X app on a phone), filled in
 // as soon as the card exists, so the tap itself opens X: no share sheet, no download, no copy.
 export const CARD_SERVICE = 'https://wall-arcade-cards.netlify.app';
 
@@ -47,7 +47,7 @@ export const tag = (name: string, handle: string): string => (handle ? `@${handl
 
 /**
  * Turns an <a> into the POST ON X button: disabled while the card is made, then a link to the X composer with the text
- * and the card's link. If the card service cannot be reached, the tweet links to the cabinet instead.
+ * and the card's link. If the card service cannot be reached, the tweet links to the game instead.
  */
 export function wirePostLink(anchor: HTMLAnchorElement, card: CardRequest, textFor: (link: string) => string, fallbackLink: string, label: string, preparing = 'Preparing the card…'): void {
   anchor.target = '_blank'; anchor.rel = 'noopener';

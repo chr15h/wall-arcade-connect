@@ -31,7 +31,7 @@ const save = (name: string, buf: ArrayBuffer) => writeFileSync(new URL(`../../di
 
 const ROW = { kind: 'row', names: ['K4NCUN0', 'normies', 'JPEG-FRENS'], line: 'ROW 4', score: 1460, rank: 2, player: 'player.eth', grid: [0b10110011, 0b01100110, 0b11001100, 255, 0b00011000, 0b10000001, 0b01111110, 0b11100111] };
 
-test('a row card: created once, same id for the same card, a page with the X tags that sends people to the cabinet', async () => {
+test('a row card: created once, same id for the same card, a page with the X tags that sends people to the game', async () => {
   const r1 = await post(ROW), b1 = await r1.json() as { id: string; url: string; image: string };
   assert.equal(r1.status, 200); assert.match(b1.id, /^[A-Za-z0-9_-]{16}$/); assert.equal(b1.url, `${ORIGIN}/r/${b1.id}`);
   assert.equal(r1.headers.get('access-control-allow-origin'), 'https://yfq52eu3.srstudio.dev');

@@ -1,5 +1,5 @@
 // Share cards: 1080 × 1080 images in the arcade's universe (concrete with the names of the wall as a watermark, ink, one
-// blue, a small grey dragon cut by an edge, THE WALL ARCADE and the cabinet's address at the bottom). Pure drawing on an injected
+// blue, a small grey dragon cut by an edge, THE WALL ARCADE and the game's address at the bottom). Pure drawing on an injected
 // canvas: the card service (cards/) renders them server-side with @napi-rs/canvas and the fonts registered under the
 // family names below (Anton and IBM Plex Mono, SIL OFL).
 export const CARD = 1080;
@@ -10,7 +10,7 @@ const M = 64;                                                   // outer margin
 export type CardBase = {
   /** Game title shown in the header, e.g. FULL ROW. */
   game: string;
-  /** The cabinet's address (https://…/), shown on the card. */
+  /** The game's address (https://…/), shown on the card. */
   url: string;
   /** The wall's names, for the watermark. */
   wallNames: readonly string[];
@@ -61,7 +61,7 @@ function greyDragon(env: CardEnv, img: DragonImage, w: number, h: number): Canva
 }
 
 /** Concrete, the watermark of names, the game's name, a small dragon cut by the right edge, and the footer: THE WALL
- *  ARCADE · the cabinet's address. Nothing else: a card shows what was played, not the arcade's fine print. */
+ *  ARCADE · the game's address. Nothing else: a card shows what was played, not the arcade's fine print. */
 function frame(env: CardEnv, base: CardBase, tag = ''): { canvas: HTMLCanvasElement; g: CanvasRenderingContext2D } {
   const canvas = env.createCanvas(CARD, CARD);
   const g = canvas.getContext('2d') as CanvasRenderingContext2D;

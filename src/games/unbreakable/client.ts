@@ -445,7 +445,7 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
     const player = cardPlayer(), rank = practice ? undefined : rankOf(endStats?.rank);
     const extra = { ...(rank ? { rank } : {}), ...(player ? { player } : {}) };
     renderEndScreen(endPanel, {
-      game: 'UNBREAKABLE', cabinet: `${location.origin}/`,
+      game: 'UNBREAKABLE', gameUrl: `${location.origin}/`,
       card: { kind: 'bounce', data: { people, names: list, score, practice, ...extra } },
       post: people > 0 && list.length && !practice ? { kind: 'bounce', names: list, people, score, ...extra } : null,
       tweet: (link) => fitTweet(order.map((pos) => tag(infoOf(pos).name || '', infoOf(pos).handle)).filter(Boolean),

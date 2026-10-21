@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@300;500&display=swap" rel="stylesheet">
 <style>
 /* NFC Summit brutalist design system: concrete/ink/chalk, Anton, one blue accent. See BRIEF-DESIGN-SYSTEM-nfcsummit.md.
-   Player page: no font under 13px, at most two mono uppercase labels per screen, one blue button per cabinet. */
+   Player page: no font under 13px, at most two mono uppercase labels per screen, one blue button per game. */
 :root{--concrete:#DEDBD3;--ink:#0B0B0B;--chalk:#F2F0EB;--label:#6B685F;--label-lt:#B0ACA2;--rule:#C4C0B6;--blue:#2E7FD6;
   --anton:Anton,Impact,sans-serif;--mono:'IBM Plex Mono',ui-monospace,monospace;--inter:Inter,system-ui,sans-serif;--padx:max(16px,5%)}
 *{box-sizing:border-box}
@@ -43,7 +43,7 @@ p,h1,h2,h3,dl,dd{margin:0}
 .wallmeta b{color:var(--ink);font-weight:500}
 .dragon{flex:0 0 auto;width:clamp(96px,16vw,190px);mix-blend-mode:multiply;pointer-events:none;display:block}
 
-/* cabinets */
+/* games */
 .games{border-top:1px solid var(--ink);padding:clamp(24px,4vw,56px) var(--padx)}
 .wrap{max-width:1280px;margin:0 auto}
 #cabs{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr));gap:clamp(16px,2vw,28px)}
@@ -135,7 +135,7 @@ dialog::backdrop{background:rgba(11,11,11,.6)}
 </dialog>
 
 <script>
-/* ---- Cabinets: add a game = add an entry.
+/* ---- Games: add a game = add an entry.
    Scores are read, read-only and public, from each game's own origin: GET <url>/api/v1/games/<appId>/scoring/leaderboard.
    The two Studio games are SuperRare's own template examples (their credits live in SuperRare's group, not ours). ---- */
 var GAMES = [
@@ -175,7 +175,7 @@ function paintWall() {
   document.getElementById('mintedCount').textContent = minted;
 }
 
-function paintCabinets() {
+function paintGames() {
   var html = '', i;
   for (i = 0; i < GAMES.length; i++) {
     var g = GAMES[i];
@@ -188,13 +188,13 @@ function paintCabinets() {
   loadGameData();
 }
 
-/* Per-cabinet top 3 of the week, as recorded by the platform, read from each game's own origin (public, read-only, no key).
+/* Per-game top 3 of the week, as recorded by the platform, read from each game's own origin (public, read-only, no key).
    Best effort: a slow or unreachable game leaves the slot empty. */
 function shortPlayer(p) { if (p && p.ensName) return String(p.ensName).slice(0, 24); var n = (p && p.displayName) || ''; return /^0x[0-9a-f]{40}$/i.test(n) ? n.slice(0, 6) + '…' + n.slice(-4) : n.slice(0, 18); }
-/* A cabinet is shown only while its deployment has an active scoring event (public, CORS-enabled read on the game's
-   own origin). 404 = no event (redeployed without one, or not live yet): the cabinet does not appear at all. It comes
+/* A game is shown only while its deployment has an active scoring event (public, CORS-enabled read on the game's
+   own origin). 404 = no event (redeployed without one, or not live yet): the game does not appear at all. It comes
    back by itself once the event exists. An unreachable or slow game is shown with PLAY (we cannot tell). */
-function setCabinetState(g, art, playable) {
+function setGameState(g, art, playable) {
   if (!playable) { art.remove(); return; }
   art.querySelector('[data-slot="foot"]').innerHTML = '<a href="' + esc(g.url) + '" target="_blank" rel="noopener">PLAY →</a>';
   art.hidden = false;
@@ -226,12 +226,12 @@ function loadGameData() {
   var week = lisbonWeek(Date.now());
   GAMES.forEach(function (g) {
     var art = document.querySelector('[data-game="' + g.id + '"]'); if (!art) return;
-    if (g.updating) { setCabinetState(g, art, false); return; }   // manual override, if ever needed
+    if (g.updating) { setGameState(g, art, false); return; }   // manual override, if ever needed
     var ctl = typeof AbortController === 'function' ? new AbortController() : null;
     if (ctl) setTimeout(function () { ctl.abort(); }, 5000);
     fetch(g.url.replace(/\/$/, '') + '/api/v1/games/' + g.appId + '/scoring/active-event', ctl ? { signal: ctl.signal } : {})
-      .then(function (r) { setCabinetState(g, art, r.status !== 404); })
-      .catch(function () { setCabinetState(g, art, true); });
+      .then(function (r) { setGameState(g, art, r.status !== 404); })
+      .catch(function () { setGameState(g, art, true); });
     var slot = art.querySelector('[data-slot="top3"]'); if (!slot) return;
     fetch(g.url.replace(/\/$/, '') + '/api/v1/games/' + g.appId + '/scoring/leaderboard?from=' + encodeURIComponent(week.from) + '&to=' + encodeURIComponent(week.to)).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function (d) {
       var entries = (d && d.entries) || [];
@@ -243,7 +243,7 @@ function loadGameData() {
 }
 
 paintWall();
-paintCabinets();
+paintGames();
 try {
   fetch(API + '/positions').then(function (r) { return r.json(); }).then(function (d) {
     if (Array.isArray(d) && d.length) {
