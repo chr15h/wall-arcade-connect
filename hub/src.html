@@ -4,25 +4,32 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>THE WALL ARCADE</title>
-<meta name="description" content="Games built on the names of a real wall in Lisbon.">
+<meta name="description" content="Games built on the names of a real wall in Lisbon. New games every week.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@300;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@300;400&display=swap" rel="stylesheet">
 <style>
-/* NFC Summit brutalist design system: concrete/ink/chalk, Anton, one blue accent. See BRIEF-DESIGN-SYSTEM-nfcsummit.md.
-   Player page: no font under 13px, at most two mono uppercase labels per screen, one blue button per game. */
-:root{--concrete:#DEDBD3;--ink:#0B0B0B;--chalk:#F2F0EB;--label:#6B685F;--label-lt:#B0ACA2;--rule:#C4C0B6;--blue:#2E7FD6;
+/* THE WALL ARCADE, player page, on the model of an app store: today's game, the games, how it works, the wall.
+   NFC system: concrete / ink / chalk, one blue. Anton for titles, Inter for sentences, mono capitals for labels only;
+   one blue button per card; nothing under 13px. */
+:root{--concrete:#DEDBD3;--ink:#0B0B0B;--chalk:#F2F0EB;--label:#6B685F;--rule:#C4C0B6;--blue:#2E7FD6;
   --anton:Anton,Impact,sans-serif;--mono:'IBM Plex Mono',ui-monospace,monospace;--inter:Inter,system-ui,sans-serif;--padx:max(16px,5%)}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{margin:0;padding:0;background:var(--concrete);color:var(--ink)}
-body{font-family:var(--mono);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body{font-family:var(--inter);-webkit-font-smoothing:antialiased;overflow-x:hidden}
 a{color:inherit}
 ::selection{background:var(--blue);color:var(--chalk)}
 p,h1,h2,h3,dl,dd{margin:0}
-.lbl{font-family:var(--mono);font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--label)}
-.anton{font-family:var(--anton);text-transform:uppercase;font-weight:400;line-height:.9;letter-spacing:-.01em}
-.inter{font-family:var(--inter);font-weight:300;line-height:1.45}
+.lbl{font:500 13px/1.3 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--label)}
+.anton{font-family:var(--anton);text-transform:uppercase;font-weight:400;line-height:.9;letter-spacing:-.005em}
+.line{font:300 clamp(16px,1.4vw,18px)/1.5 var(--inter)}
+.wrap{max-width:1280px;margin:0 auto}
+section{padding:clamp(32px,5vw,72px) var(--padx);border-top:1px solid var(--ink)}
+.sec-h{margin-bottom:clamp(18px,2.4vw,32px)}
+.play{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:52px;padding:0 26px;background:var(--blue);color:var(--ink);text-decoration:none;
+  font:400 20px/1 var(--anton);letter-spacing:.08em;text-transform:uppercase}
+.play:hover{background:var(--ink);color:var(--chalk)}
 
 /* thin top bar: the (i) opens "How it works" */
 .bar{position:sticky;top:0;z-index:20;background:var(--concrete);border-bottom:1px solid var(--ink);padding:0 var(--padx);height:48px;display:flex;align-items:center;justify-content:space-between}
@@ -30,49 +37,53 @@ p,h1,h2,h3,dl,dd{margin:0}
 .info span{width:28px;height:28px;border:1px solid var(--ink);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:500;font-size:15px;line-height:1}
 .info:hover span{background:var(--ink);color:var(--chalk)}
 
-/* hero: title, one sentence, the live wall small */
-.hero{position:relative;padding:clamp(28px,5vw,64px) var(--padx) clamp(28px,4vw,48px)}
-.hero h1{font-size:clamp(52px,10vw,120px)}
-.hero .lead{font-size:clamp(16px,1.4vw,19px);max-width:36ch;margin-top:14px}
-.visual{display:flex;align-items:flex-end;gap:clamp(12px,3vw,32px);margin-top:clamp(22px,3vw,36px)}
-.wallbox{flex:0 1 380px;min-width:0}
+/* a game card: the screenshot (portrait), then the words; the shot beside the words, on a phone too */
+.game{display:grid;grid-template-columns:minmax(0,38%) minmax(0,1fr);border:1px solid var(--ink);background:var(--chalk)}
+.game .shot{display:block;width:100%;height:100%;min-height:0;object-fit:contain;object-position:top;border-right:1px solid var(--ink);background:var(--concrete)}   /* never cropped */
+.game .body{display:flex;flex-direction:column;gap:12px;padding:clamp(14px,2vw,26px);min-width:0}
+.game h3{font-size:clamp(30px,3.4vw,48px)}
+.game .play{align-self:flex-start;margin-top:auto}
+.top3 .wk{margin-bottom:4px}
+.top3 .row{display:flex;justify-content:space-between;gap:12px;font:400 14px/1.6 var(--mono)}
+.top3 .row span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.top3 .empty{font:300 14px/1.5 var(--inter);color:var(--label)}
+
+/* 1. today's game: one screen */
+.featured{border-top:0;min-height:calc(100svh - 48px);display:flex;flex-direction:column;justify-content:center;gap:clamp(18px,2.6vw,32px);padding-top:clamp(20px,3vw,40px)}
+.featured h1{font-size:clamp(48px,8.5vw,128px)}
+.featured .lead{margin-top:12px;max-width:40ch}
+.featured .game{max-width:980px}
+.featured .game h3{font-size:clamp(40px,5.4vw,84px)}
+.featured .game .line{font-size:clamp(16px,1.6vw,20px)}
+.featured .shot{max-height:min(52svh,560px)}
+
+/* 2. the games */
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(14px,2vw,28px)}
+.yours{display:flex;flex-direction:column;justify-content:center;gap:14px;min-height:260px;padding:clamp(18px,2.4vw,32px);border:1px dashed var(--ink)}
+.yours h3{font-size:clamp(34px,3.6vw,52px)}
+.yours a{font:300 17px/1.4 var(--inter);text-underline-offset:4px}
+.yours a:hover{color:var(--blue)}
+
+/* 3. how it works: four steps, big numbers */
+.steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:clamp(14px,2vw,28px)}
+.step{border-top:1px solid var(--ink);padding-top:12px}
+.step .n{font-size:clamp(72px,8vw,128px);line-height:.82}
+.step h3{font-size:clamp(26px,2.4vw,34px);margin-top:12px}
+.step .line{margin-top:8px}
+
+/* 4. the wall */
+.wallrow{display:flex;flex-wrap:wrap;align-items:flex-end;gap:16px 40px}
+.wallbox{flex:0 1 340px;min-width:0}
 #wallgrid{display:grid;grid-template-columns:repeat(25,1fr);gap:2px}
 #wallgrid div{aspect-ratio:1;border:1px dashed var(--ink);opacity:.45}
 #wallgrid div.m{background:var(--ink);border-style:solid;opacity:1}
-.wallmeta{margin-top:8px}
+.wallmeta{margin-top:10px}
 .wallmeta b{color:var(--ink);font-weight:500}
-.dragon{flex:0 0 auto;width:clamp(96px,16vw,190px);mix-blend-mode:multiply;pointer-events:none;display:block}
-
-/* games */
-.games{border-top:1px solid var(--ink);padding:clamp(24px,4vw,56px) var(--padx)}
-.wrap{max-width:1280px;margin:0 auto}
-#cabs{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr));gap:clamp(16px,2vw,28px)}
-.cab{display:flex;flex-direction:column;border:1px solid var(--ink);background:var(--concrete)}
-.cab-h{background:var(--ink);color:var(--chalk);padding:12px 14px}
-.cab-h h2{font-size:28px;line-height:1}
-.cab .pitch{padding:12px 14px 14px;font-size:15px;flex:1}
-.cab-f{padding:0 14px}
-.cab-f a{display:flex;justify-content:center;align-items:center;gap:10px;width:100%;background:var(--blue);color:var(--ink);text-decoration:none;font-family:var(--mono);font-weight:500;letter-spacing:.14em;text-transform:uppercase;font-size:16px;padding:14px;line-height:1;min-height:52px;border:1px solid var(--blue)}
-.cab-f a:hover{background:var(--ink);color:var(--chalk);border-color:var(--ink)}
-.cab-f .cab-wait{display:flex;justify-content:center;align-items:center;min-height:52px;border:1px dashed var(--ink);font-family:var(--mono);font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--label)}
-.top3{padding:12px 14px 14px;font-size:13px;line-height:1.5}
-.top3:empty{padding:0 0 14px}
-.top3 .wk{font-family:var(--inter);font-weight:300;font-size:13px;color:var(--label);margin-bottom:2px}
-.top3 .row{display:flex;justify-content:space-between;gap:12px}
-.top3 .row span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.top3 .row span:last-child{font-weight:500}
-
-/* to the builders page */
-.artists{padding:clamp(24px,3vw,40px) var(--padx);border-top:1px solid var(--ink)}
-.artists a{font-family:var(--inter);font-weight:300;font-size:17px;text-decoration:underline;text-underline-offset:4px}
-.artists a:hover{color:var(--blue)}
+.wallrow a{font:300 17px/1.4 var(--inter);text-underline-offset:4px}
 
 /* footer */
-footer{border-top:1px solid var(--ink);padding:24px var(--padx) 32px}
-.foot-in{max-width:1280px;margin:0 auto;display:flex;justify-content:space-between;align-items:flex-end;gap:12px 20px;flex-wrap:wrap}
-footer .lbl a{text-decoration:none}
-footer .lbl a:hover{color:var(--ink)}
-footer .built{font-family:var(--inter);font-weight:300;font-size:13px;color:var(--label)}
+footer{border-top:1px solid var(--ink);padding:24px var(--padx) 32px;display:flex;justify-content:space-between;gap:10px 24px;flex-wrap:wrap;font:400 13px/1.5 var(--inter);color:var(--label)}
+footer a{color:var(--label)}
 
 /* "How it works" panel */
 dialog{width:min(560px,calc(100% - 32px));max-height:calc(100dvh - 32px);padding:0;border:1px solid var(--ink);background:var(--concrete);color:var(--ink);overflow:auto}
@@ -84,39 +95,26 @@ dialog::backdrop{background:rgba(11,11,11,.6)}
 .dlg-b dt{font-family:var(--anton);text-transform:uppercase;font-size:22px;line-height:1;margin-top:18px}
 .dlg-b dd{font-family:var(--inter);font-weight:300;font-size:15px;line-height:1.5;margin-top:6px}
 .dlg-b dd b{font-weight:500}
+
+@media (max-width:860px){
+  .grid{grid-template-columns:1fr}
+  .steps{grid-template-columns:1fr 1fr}
+}
+@media (max-width:520px){
+  .featured{min-height:auto}
+  .wallbox{flex-basis:240px;max-width:240px}
+  .yours{min-height:180px}
+  .featured .game{grid-template-columns:1fr}                 /* today's game: the screenshot on top, full width */
+  .featured .shot{height:min(46svh,420px);object-fit:cover;border-right:0;border-bottom:1px solid var(--ink)}
+  .game .play{width:100%}
+  .steps{grid-template-columns:1fr;gap:10px}
+  .step{display:grid;grid-template-columns:64px 1fr;column-gap:14px;align-items:start}
+  .step .n{font-size:72px;grid-row:span 2}
+  .step h3{margin-top:2px}
+}
 </style>
 </head>
 <body>
-
-<div class="bar">
-  <span class="lbl">On The Wall presents</span>
-  <button class="info" id="infoBtn" type="button" aria-label="How it works" aria-haspopup="dialog"><span aria-hidden="true">i</span></button>
-</div>
-
-<section class="hero">
-  <h1 class="anton">The Wall<br>Arcade</h1>
-  <p class="inter lead">Games built on the names of a real wall in Lisbon.</p>
-  <div class="visual">
-    <div class="wallbox">
-      <div id="wallgrid" aria-hidden="true"></div>
-      <div class="wallmeta lbl"><b id="mintedCount">0</b> / 550 names painted</div>
-    </div>
-    <img class="dragon" src="dragon.jpg" alt="">
-  </div>
-</section>
-
-<section class="games" aria-label="Games">
-  <div class="wrap"><div id="cabs"></div></div>
-</section>
-
-<div class="artists"><div class="wrap"><a href="./builders.html">Artists: make your own game →</a></div></div>
-
-<footer>
-  <div class="foot-in">
-    <div class="lbl"><a href="https://onthewall.nfcsummit.com">A Remix The Wall experiment · NFC Summit 2027 · Lisbon</a></div>
-    <div class="built">Built on <a href="https://studio.superrare.com" target="_blank" rel="noopener">SuperRare Studio</a></div>
-  </div>
-</footer>
 
 <dialog id="how" aria-labelledby="howTitle">
   <div class="dlg-h"><h2 class="anton" id="howTitle">How it works</h2><button type="button" id="howClose" aria-label="Close">×</button></div>
@@ -134,71 +132,107 @@ dialog::backdrop{background:rgba(11,11,11,.6)}
   </dl>
 </dialog>
 
+<div class="bar">
+  <span class="lbl">On The Wall presents</span>
+  <button class="info" id="infoBtn" type="button" aria-label="How it works" aria-haspopup="dialog"><span aria-hidden="true">i</span></button>
+</div>
+
+<!-- 1. today's game -->
+<section class="featured">
+  <div class="wrap" style="width:100%">
+    <h1 class="anton">The Wall Arcade</h1>
+    <p class="line lead">Games built on the names of a real wall in Lisbon. New games every week.</p>
+  </div>
+  <div class="wrap" style="width:100%" id="featured"></div>
+</section>
+
+<!-- 2. the games -->
+<section>
+  <div class="wrap">
+    <p class="lbl sec-h">The games</p>
+    <div class="grid" id="games">
+      <div class="yours" id="yours">
+        <h3 class="anton">Your game here</h3>
+        <a href="./builders.html">Artists: make your own game →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 3. how it works -->
+<section>
+  <div class="wrap">
+    <p class="lbl sec-h">How it works</p>
+    <div class="steps">
+      <div class="step"><div class="n anton">1</div><h3 class="anton">Sign in</h3><p class="line">One wallet, SuperRare Connect.</p></div>
+      <div class="step"><div class="n anton">2</div><h3 class="anton">50 plays · 0.005 ETH</h3><p class="line">Practice is free.</p></div>
+      <div class="step"><div class="n anton">3</div><h3 class="anton">On the wall?</h3><p class="line">3 free plays every week, already in your wallet.</p></div>
+      <div class="step"><div class="n anton">4</div><h3 class="anton">Best score wins</h3><p class="line">The week's best score on each game wins the pot, live on People of the Wall every Friday.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 4. the wall -->
+<section>
+  <div class="wrap">
+    <p class="lbl sec-h">The wall</p>
+    <div class="wallrow">
+      <div class="wallbox">
+        <div id="wallgrid" aria-hidden="true"></div>
+        <div class="wallmeta lbl"><b id="mintedCount">0</b> / 550 painted<span id="liveTag"></span></div>
+      </div>
+      <a href="https://onthewall.nfcsummit.com" target="_blank" rel="noopener">onthewall.nfcsummit.com →</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <a href="https://onthewall.nfcsummit.com" target="_blank" rel="noopener">A Remix The Wall experiment · NFC Summit 2027 · Lisbon</a>
+  <span>Built with <a href="https://studio.superrare.com" target="_blank" rel="noopener">SuperRare Studio</a></span>
+</footer>
+
 <script>
-/* ---- Games: add a game = add an entry.
-   Scores are read, read-only and public, from each game's own origin: GET <url>/api/v1/games/<appId>/scoring/leaderboard.
-   The two Studio games are SuperRare's own template examples (their credits live in SuperRare's group, not ours). ---- */
-var GAMES = [
-  { id: 'unbreakable', title: 'UNBREAKABLE',
-    pitch: 'Aim and fire: every brick you break is a name of the wall, and it gets painted.',
-    url: 'https://7x2phv5j.srstudio.dev/', appId: 'c5285ae3-512e-464a-aceb-17571e1fe3e9' },
-  { id: 'full-row', title: 'FULL ROW',
-    pitch: 'Place the names of the wall: full rows get painted.',
-    url: 'https://yfq52eu3.srstudio.dev/', appId: '5932be45-7ccb-483a-916d-0dcebff40ca2' },
-  { id: 'star-runner', title: 'STAR RUNNER',
-    pitch: 'Collect stars, avoid spikes and reach the beacon in all three levels.',
-    url: 'https://q77e66pg.srstudio.dev/', appId: '7d0a34a0-ca86-413a-871c-7b731adf4511' },
-  { id: 'sky-hopper', title: 'SKY HOPPER',
-    pitch: 'Tap, press Space or the up arrow to flap between the pipes.',
-    url: 'https://tu9zzywe.srstudio.dev/', appId: 'f89bd492-1479-46ff-b455-1ec479e45684' }
-];
+/* ---- Games: hub/games.json, inlined by scripts/build-hub.ts (add a game = add an entry; its screenshot, shots/<id>.jpg,
+   is taken at build). The first with "featured" is today's game. Scores are read, read-only and public, from each
+   game's own origin. The Studio games are SuperRare's own examples (their credits live in SuperRare's group). ---- */
+var GAMES = /*GAMES:START*/[]/*GAMES:END*/;
 var API = 'https://otw-arcade.netlify.app';        // the wall's public data only
 
-/* ---- data ---- */
+/* ---- the wall ---- */
 /* Snapshot of /positions (names + PFPs, in wall order), inlined by scripts/build-hub.ts: 0 = waiting, 1 = minted, "NAME" = minted. */
-var SNAPSHOT = /*SNAPSHOT:START*/["MONOKAI"]/*SNAPSHOT:END*/;
-function snapshot() {
-  return SNAPSHOT.map(function (v, i) { return v ? { minted: true, idx: i, name: typeof v === 'string' ? v : undefined } : { minted: false, idx: i }; });
-}
-var grid = snapshot();
-
+var SNAPSHOT = /*SNAPSHOT:START*/[]/*SNAPSHOT:END*/;
+var grid = SNAPSHOT.map(function (v) { return { minted: Boolean(v), name: typeof v === 'string' ? v : '' }; });
 function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
-
 function paintWall() {
-  var g = grid.slice(0, 550), html = '', minted = 0, i, c;
-  for (i = 0; i < g.length; i++) {
-    c = g[i];
-    if (c.minted) minted++;
-    html += '<div class="' + (c.minted ? 'm' : '') + '" title="' + esc(c.minted ? (c.name || 'minted') : 'waiting') + '"></div>';
-  }
+  var html = '', minted = 0;
+  grid.slice(0, 550).forEach(function (c) { if (c.minted) minted++; html += '<div class="' + (c.minted ? 'm' : '') + '" title="' + esc(c.minted ? (c.name || 'minted') : 'waiting') + '"></div>'; });
   document.getElementById('wallgrid').innerHTML = html;
   document.getElementById('mintedCount').textContent = minted;
 }
 
+/* ---- the cards ---- */
+function card(g, featured) {
+  return '<article class="game" data-game="' + esc(g.id) + '"' + (featured ? '' : ' hidden') + '>' +
+    '<img class="shot" src="shots/' + esc(g.id) + '.jpg" alt="' + esc(g.title) + ', in play" loading="' + (featured ? 'eager' : 'lazy') + '">' +
+    '<div class="body">' + (featured ? '<p class="lbl">New this week</p>' : '') +
+    '<h3 class="anton">' + esc(g.title) + '</h3><p class="line">' + esc(g.pitch) + '</p>' +
+    (featured ? '' : '<div class="top3" data-slot="top3"><p class="lbl wk">Top 3 this week</p><p class="empty">…</p></div>') +
+    '<a class="play" href="' + esc(g.url) + '" target="_blank" rel="noopener">Play</a></div></article>';
+}
 function paintGames() {
-  var html = '', i;
-  for (i = 0; i < GAMES.length; i++) {
-    var g = GAMES[i];
-    html += '<article class="cab" hidden data-game="' + esc(g.id) + '"><div class="cab-h"><h2 class="anton">' + esc(g.title) + '</h2></div>' +
-      '<p class="pitch inter">' + esc(g.pitch) + '</p>' +
-      '<div class="cab-f" data-slot="foot"><span class="cab-wait">Checking…</span></div>' +
-      '<div class="top3" data-slot="top3"></div></article>';
-  }
-  document.getElementById('cabs').innerHTML = html;
-  loadGameData();
+  var feat = GAMES.filter(function (g) { return g.featured; })[0];
+  if (feat) document.getElementById('featured').innerHTML = card(feat, true);
+  var html = GAMES.filter(function (g) { return g !== feat; }).map(function (g) { return card(g, false); }).join('');
+  document.getElementById('yours').insertAdjacentHTML('beforebegin', html);
+  loadGameData(feat);
 }
 
-/* Per-game top 3 of the week, as recorded by the platform, read from each game's own origin (public, read-only, no key).
-   Best effort: a slow or unreachable game leaves the slot empty. */
+/* Per-game top 3 of the week, as recorded by the platform, read from each game's own origin (public, read-only, no key). */
 function shortPlayer(p) { if (p && p.ensName) return String(p.ensName).slice(0, 24); var n = (p && p.displayName) || ''; return /^0x[0-9a-f]{40}$/i.test(n) ? n.slice(0, 6) + '…' + n.slice(-4) : n.slice(0, 18); }
-/* A game is shown only while its deployment has an active scoring event (public, CORS-enabled read on the game's
-   own origin). 404 = no event (redeployed without one, or not live yet): the game does not appear at all. It comes
-   back by itself once the event exists. An unreachable or slow game is shown with PLAY (we cannot tell). */
-function setGameState(g, art, playable) {
-  if (!playable) { art.remove(); return; }
-  art.querySelector('[data-slot="foot"]').innerHTML = '<a href="' + esc(g.url) + '" target="_blank" rel="noopener">PLAY →</a>';
-  art.hidden = false;
-}
+/* A game is listed only while its deployment has an active scoring event (public, CORS-enabled read on the game's own
+   origin). 404 = no event (redeployed without one, or not live yet): its card does not appear. It comes back by itself
+   once the event exists. An unreachable or slow game is shown (we cannot tell). */
+function setGameState(art, playable) { if (!playable) art.remove(); else art.hidden = false; }
 /* week:start  THIS WEEK = Friday 15:00 Lisbon -> next Friday 15:00 Lisbon; week 1 runs from Thursday 22 October 2026
    00:00 to Friday 30 October 15:00 Lisbon (same as src/shell/week.ts, pinned by tests/week.test.ts which evaluates this
    block). Sent to each game as ?from=&to= (UTC instants, [from, to)). */
@@ -222,23 +256,23 @@ function lisbonWeek(now) {
   return { from: new Date(from).toISOString(), to: new Date(toUtc(next.getUTCFullYear(), next.getUTCMonth() + 1, next.getUTCDate(), 15)).toISOString() };
 }
 /* week:end */
-function loadGameData() {
+function loadGameData(feat) {
   var week = lisbonWeek(Date.now());
   GAMES.forEach(function (g) {
-    var art = document.querySelector('[data-game="' + g.id + '"]'); if (!art) return;
-    if (g.updating) { setGameState(g, art, false); return; }   // manual override, if ever needed
+    if (g === feat) return;
+    var art = document.querySelector('#games [data-game="' + g.id + '"]'); if (!art) return;
+    if (g.updating) { setGameState(art, false); return; }   // manual override, if ever needed
     var ctl = typeof AbortController === 'function' ? new AbortController() : null;
     if (ctl) setTimeout(function () { ctl.abort(); }, 5000);
     fetch(g.url.replace(/\/$/, '') + '/api/v1/games/' + g.appId + '/scoring/active-event', ctl ? { signal: ctl.signal } : {})
-      .then(function (r) { setGameState(g, art, r.status !== 404); })
-      .catch(function () { setGameState(g, art, true); });
-    var slot = art.querySelector('[data-slot="top3"]'); if (!slot) return;
+      .then(function (r) { setGameState(art, r.status !== 404); })
+      .catch(function () { setGameState(art, true); });
+    var slot = art.querySelector('[data-slot="top3"] .empty');
     fetch(g.url.replace(/\/$/, '') + '/api/v1/games/' + g.appId + '/scoring/leaderboard?from=' + encodeURIComponent(week.from) + '&to=' + encodeURIComponent(week.to)).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function (d) {
       var entries = (d && d.entries) || [];
-      if (!entries.length) { slot.innerHTML = '<div class="wk">This week: no score yet.</div>'; return; }
-      var rows = entries.slice(0, 3).map(function (e) { return '<div class="row"><span>' + esc(e.rank) + '. ' + esc(shortPlayer(e.player)) + '</span><span>' + esc(e.score) + '</span></div>'; }).join('');
-      slot.innerHTML = '<div class="wk">This week</div>' + rows;
-    }).catch(function () { slot.innerHTML = ''; });
+      if (!entries.length) { slot.textContent = 'No scores yet. Be the first.'; return; }
+      slot.outerHTML = entries.slice(0, 3).map(function (e) { return '<div class="row"><span>' + esc(e.rank) + '. ' + esc(shortPlayer(e.player)) + '</span><span>' + esc(e.score) + '</span></div>'; }).join('');
+    }).catch(function () { slot.textContent = 'No scores yet. Be the first.'; });
   });
 }
 
@@ -246,11 +280,11 @@ paintWall();
 paintGames();
 try {
   fetch(API + '/positions').then(function (r) { return r.json(); }).then(function (d) {
-    if (Array.isArray(d) && d.length) {
-      grid = d.filter(function (x) { return x.tier === 'name' || x.tier === 'pfp'; })
-              .sort(function (a, b) { return a.position - b.position; });
-      paintWall();
-    }
+    if (!Array.isArray(d) || !d.length) return;
+    grid = d.filter(function (x) { return x.tier === 'name' || x.tier === 'pfp'; }).sort(function (a, b) { return a.position - b.position; })
+      .map(function (x) { return { minted: Boolean(x.minted), name: x.name || '' }; });
+    paintWall();
+    document.getElementById('liveTag').textContent = ' · live';
   }).catch(function () {});
 } catch (e) {}
 

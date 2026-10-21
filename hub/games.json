@@ -1,0 +1,14 @@
+[
+  { "id": "full-row", "title": "FULL ROW", "featured": true, "bench": "full-row",
+    "pitch": "Place the names. Fill a row and the names on it get painted together.",
+    "url": "https://yfq52eu3.srstudio.dev/", "appId": "5932be45-7ccb-483a-916d-0dcebff40ca2" },
+  { "id": "unbreakable", "title": "UNBREAKABLE", "bench": "unbreakable",
+    "pitch": "Aim and fire: every brick you break is a name of the wall, and it gets painted.",
+    "url": "https://7x2phv5j.srstudio.dev/", "appId": "c5285ae3-512e-464a-aceb-17571e1fe3e9" },
+  { "id": "star-runner", "title": "STAR RUNNER",
+    "pitch": "Collect stars, avoid spikes and reach the beacon in all three levels.",
+    "url": "https://q77e66pg.srstudio.dev/", "appId": "7d0a34a0-ca86-413a-871c-7b731adf4511" },
+  { "id": "sky-hopper", "title": "SKY HOPPER",
+    "pitch": "Tap, press Space or the up arrow to flap between the pipes.",
+    "url": "https://tu9zzywe.srstudio.dev/", "appId": "f89bd492-1479-46ff-b455-1ec479e45684" }
+]
