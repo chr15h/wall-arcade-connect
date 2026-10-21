@@ -1,5 +1,5 @@
 {
-  "_": "THE WALL ARCADE teaser (scripts/teaser.ts). Texts (*stars* mark the words in blue), the flashes after each card (an .mp4 or a .png, without extension: whichever exists), the names on the plaques. 'line' is the scene's dialogue, used by the stills.",
+  "_": "THE WALL ARCADE teaser (scripts/teaser.ts). Texts (*stars* mark the words in blue), the clip after each card (scripts/teaser-capture.ts), the names on the plaques. 'line' is the scene's dialogue, used by the stills of the pixel scenes.",
   "title": [
     "THE WALL",
     "ARCADE"
@@ -21,41 +21,25 @@
       "scene": "wall",
       "line": "A real wall in Lisbon. 550 names, painted by hand.",
       "card": "A real wall in Lisbon. *550 names*, painted by hand.",
-      "flashes": [
-        "comms/teaser/flashes/unbreakable-aim",
-        "comms/teaser/flashes/unbreakable-fire",
-        "comms/teaser/flashes/unbreakable-break"
-      ]
+      "clip": "comms/teaser/clips/unbreakable.mp4"
     },
     {
       "scene": "row",
       "line": "We turned it into an arcade.",
       "card": "We turned it into an *arcade*.",
-      "flashes": [
-        "comms/teaser/flashes/full-row-slide",
-        "comms/teaser/flashes/full-row-place",
-        "comms/teaser/flashes/full-row-painted"
-      ]
+      "clip": "comms/teaser/clips/full-row.mp4"
     },
     {
       "scene": "chest",
       "line": "You're a player? Play the artists' games. Best score of the week wins the pot.",
       "card": "You're a player? Play the artists' games. Best score of the week *wins the pot*.",
-      "flashes": [
-        "comms/teaser/flashes/board",
-        "comms/teaser/flashes/card",
-        "comms/teaser/flashes/buy"
-      ]
+      "clip": "comms/teaser/clips/this-week.mp4"
     },
     {
       "scene": "yourgame",
       "line": "You're an artist? Make your own game.",
       "card": "You're an artist? *Make your own game*.",
-      "flashes": [
-        "comms/teaser/flashes/hub-games",
-        "comms/teaser/flashes/hub-artists",
-        "comms/teaser/flashes/hub-kit"
-      ]
+      "clip": "comms/teaser/clips/hub.mp4"
     }
   ],
   "end": {
@@ -73,5 +57,10 @@
     "duration": 3.5,
     "lineGap": 0.4
   },
-  "flash": 0.5
+  "clip": 2.5,
+  "holders": [
+    "3 FREE PLAYS ARE IN YOUR WALLET.",
+    "Sign in with the wallet",
+    "that holds your name."
+  ]
 }

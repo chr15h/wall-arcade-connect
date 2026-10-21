@@ -149,3 +149,12 @@ separate project; this repo only reads its public `GET /positions` and posts bes
 
 See `LICENSE` (SuperRare's MIT license for the template-derived code) and `NOTICE` (attribution and the license of the
 NFC parts).
+
+## The teaser
+
+`comms/teaser/` holds THE WALL ARCADE's launch teaser (31 s: the title, four sequences of a card and a 2.5 s clip, the
+end card) in 16:9, 9:16 and 1:1, its stills and `holders.png`. `scripts/teaser-capture.ts` records the clips (the
+game stages on the test bench, the entry screen with the fake Connect SDK, the player page), `scripts/teaser.ts`
+draws the pixel world (8 tones, `comms/teaser/palette.json`), the cards and the music (Korobeiniki, synthesized) and
+encodes the films; texts and sources are in `comms/teaser/teaser.config.json`.
+

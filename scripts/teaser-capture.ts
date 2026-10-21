@@ -1,19 +1,20 @@
-// The teaser's flashes (comms/teaser/flashes): after each card, three moments of 0.5 s, full frame, nothing over them.
+// The teaser's clips (comms/teaser/clips): after each card, one extract of 2.5 s, the whole game screen, uncropped,
+// portrait, recorded at 60 frames a second, 1920 px high:
 //
-//   unbreakable   the aim / the shot / the bricks of names breaking          (the game stage, recorded)
-//   full-row      the piece sliding / the placement / ROW PAINTED            (the game stage, recorded)
-//   screens       the game page's top 5 / the leaderboard card / the buy screen / the hub's games / its artists link /
-//                 its kit for artists                                        (the real pages, as screens)
+//   unbreakable   an aim, then the volley bouncing and breaking bricks of names         (the game stage)
+//   full-row      a piece dragged and placed, the row completes, ROW PAINTED            (the game stage)
+//   this-week     FULL ROW's entry screen with this week's top 3, sliding to the card "#1 ON FULL ROW THIS WEEK"
+//   hub           the player page scrolling slowly through the games to "Artists: make your own game →"
 //
 // The game stages run on the test bench (src/dev/preview.ts: the shipped stage against an in-browser stand-in for the
-// coordinator) in Chromium on a virtual clock, 60 frames a second, each moment cropped to 16:9 at 1920 px wide; the
-// moves are planned with the very engines the verifier runs. The game page runs with the fake Connect SDK of the dev
-// flow (scripts/dev-flow.ts): its scores, wallets and balance are the bench's, never anyone's.
+// coordinator) in Chromium on a virtual clock; the moves are planned with the very engines the verifier runs. The
+// entry screen runs with the fake Connect SDK of the dev flow (scripts/dev-flow.ts): its scores and ENS names are the
+// bench's, never anyone's; the card is drawn by the card service's own code from those same rows.
 //
-//   node --import tsx scripts/teaser-capture.ts [unbreakable,full-row,screens] [--out comms/teaser/flashes]
+//   node --import tsx scripts/teaser-capture.ts [unbreakable,full-row,this-week,hub] [--out comms/teaser/clips]
 import { execFileSync } from 'node:child_process';
 import { createServer } from 'node:http';
-import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { extname, join } from 'node:path';
 import { chromium, type Page } from 'playwright-core';
 import { createCanvas, GlobalFonts, loadImage } from '@napi-rs/canvas';
@@ -21,17 +22,18 @@ import wall from '../src/generated/wall.json' with { type: 'json' };
 import { ELIG } from '../src/generated/wall.js';
 import { scoringConfiguration } from '../src/shell/config.js';
 import { boardCard, type CardEnv, type DragonImage } from '../src/share/card-draw.js';
+import { lisbonWeek, weekEnds } from '../src/shell/week.js';
 import { createEngine as createUb, FLOOR, GT, CELL, MAX_ANGLE, MIN_ANGLE, R, type UbState } from '../src/games/unbreakable/engine.js';
 import { createEngine as createFr, N, PIECES, evaluatePlacement, fits, type FrState, type Piece } from '../src/games/full-row/engine.js';
 
 const argv = process.argv.slice(2);
 const arg = (name: string, fallback: string): string => { const i = argv.indexOf(`--${name}`); return i >= 0 ? argv[i + 1] ?? fallback : fallback; };
-const OUT = arg('out', 'comms/teaser/flashes');
-const WHICH = (argv[0] && !argv[0].startsWith('--') ? argv[0] : 'unbreakable,full-row,screens').split(',');
+const OUT = arg('out', 'comms/teaser/clips');
+const WHICH = (argv[0] && !argv[0].startsWith('--') ? argv[0] : 'unbreakable,full-row,this-week,hub').split(',');
 const CHROME = process.env.CHROME_PATH ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const LAUNCH_DAY = new Date('2026-10-22T14:00:00Z');       // FULL ROW's names move with the ISO week: the launch week's
-const FPS = 60, FLASH_FRAMES = 30;                          // a flash: 0.5 s at 60 fps
-const OUT_W = 1920, OUT_H = 1080;
+const FPS = 60, CLIP_FRAMES = 150;                          // a clip: 2.5 s at 60 fps
+const CLIP_H = 1920;                                         // every clip 1920 px high, its own width
 
 /* ------------------------------------- servers ------------------------------------- */
 const TYPES: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.map': 'application/json', '.json': 'application/json', '.jpg': 'image/jpeg' };
@@ -52,14 +54,13 @@ const browser = await chromium.launch({ executablePath: CHROME });
 const shot = (dir: string, f: number): string => join(dir, `${String(f).padStart(4, '0')}.png`);
 function encode(dir: string, name: string): void {
   execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-framerate', String(FPS), '-i', join(dir, '%04d.png'),
-    '-vf', `scale=${OUT_W}:${OUT_H}:flags=lanczos`, '-c:v', 'libx264', '-preset', 'slow', '-crf', '14', '-pix_fmt', 'yuv420p', join(OUT, `${name}.mp4`)]);
+    '-vf', `scale=-2:${CLIP_H}:flags=lanczos`, '-c:v', 'libx264', '-preset', 'slow', '-crf', '14', '-pix_fmt', 'yuv420p', join(OUT, `${name}.mp4`)]);
   console.log(`${OUT}/${name}.mp4`);
 }
 
 /* -------------------------------------- the bench ----------------------------------- */
-// The stage laid out 960 css px wide (the canvas draws at device pixel ratio 2): a 16:9 crop of its whole width is
-// 1920 × 1080 pixels.
-const STAGE_W = 960, STAGE_H = Math.round(STAGE_W * 800 / 420);
+// The stage laid out 504 × 960 css px at device pixel ratio 2 (the canvas draws at 2 too): 1008 × 1920 pixels.
+const STAGE_W = 504, STAGE_H = 960;
 let bench = '';
 async function openBench(game: 'unbreakable' | 'full-row', seed: number): Promise<Page> {
   if (!bench) { execFileSync(process.execPath, ['--import', 'tsx', 'scripts/dev-preview.ts'], { stdio: 'inherit' }); bench = await serve('dist/preview'); }
@@ -82,21 +83,17 @@ async function canvasBox(page: Page): Promise<{ x: number; y: number; width: num
 async function toPage(page: Page, x: number, y: number): Promise<[number, number]> {
   const box = await canvasBox(page); return [box.x + x / 420 * box.width, box.y + y / 800 * box.height];
 }
-type Window = { name: string; from: number; top: number };      // a flash: 30 frames from `from`, the crop's top in logical px
-/** Plays `frames` frames of virtual time; before each, `script(f)` may act; the windows are shot as they pass. */
-async function recordWindows(page: Page, frames: number, script: (f: number) => Promise<void>, windows: Window[]): Promise<void> {
-  const box = await canvasBox(page), cropH = box.width * 9 / 16;
-  for (const w of windows) { await rm(join(OUT, `.${w.name}`), { recursive: true, force: true }); await mkdir(join(OUT, `.${w.name}`), { recursive: true }); }
+/** Records the whole stage for CLIP_FRAMES frames of virtual time; before each frame, `script(f)` may act. */
+async function recordClip(page: Page, name: string, script: (f: number) => Promise<void>): Promise<void> {
+  const dir = join(OUT, `.${name}`), arena = page.locator('#arena');
+  await rm(dir, { recursive: true, force: true }); await mkdir(dir, { recursive: true });
   let elapsed = 0;
-  for (let f = 0; f < frames; f++) {
+  for (let f = 0; f < CLIP_FRAMES; f++) {
     await script(f);
     const target = Math.round((f + 1) * 1000 / FPS); await page.clock.runFor(target - elapsed); elapsed = target;
-    for (const w of windows) if (f >= w.from && f < w.from + FLASH_FRAMES) {
-      const top = Math.max(0, Math.min(800 - 420 * 9 / 16, w.top));
-      await page.screenshot({ path: shot(join(OUT, `.${w.name}`), f - w.from), clip: { x: box.x, y: box.y + top / 800 * box.height, width: box.width, height: cropH } });
-    }
+    await arena.screenshot({ path: shot(dir, f) });
   }
-  for (const w of windows) { encode(join(OUT, `.${w.name}`), w.name); await rm(join(OUT, `.${w.name}`), { recursive: true, force: true }); }
+  encode(dir, name); await rm(dir, { recursive: true, force: true });
 }
 
 /* ------------------------------------- UNBREAKABLE ------------------------------------ */
@@ -115,13 +112,13 @@ async function ubAim(page: Page, s: UbState, angle: number): Promise<void> {
   await page.mouse.move(x, y);
 }
 /** A run to film: middling volleys pile the names up (no board swept clean), then the turn whose volley breaks the most
- *  bricks within its first 3.2 s. Searched over a few seeds and up to 14 turns with the engine, then replayed on the bench. */
-function planVolley(): { seed: number; pre: number[]; angle: number; early: number; bricks: number } {
+ *  bricks within its first `earlyTicks` ticks. Searched over a few seeds and up to 14 turns with the engine, then replayed on the bench. */
+function planVolley(earlyTicks: number): { seed: number; pre: number[]; angle: number; early: number; bricks: number } {
   const angles = Array.from({ length: 61 }, (_, i) => Math.round(MIN_ANGLE + (MAX_ANGLE - MIN_ANGLE) * i / 60));
   const turn = (s: UbState, angle: number): { s: UbState; broken: number; early: number; over: boolean } => {
     let t = s.tick + 20, x = ub.applyInput(ub.advance(s, t), { action: 'fire', angle }, t), early = -1;
     const b0 = x.sim.broken;
-    for (let k = 0; k < 3000 && x.sim.phase === 1 && !x.gameOver; k++) { x = ub.advance(x, ++t); if (k === 64) early = x.sim.broken - b0; }
+    for (let k = 0; k < 3000 && x.sim.phase === 1 && !x.gameOver; k++) { x = ub.advance(x, ++t); if (k === earlyTicks) early = x.sim.broken - b0; }
     return { s: x, broken: x.sim.broken - b0, early: early < 0 ? x.sim.broken - b0 : early, over: x.gameOver || x.sim.phase === 2 };
   };
   const bricks = (s: UbState): number => s.sim.rows.reduce((a, r) => a + r.cells.filter((c) => c && c.t === 1).length, 0);
@@ -138,43 +135,18 @@ function planVolley(): { seed: number; pre: number[]; angle: number; early: numb
   }
   return best;
 }
-/** When, after the shot, bricks break, and where: per tick, the rows of the bricks gone. */
-function breaks(s: UbState, angle: number): { tick: number; rows: number[] }[] {
-  const out: { tick: number; rows: number[] }[] = [];
-  let t = s.tick, x = ub.applyInput(s, { action: 'fire', angle }, t);
-  const posRow = (st: UbState): Map<number, number> => { const m = new Map<number, number>(); st.sim.rows.forEach((row, r) => row.cells.forEach((c) => { if (c && c.t === 1) m.set(c.pos * 100 + r, r); })); return m; };
-  for (let k = 1; k < 400 && x.sim.phase === 1; k++) {
-    const before = posRow(x), b0 = x.sim.broken; x = ub.advance(x, ++t);
-    if (x.sim.broken > b0) { const after = new Set(posRow(x).keys()); out.push({ tick: k, rows: [...before].filter(([key]) => !after.has(key)).map(([, r]) => r) }); }
-  }
-  return out;
-}
 async function captureUnbreakable(): Promise<void> {
-  const plan = planVolley();
-  console.log(`unbreakable: seed ${plan.seed}, ${plan.pre.length} turns first, ${plan.bricks} bricks up, the volley breaks ${plan.early} in 3.2 s`);
+  const FIRE = 40, plan = planVolley(Math.floor((CLIP_FRAMES - FIRE) / 3) - 2);   // a tick is 3 frames
+  console.log(`unbreakable: seed ${plan.seed}, ${plan.pre.length} turns first, ${plan.bricks} bricks up, the volley breaks ${plan.early} in the clip`);
   const page = await openBench('unbreakable', plan.seed);
   for (const angle of plan.pre) { await ubReady(page); await send(page, { action: 'fire', angle }); }
-  const s = await ubReady(page), FIRE = 30;
-  // the 0.5 s with the most bricks breaking (a tick is 3 frames), cropped on their rows
-  const bs = breaks(s, plan.angle);
-  let bestFrom = FIRE + 30, bestN = -1, rows: number[] = [];
-  for (let from = FIRE + 6; from < FIRE + 200; from += 3) {
-    const inside = bs.filter((b) => FIRE + b.tick * 3 >= from && FIRE + b.tick * 3 < from + FLASH_FRAMES - 6);
-    const n = inside.reduce((a, b) => a + b.rows.length, 0);
-    if (n > bestN) { bestN = n; bestFrom = from; rows = inside.flatMap((b) => b.rows); }
-  }
-  const cy = rows.length ? GT + (rows.reduce((a, r) => a + r, 0) / rows.length + 0.5) * CELL : 300;
-  console.log(`unbreakable: ${bestN} bricks break in the flash from frame ${bestFrom}`);
-  await recordWindows(page, bestFrom + FLASH_FRAMES, async (f) => {
-    // the aim sweeps across the field (the guide runs to its first bounce), then settles on the shot
-    const sweep: Record<number, number> = { 0: 14500, 6: 13000, 12: 11500, 18: 10000, 24: plan.angle };
+  const s = await ubReady(page);
+  // the aim sweeps across the field (the guide runs to its first bounce), settles on the shot, fires
+  const sweep: Record<number, number> = { 0: 14500, 8: 13000, 16: 11500, 24: 10000, 32: plan.angle };
+  await recordClip(page, 'unbreakable', async (f) => {
     if (sweep[f] !== undefined) await ubAim(page, s, Math.max(MIN_ANGLE, Math.min(MAX_ANGLE, sweep[f] as number)));
     if (f === FIRE) await send(page, { action: 'fire', angle: plan.angle });
-  }, [
-    { name: 'unbreakable-aim', from: 0, top: FLOOR + 40 - 420 * 9 / 16 },
-    { name: 'unbreakable-fire', from: FIRE - 2, top: FLOOR - 160 },
-    { name: 'unbreakable-break', from: bestFrom, top: cy - 420 * 9 / 32 },
-  ]);
+  });
   await page.close();
 }
 
@@ -223,87 +195,93 @@ async function captureFullRow(): Promise<void> {
     const d = await dragger(page, await state<FrState>(page), m, 4);
     await d.down(); for (let k = 1; k <= 4; k++) { await d.step(k); await wait(page, 16); } await d.up(); await wait(page, 350);
   }
-  const s = await state<FrState>(page), d = await dragger(page, s, last, 30), DOWN = 6, UP = DOWN + 31;
-  const target = 100 + last.y * 48;
+  const d = await dragger(page, await state<FrState>(page), last, 34), DOWN = 8, UP = DOWN + 35;
   console.log(`full-row: ${plan.length} pieces, the last completes a line at row ${last.y + 1}`);
-  await recordWindows(page, UP + 50, async (f) => {
+  await recordClip(page, 'full-row', async (f) => {
     if (f === DOWN) await d.down();
     else if (f > DOWN && f < UP) await d.step(f - DOWN);
     if (f === UP) await d.up();
-  }, [
-    { name: 'full-row-slide', from: DOWN + 2, top: 640 - 420 * 9 / 16 + 30 },
-    { name: 'full-row-place', from: UP - 26, top: target + 24 - 420 * 9 / 32 },
-    { name: 'full-row-painted', from: UP + 12, top: 96 },
-  ]);
+  });
   await page.close();
 }
 
-/* ---------------------------------------- screens --------------------------------------- */
-/** A page shot at 16:9: the viewport itself, or a box of `width` css px centred on an element, at 1920 px wide. */
-async function screen(url: string, name: string, opts: { width?: number; around?: string; top?: string; before?: (page: Page) => Promise<void> } = {}): Promise<void> {
-  const width = opts.width ?? 1280, page = await browser.newPage({ viewport: { width: Math.max(1280, width), height: 900 }, deviceScaleFactor: OUT_W / width });
+/* ------------------------------------- phone screens ------------------------------------- */
+// A phone, 390 × 693 css px, at the device pixel ratio that makes it 1080 × 1920.
+const PHONE = { width: 390, height: 693 }, PHONE_DPR = CLIP_H / PHONE.height;
+async function openPhone(url: string): Promise<Page> {
+  const page = await browser.newPage({ viewport: PHONE, deviceScaleFactor: PHONE_DPR });
   await page.goto(url);
+  await page.addStyleTag({ content: 'body > p[style*="position:fixed"]{display:none!important}' });   // the dev flow's own badge
   await page.waitForFunction(() => document.fonts.status === 'loaded', undefined, { timeout: 15_000 }).catch(() => undefined);
-  await page.waitForTimeout(2500);
-  await opts.before?.(page);
-  await page.waitForTimeout(600);
-  const h = width * 9 / 16;
-  if (opts.around) {
-    const el = page.locator(opts.around).first(); await el.scrollIntoViewIfNeeded();
-    await page.evaluate((sel) => { const e = document.querySelector(sel); if (e) window.scrollBy(0, e.getBoundingClientRect().top + e.getBoundingClientRect().height / 2 - window.innerHeight / 2); }, opts.around);
-    await page.waitForTimeout(300);
-    const box = await el.boundingBox(); if (!box) throw new Error(`${name}: ${opts.around} not shown`);
-    const cx = box.x + box.width / 2, cy = box.y + box.height / 2;
-    await page.screenshot({ path: join(OUT, `${name}.png`), clip: { x: Math.max(0, cx - width / 2), y: Math.max(0, cy - h / 2), width, height: h } });
-  } else if (opts.top) {                                  // the box's top on the element's top, centred across
-    const el = page.locator(opts.top).first(); await el.scrollIntoViewIfNeeded();
-    await page.evaluate((sel) => { const e = document.querySelector(sel); if (e) window.scrollBy(0, e.getBoundingClientRect().top - 24); }, opts.top);
-    await page.waitForTimeout(300);
-    const box = await el.boundingBox(); if (!box) throw new Error(`${name}: ${opts.top} not shown`);
-    await page.screenshot({ path: join(OUT, `${name}.png`), clip: { x: Math.max(0, box.x + box.width / 2 - width / 2), y: Math.max(0, box.y - 24), width, height: h } });
-  } else await page.screenshot({ path: join(OUT, `${name}.png`), clip: { x: 0, y: 0, width, height: h } });
-  console.log(`${OUT}/${name}.png`);
-  await page.close();
+  await page.waitForTimeout(3000);
+  return page;
 }
-/** The leaderboard card of FULL ROW, drawn by the card service's own code, cropped 16:9 on its rows and the rank line.
- *  The rows are the test bench's (fake Connect): two wallets, the first one as "me". */
-async function leaderboardCard(): Promise<void> {
+const fakeRows = async (): Promise<{ name: string; score: number }[]> => {
+  const fake = await readFile('src/dev/fake-connect.ts', 'utf8');
+  const ens = new Map([...fake.matchAll(/'(0x[0-9a-f]{40})': '([a-z0-9.-]+\.eth)'/g)].map((m) => [m[1] as string, m[2] as string]));
+  return [...fake.matchAll(/\{ name: '(0x[0-9a-f]{40})', score: (\d+) \}/g)].map((m) => ({ name: ens.get(m[1] as string) ?? `${(m[1] as string).slice(0, 6)}…${(m[1] as string).slice(-4)}`, score: Number(m[2]) }))
+    .sort((a, b) => b.score - a.score);
+};
+/** The leaderboard card of FULL ROW, drawn by the card service's own code, from the bench's rows, its #1 as "me". */
+async function leaderboardCard(): Promise<Buffer> {
   GlobalFonts.register(await readFile('cards/assets/Anton-400.ttf'), 'WallCard Anton');
   GlobalFonts.register(await readFile('cards/assets/IBMPlexMono-400.ttf'), 'WallCard Mono');
   GlobalFonts.register(await readFile('cards/assets/IBMPlexMono-500.ttf'), 'WallCard Mono');
   const dragon = await loadImage(await readFile('cards/assets/dragon.jpg')) as unknown as DragonImage;
   const env: CardEnv = { createCanvas: (w, h) => createCanvas(w, h) as unknown as HTMLCanvasElement };
-  const fake = await readFile('src/dev/fake-connect.ts', 'utf8');
-  const rows = [...fake.matchAll(/\{ name: '(0x[0-9a-f]{40})', score: (\d+) \}/g)].map((m, i) => ({ rank: i + 1, name: `${(m[1] as string).slice(0, 6)}…${(m[1] as string).slice(-4)}`, score: Number(m[2]), me: i === 0 }));
-  const card = boardCard(env, { game: 'FULL ROW', url: 'https://yfq52eu3.srstudio.dev/', wallNames: wall.positions.map((p) => p.n), dragon }, { rows, caption: 'SERVER-VERIFIED · ALL TIME' });
-  const crop = createCanvas(1080, 608), g = crop.getContext('2d');
-  g.drawImage(card as unknown as Parameters<typeof g.drawImage>[0], 0, -296);
-  await writeFile(join(OUT, 'card.png'), crop.toBuffer('image/png'));
-  console.log(`${OUT}/card.png`);
+  const rows = (await fakeRows()).map((r, i) => ({ rank: i + 1, ...r, me: i === 0 }));
+  const card = boardCard(env, { game: 'FULL ROW', url: 'https://yfq52eu3.srstudio.dev/', wallNames: wall.positions.map((p) => p.n), dragon },
+    { rows, caption: `THIS WEEK · ${weekEnds(lisbonWeek(LAUNCH_DAY.getTime())).toUpperCase()}` });
+  return (card as unknown as { toBuffer(m: 'image/png'): Buffer }).toBuffer('image/png');
 }
-async function captureScreens(): Promise<void> {
-  // the game page with the fake Connect SDK (scripts/dev-flow.ts), signed in, no credits
+/** FULL ROW's entry screen (this week's top 3), then a slow slide up to the leaderboard card, centred on ink below it. */
+async function captureThisWeek(): Promise<void> {
   execFileSync(process.execPath, ['--import', 'tsx', 'scripts/dev-flow.ts', 'dist/teaser-game', 'full-row'], { stdio: 'inherit' });
-  const game = await serve('dist/teaser-game');
-  await screen(`${game}/?signed=1&credits=0`, 'board', { width: 760, around: '#overlay-board' });
-  await screen(`${game}/?signed=1&credits=0`, 'buy', { width: 760, around: '#buy-panel .panel-body', before: async (page) => {
-    await page.evaluate(() => (document.getElementById('buy-panel') as HTMLDialogElement | null)?.showModal());
-  } });
-  await leaderboardCard();
-  // the hub, with the wall of the snapshot in its grid
+  const game = await serve('dist/teaser-game'), page = await openPhone(`${game}/?signed=1&credits=0`);
+  const entry = await loadImage(await page.screenshot()); await page.close();
+  const card = await loadImage(await leaderboardCard());
+  const W = entry.width, H = entry.height, dir = join(OUT, '.this-week');
+  await rm(dir, { recursive: true, force: true }); await mkdir(dir, { recursive: true });
+  const cardSize = W, cardY = H + Math.round((H - cardSize) / 2);
+  for (let f = 0; f < CLIP_FRAMES; f++) {
+    // still for 0.8 s, then 1.1 s of a smooth slide, then the card
+    const u = Math.max(0, Math.min(1, (f / FPS - 0.8) / 1.1)), k = u * u * (3 - 2 * u), off = Math.round(k * H);
+    const cv = createCanvas(W, H), g = cv.getContext('2d');
+    g.fillStyle = '#0B0B0B'; g.fillRect(0, 0, W, H);
+    g.drawImage(entry, 0, -off, W, H); g.drawImage(card, 0, cardY - off, cardSize, cardSize);
+    await writeFile(shot(dir, f), cv.toBuffer('image/png'));
+  }
+  encode(dir, 'this-week'); await rm(dir, { recursive: true, force: true });
+}
+/** The player page on a phone: a slow, even scroll from the games down to the artists' link. */
+async function captureHub(): Promise<void> {
   const rows = Array.from({ length: 550 }, (_, i) => wall.positions.find((p) => p.p === i + 1)?.n ?? 0);
   const html = (await readFile('hub/src.html', 'utf8')).replace(/\/\*SNAPSHOT:START\*\/.*?\/\*SNAPSHOT:END\*\//s, () => `/*SNAPSHOT:START*/${JSON.stringify(rows)}/*SNAPSHOT:END*/`);
   await mkdir('dist/teaser-hub', { recursive: true });
-  await writeFile('dist/teaser-hub/index.html', html); await copyFile('hub/dragon.jpg', 'dist/teaser-hub/dragon.jpg');
-  const hub = await serve('dist/teaser-hub');
-  await screen(`${hub}/`, 'hub-games', { width: 1280, top: '#games' });
-  await screen(`${hub}/`, 'hub-artists', { width: 440, around: '.cta-row a.link-u' });
-  await screen(`${hub}/`, 'hub-kit', { width: 1280, around: '#how .steps' });
+  await writeFile('dist/teaser-hub/index.html', html);
+  for (const f of ['builders.html', 'dragon.jpg']) await writeFile(join('dist/teaser-hub', f), await readFile(join('hub', f)));
+  const hub = await serve('dist/teaser-hub'), page = await openPhone(`${hub}/`);
+  const [from, to] = await page.evaluate(() => {
+    const games = document.querySelector('section.games') as HTMLElement, link = document.querySelector('.artists a') as HTMLElement;
+    const gamesTop = games.getBoundingClientRect().top + window.scrollY, linkTop = link.getBoundingClientRect().top + window.scrollY;   // no inner function: tsx would name it
+    return [Math.max(0, gamesTop - 16), Math.max(0, linkTop + link.offsetHeight / 2 - window.innerHeight * 0.62)];
+  });
+  console.log(`hub: scroll ${Math.round(from)} → ${Math.round(to)} css px`);
+  const dir = join(OUT, '.hub');
+  await rm(dir, { recursive: true, force: true }); await mkdir(dir, { recursive: true });
+  for (let f = 0; f < CLIP_FRAMES; f++) {
+    const u = Math.min(1, f / (CLIP_FRAMES - 30));                // the last half second rests on the link
+    await page.evaluate((y) => window.scrollTo(0, y), from + (to - from) * u);
+    await page.screenshot({ path: shot(dir, f) });
+  }
+  await page.close();
+  encode(dir, 'hub'); await rm(dir, { recursive: true, force: true });
 }
 
 await mkdir(OUT, { recursive: true });
 try {
   if (WHICH.includes('unbreakable')) await captureUnbreakable();
   if (WHICH.includes('full-row')) await captureFullRow();
-  if (WHICH.includes('screens')) await captureScreens();
+  if (WHICH.includes('this-week')) await captureThisWeek();
+  if (WHICH.includes('hub')) await captureHub();
 } finally { await browser.close(); for (const s of servers) s.close(); }

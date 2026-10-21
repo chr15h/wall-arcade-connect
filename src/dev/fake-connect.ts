@@ -39,6 +39,7 @@ const store = {
   board: [
     { name: '0xaaaa00000000000000000000000000000000beef', score: 35 },
     { name: '0x510f00000000000000000000000000000000c839', score: 22 },
+    { name: '0x7c3e000000000000000000000000000000004d21', score: 18 },
   ] as { name: string; score: number }[],
 };
 if (params.get('signed') === '1' && !store.session) store.session = { address: ADDRESS, sessionId: 'fake', expiresAt: later(3_600_000) };

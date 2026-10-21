@@ -5,7 +5,8 @@
 // thresholded so every glyph pixel is a whole pixel. No generated imagery, nothing from an existing game.
 //
 //   node --import tsx scripts/teaser.ts stills [--out comms/teaser/out]     the board of six stills (title, 4 scenes, end)
-//   node --import tsx scripts/teaser.ts video  [--out comms/teaser/out]     teaser-16x9.mp4 (27 s, 30 fps, H.264 + AAC)
+//   node --import tsx scripts/teaser.ts video  [--formats 16x9,9x16,1x1]     teaser-<format>.mp4 (31 s, 30 fps, H.264 + AAC)
+//   node --import tsx scripts/teaser.ts kit                                   title-16x9/1x1, scene-1..4 (1080 × 1350), end-card-16x9, holders
 //   node --import tsx scripts/teaser.ts gif    [--out comms/teaser/out]     title-assembly.gif (the first 4 s)
 //
 // Every movement is a whole number of pixels per frame (30 fps); the stills are frames of the same functions.
@@ -32,11 +33,11 @@ const RGB = NAMES.map((n) => {
   const hex = paletteJson[n]; if (!hex || !/^#[0-9a-fA-F]{6}$/.test(hex)) throw new Error(`palette: ${n} missing`);
   return [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)] as const;
 });
-type Sequence = { scene: 'wall' | 'row' | 'chest' | 'yourgame'; line: string; card: string; flashes: string[] };
+type Sequence = { scene: 'wall' | 'row' | 'chest' | 'yourgame'; line: string; card: string; clip: string };
 type Config = {
   title: [string, string]; hudNames: number | null; plaques: { start: number; skip?: string[] }; row: { start: number };
   sequences: Sequence[]; end: { line: string; url: string; credit: string }; yourGame: string;
-  typing: { cps: number; readable: number; start: number }; card: { duration: number; lineGap: number }; flash: number;
+  typing: { cps: number; readable: number; start: number }; card: { duration: number; lineGap: number }; clip: number; holders: string[];
 };
 const CFG = JSON.parse(await readFile(new URL(arg('config', 'comms/teaser/teaser.config.json'), root), 'utf8')) as Config;
 
@@ -395,7 +396,7 @@ const LETTERS: Record<string, string[]> = {
   D: ['####.', '#...#', '#...#', '#...#', '#...#', '#...#', '####.'],
 };
 type Brick = { x: number; y: number; tone: Colour; from: [number, number] };
-function titleBricks(W: number, top: number): { bricks: Brick[]; box: [number, number, number, number] } {
+function titleBricks(W: number, top: number, H = 270): { bricks: Brick[]; box: [number, number, number, number] } {
   const cell = 8, gap = 6, space = 18, lineGap = 10;
   const widthOf = (s: string): number => [...s].reduce((a, ch, i) => a + (ch === ' ' ? space : 5 * cell) + (i ? gap : 0), 0);
   const bricks: Brick[] = [];
@@ -409,7 +410,7 @@ function titleBricks(W: number, top: number): { bricks: Brick[]; box: [number, n
       const g = LETTERS[ch]; if (!g) throw new Error(`title: no brick letter for ${ch}`);
       for (let r = 0; r < 7; r++) for (let c = 0; c < 5; c++) if (g[r]?.[c] === '#') for (const half of [0, 1]) {
         const bx = x + c * cell, by = y0 + r * cell + half * 4, k = bricks.length, side = hash(k, 41) % 4;
-        const from: [number, number] = side === 0 ? [bx, -8] : side === 1 ? [W + 8, by] : side === 2 ? [bx, 270 + 8] : [-16, by];
+        const from: [number, number] = side === 0 ? [bx, -8] : side === 1 ? [W + 8, by] : side === 2 ? [bx, H + 8] : [-16, by];
         bricks.push({ x: bx, y: by, tone: (hash(r, c, half, ci, li) % 3) ? 'chalk' : 'concrete', from });
       }
       x += 5 * cell;
@@ -425,8 +426,8 @@ function silhouette(f: Frame, top: number): void {
 }
 function brickAt(f: Frame, b: Brick, x: number, y: number): void { f.rect(x, y, 7, 3, b.tone); f.rect(x, y + 3, 8, 1, 'midGrey'); f.rect(x + 7, y, 1, 3, 'midGrey'); }
 function titleScreen(f: Frame, t: number): void {
-  sky(f, f.h, t, 9); silhouette(f, 214);
-  const { bricks, box } = titleBricks(f.w, 64);
+  sky(f, f.h, t, 9); silhouette(f, f.h - 56);
+  const { bricks, box } = titleBricks(f.w, Math.round(f.h * 0.237), f.h);
   const frame = Math.floor(t * 30), first = TITLE.firstLand * 30, last = TITLE.assemble * 30;
   let landed = 0;
   bricks.forEach((b, k) => {
@@ -449,14 +450,15 @@ function sparkles(f: Frame, box: [number, number, number, number], t: number): v
   }
 }
 function endCard(f: Frame, t: number): void {
-  sky(f, f.h, t + 4, 9); silhouette(f, 226);
-  const { bricks, box } = titleBricks(f.w, 30);
+  sky(f, f.h, t + 4, 9); silhouette(f, f.h - 44);
+  const y0 = Math.round((f.h - 200) / 2) - 5;                  // the title and its three lines, centred (30 on 270)
+  const { bricks, box } = titleBricks(f.w, y0, f.h);
   for (const b of bricks) { f.rect(b.x + 1, b.y + 4, 8, 1, 'darkGrey'); brickAt(f, b, b.x, b.y); }
   sparkles(f, box, t);
   const E = CFG.end, cx = (s: string, font: Font): number => Math.floor((f.w - textWidth(s, font)) / 2);
-  f.text(E.line, cx(E.line, 'big'), 166, 'big', 'chalk');
-  f.text(E.url, cx(E.url, 'big'), 186, 'big', 'chalk'); f.rect(cx(E.url, 'big'), 196, textWidth(E.url, 'big'), 1, 'midGrey');
-  f.text(E.credit, cx(E.credit, 'small'), 208, 'small', 'stone');
+  f.text(E.line, cx(E.line, 'big'), y0 + 136, 'big', 'chalk');
+  f.text(E.url, cx(E.url, 'big'), y0 + 156, 'big', 'chalk'); f.rect(cx(E.url, 'big'), y0 + 166, textWidth(E.url, 'big'), 1, 'midGrey');
+  f.text(E.credit, cx(E.credit, 'small'), y0 + 178, 'small', 'stone');
 }
 
 /* -------------------------------------- run -------------------------------------- */
@@ -469,20 +471,17 @@ async function png(f: Frame, scale: number, name: string): Promise<void> {
   console.log(`${OUT}/${name}`);
 }
 /* ---------------------------------- timeline ---------------------------------- */
-// 0–4 s the title · for each sequence: its card (3.5 s), then a burst of three flashes (0.5 s each) · the end card.
-// Hard cuts only.
-const FPS = 30, TITLE_DUR = 4, END_DUR = 3, CARD_DUR = CFG.card.duration, FLASH_DUR = CFG.flash;
-const SEQ_DUR = CARD_DUR + 3 * FLASH_DUR;
+// 0–4 s the title · for each sequence its card (3.5 s), then one clip (2.5 s) · the end card (3 s). Hard cuts only.
+const FPS = 30, TITLE_DUR = 4, END_DUR = 3, CARD_DUR = CFG.card.duration, CLIP_DUR = CFG.clip;
+const SEQ_DUR = CARD_DUR + CLIP_DUR;
 const TOTAL = TITLE_DUR + CFG.sequences.length * SEQ_DUR + END_DUR;
-type Shot = { kind: 'title' | 'end'; t: number } | { kind: 'card'; t: number; i: number } | { kind: 'flash'; t: number; i: number; k: number };
+type Shot = { kind: 'title' | 'end'; t: number } | { kind: 'card' | 'clip'; t: number; i: number };
 function shotAt(time: number): Shot {
   if (time < TITLE_DUR) return { kind: 'title', t: time };
   const u = time - TITLE_DUR, i = Math.floor(u / SEQ_DUR);
   if (i >= CFG.sequences.length) return { kind: 'end', t: u - CFG.sequences.length * SEQ_DUR };
   const v = u - i * SEQ_DUR;
-  if (v < CARD_DUR) return { kind: 'card', t: v, i };
-  const w = v - CARD_DUR, k = Math.min(2, Math.floor(w / FLASH_DUR));
-  return { kind: 'flash', t: w - k * FLASH_DUR, i, k };
+  return v < CARD_DUR ? { kind: 'card', t: v, i } : { kind: 'clip', t: v - CARD_DUR, i };
 }
 const seqStart = (i: number): number => TITLE_DUR + i * SEQ_DUR;
 
@@ -491,11 +490,12 @@ const seqStart = (i: number): number => TITLE_DUR + i * SEQ_DUR;
 // centred, two lines at most, the *starred* words in blue. Each line appears with a one-frame blink (the line in
 // reverse), the first at once, the second `lineGap` later; the whole line stays at least 3 s.
 type CardLine = { text: string; blue: boolean[] };
-function cardLines(src: string): CardLine[] {
+function cardLines(src: string, maxChars = Infinity): CardLine[] {
   const plain = src.replace(/\*/g, ''), blue: boolean[] = [];
   let on = false; for (const ch of src) { if (ch === '*') { on = !on; continue; } blue.push(on); }
   // two lines cut between words, never inside a blue span; the most even cut, or a cut after a sentence when it is
-  // nearly as even (a fifth longer at most)
+  // nearly as even (a fifth longer at most); one line when it is short enough for the frame
+  if (plain.length <= maxChars) return [{ text: plain, blue }];
   const words = plain.split(' '), cuts: { lines: string[]; w: number; sentence: boolean }[] = [];
   let at = 0;
   for (let cut = 1; cut < words.length; cut++) {
@@ -509,16 +509,19 @@ function cardLines(src: string): CardLine[] {
   let from = 0;
   return best.lines.map((text) => { const line = { text, blue: blue.slice(from, from + text.length) }; from += text.length + 1; return line; });
 }
-function cardFrame(src: string, t: number, PW: number, PH: number, ink: Uint8ClampedArray): Uint8ClampedArray {
-  const out = new Uint8ClampedArray(ink), lines = cardLines(src);
-  const longest = Math.max(...lines.map((l) => l.text.length)), margin = Math.round(Math.min(PW, PH) * 0.06);
+const rgbOf = (c: Colour): readonly number[] => RGB[C[c]] as readonly number[];
+/** The card at time t, drawn into a PW × PH ink buffer. */
+function cardFrame(src: string, t: number, PW: number, PH: number): Uint8ClampedArray {
+  const out = new Uint8ClampedArray(PW * PH * 4), ink = rgbOf('ink');
+  for (let o = 0; o < out.length; o += 4) { out[o] = ink[0] as number; out[o + 1] = ink[1] as number; out[o + 2] = ink[2] as number; out[o + 3] = 255; }
+  const lines = cardLines(src, 0), margin = Math.round(Math.min(PW, PH) * 0.06);
+  const longest = Math.max(...lines.map((l) => l.text.length));
   const p = Math.max(1, Math.min(Math.floor((PW - 2 * margin) / (longest * 8)), Math.floor((PH - 2 * margin) / (lines.length * 8 + (lines.length - 1) * 5))));
   const lineH = 8 * p, gap = 5 * p, blockH = lines.length * lineH + (lines.length - 1) * gap, y0 = Math.floor((PH - blockH) / 2);
   const frame = Math.floor(t * FPS);
   const paint = (x: number, y: number, w: number, h: number, rgb: readonly number[]): void => {
-    for (let yy = Math.max(0, y); yy < Math.min(PH, y + h); yy++) for (let xx = Math.max(0, x); xx < Math.min(PW, x + w); xx++) { const o = (yy * PW + xx) * 4; out[o] = rgb[0] as number; out[o + 1] = rgb[1] as number; out[o + 2] = rgb[2] as number; out[o + 3] = 255; }
+    for (let yy = Math.max(0, y); yy < Math.min(PH, y + h); yy++) for (let xx = Math.max(0, x); xx < Math.min(PW, x + w); xx++) { const o = (yy * PW + xx) * 4; out[o] = rgb[0] as number; out[o + 1] = rgb[1] as number; out[o + 2] = rgb[2] as number; }
   };
-  const rgbOf = (c: Colour): readonly number[] => RGB[C[c]] as readonly number[];
   lines.forEach((line, li) => {
     const shownAt = Math.round(li * CFG.card.lineGap * FPS); if (frame < shownAt) return;
     const blink = frame === shownAt, m = mask(line.text, 'big'), x0 = Math.floor((PW - line.text.length * 8 * p) / 2), y = y0 + li * (lineH + gap);
@@ -532,76 +535,69 @@ function cardFrame(src: string, t: number, PW: number, PH: number, ink: Uint8Cla
   return out;
 }
 
-/* ------------------------------------ flashes ------------------------------------ */
-// Full frame, nothing over them: a recording (.mp4, its 0.5 s) or a screen (.png), scaled to cover the frame.
-function flashSource(base: string): string {
-  for (const ext of ['.mp4', '.png']) if (existsSync(new URL(base + ext, root))) return base + ext;
-  throw new Error(`flash: neither ${base}.mp4 nor ${base}.png`);
-}
-async function prepareFlash(base: string, dir: string, PW: number, PH: number): Promise<Uint8ClampedArray[]> {
-  const src = new URL(flashSource(base), root).pathname, n = Math.round(FLASH_DUR * FPS);
-  await mkdir(dir, { recursive: true });
-  const cover = `scale=${PW}:${PH}:force_original_aspect_ratio=increase:flags=lanczos,crop=${PW}:${PH}`;
-  if (src.endsWith('.png')) execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', src, '-vf', cover, join(dir, '0001.png')]);
-  else execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', src, '-vf', `fps=${FPS},${cover}`, '-frames:v', String(n), join(dir, '%04d.png')]);
-  const files = (await readdir(dir)).filter((f) => f.endsWith('.png')).sort();
-  const frames: Uint8ClampedArray[] = [];
-  for (const file of files) {
-    const img: Image = await loadImage(await readFile(join(dir, file))), cv = createCanvas(PW, PH), g = cv.getContext('2d');
-    g.drawImage(img, 0, 0, PW, PH); frames.push(g.getImageData(0, 0, PW, PH).data);
-  }
+/* ------------------------------------- clips ------------------------------------- */
+// The whole game screen, uncropped: the portrait recording fitted to the frame's height, centred on ink, nothing over it.
+function clipFrames(src: string, PW: number, PH: number, n: number): Uint8ClampedArray[] {
+  const path = new URL(src, root).pathname;
+  if (!existsSync(path)) throw new Error(`clip: ${src} missing (node --import tsx scripts/teaser-capture.ts)`);
+  const raw = execFileSync('ffmpeg', ['-loglevel', 'error', '-i', path, '-vf',
+    `fps=${FPS},scale=${PW}:${PH}:force_original_aspect_ratio=decrease:flags=lanczos,pad=${PW}:${PH}:(ow-iw)/2:(oh-ih)/2:color=${paletteJson.ink?.replace('#', '0x')}`,
+    '-frames:v', String(n), '-f', 'rawvideo', '-pix_fmt', 'rgba', '-'], { maxBuffer: PW * PH * 4 * (n + 2) });
+  const size = PW * PH * 4, frames: Uint8ClampedArray[] = [];
+  for (let o = 0; o + size <= raw.length; o += size) frames.push(new Uint8ClampedArray(raw.buffer, raw.byteOffset + o, size));
   return frames;
 }
 
 /* ------------------------------------ sound ------------------------------------- */
-// Original chiptune, synthesized here (square and triangle waves, a little noise): a bed in a loop from start to end;
-// a five-note rising jingle as the title assembles; a blip as each line of a card appears; a dull hit on every flash
-// cut; a last chord on the end card. The teaser reads without it.
-const RATE = 48000;
+// One piece of music, looped over the whole film: Korobeiniki (the Russian song of 1861, public domain), synthesized
+// here as chiptune (a square wave for the tune, a triangle for the bass) at 140 beats a minute, moderate, a little
+// lower under the clips; a soft blip as each line of a card appears; a last chord on the end card's title. No
+// recording, no impact. The teaser reads without it.
+const RATE = 48000, BEAT = 60 / 140;
+// the tune, in beats: [midi, length]; null is a rest
+const TUNE: [number | null, number][] = [
+  [76, 1], [71, 0.5], [72, 0.5], [74, 1], [72, 0.5], [71, 0.5],
+  [69, 1], [69, 0.5], [72, 0.5], [76, 1], [74, 0.5], [72, 0.5],
+  [71, 1.5], [72, 0.5], [74, 1], [76, 1],
+  [72, 1], [69, 1], [69, 1], [null, 1],
+  [null, 0.5], [74, 1], [77, 0.5], [81, 1], [79, 0.5], [77, 0.5],
+  [76, 1.5], [72, 0.5], [76, 1], [74, 0.5], [72, 0.5],
+  [71, 1], [71, 0.5], [72, 0.5], [74, 1], [76, 1],
+  [72, 1], [69, 1], [69, 1], [null, 1],
+];
+const BASS = [40, 45, 40, 45, 38, 36, 40, 45];          // a root per bar, in eighths alternating with its octave
 function synth(): Float32Array {
   const n = Math.ceil(TOTAL * RATE), out = new Float32Array(n);
-  const tone = (wave: 'square' | 'triangle' | 'pulse', freq: number, t0: number, dur: number, vol: number, decay = 1): void => {
+  const tone = (wave: 'square' | 'triangle', freq: number, t0: number, dur: number, vol: number, release = 0.03): void => {
     const i0 = Math.max(0, Math.floor(t0 * RATE)), i1 = Math.min(n, Math.floor((t0 + dur) * RATE));
     for (let i = i0; i < i1; i++) {
       const t = (i - i0) / RATE, ph = (t * freq) % 1;
-      const v = wave === 'triangle' ? 1 - 4 * Math.abs(ph - 0.5) : wave === 'pulse' ? (ph < 0.25 ? 1 : -1) : (ph < 0.5 ? 1 : -1);
-      const env = Math.min(1, t / 0.004) * Math.min(1, (dur - t) / 0.01) * Math.exp(-t * 3 * decay / dur);
+      const v = wave === 'triangle' ? 1 - 4 * Math.abs(ph - 0.5) : (ph < 0.5 ? 1 : -1);
+      const env = Math.min(1, t / 0.005) * Math.min(1, (dur - t) / release) * (1 - 0.25 * t / dur);
       out[i] = (out[i] as number) + v * vol * env;
     }
   };
-  const noise = (t0: number, dur: number, vol: number): void => {
-    let seed = 12345, last = 0; const i0 = Math.floor(t0 * RATE), i1 = Math.min(n, Math.floor((t0 + dur) * RATE));
-    for (let i = i0; i < i1; i++) { seed = (seed * 1103515245 + 12345) >>> 0; const w = seed / 2 ** 31 - 1; last = last * 0.85 + w * 0.15; out[i] = (out[i] as number) + last * vol * Math.exp(-((i - i0) / RATE) * 18); }
-  };
   const hz = (midi: number): number => 440 * 2 ** ((midi - 69) / 12);
-  // the bed: C, A minor, F, G, two seconds each, bass on the beat, a soft arpeggio in eighths
-  const chords = [[48, 52, 55], [45, 48, 52], [41, 45, 48], [43, 47, 50]];
-  for (let bar = 0; bar * 2 < TOTAL - END_DUR; bar++) {
-    const chord = chords[bar % 4] as number[], t0 = bar * 2;
-    for (let b = 0; b < 4; b++) {
-      const t = t0 + b * 0.5; if (t >= TOTAL - END_DUR) break;
-      const gain = bedGain(t);
-      tone('triangle', hz((chord[0] as number) - 12), t, 0.42, 0.16 * gain, 0.6);
-      for (const e of [0, 0.25]) { const k = b * 2 + (e ? 1 : 0), note = (chord[[0, 1, 2, 1][k % 4] as number] as number) + 24; tone('pulse', hz(note), t + e, 0.2, 0.035 * gain, 2); }
+  const musicEnd = TOTAL - END_DUR, loop = 32 * BEAT;
+  for (let start = 0; start < musicEnd; start += loop) {
+    let beat = 0;
+    for (const [m, len] of TUNE) {
+      const t = start + beat * BEAT, d = len * BEAT * 0.9;
+      if (m !== null && t < musicEnd) tone('square', hz(m), t, Math.min(d, musicEnd - t), 0.06 * gainAt(t));
+      beat += len;
     }
+    BASS.forEach((root, bar) => { for (let e = 0; e < 8; e++) { const t = start + (bar * 4 + e * 0.5) * BEAT; if (t < musicEnd) tone('triangle', hz(root + (e % 2 ? 12 : 0)), t, Math.min(BEAT * 0.45, musicEnd - t), 0.13 * gainAt(t)); } });
   }
-  // the title: five notes rising, a dull hit on the flash
-  [72, 76, 79, 84, 88].forEach((m, k) => tone('square', hz(m), 1.0 + k * 0.4, k === 4 ? 0.9 : 0.36, 0.09, k === 4 ? 1.2 : 2));
-  noise(TITLE.assemble, 0.25, 0.35);
-  // each card: a blip per line; each flash: a hit, the third one higher
-  CFG.sequences.forEach((seq, i) => {
-    cardLines(seq.card).forEach((_, li) => { const t = seqStart(i) + li * CFG.card.lineGap; tone('square', hz(84 + li * 7), t, 0.09, 0.07, 2); tone('square', hz(96 + li * 7), t + 0.045, 0.07, 0.04, 2); });
-    for (let k = 0; k < 3; k++) { const t = seqStart(i) + CARD_DUR + k * FLASH_DUR; noise(t, 0.18, 0.4); tone('triangle', hz(36 + k * 5), t, 0.16, 0.22, 2); }
-  });
-  // the end card: a last chord
-  const e = TOTAL - END_DUR;
-  for (const m of [48, 60, 64, 67, 72]) tone(m === 48 ? 'triangle' : 'square', hz(m), e, END_DUR - 0.05, m === 48 ? 0.16 : 0.045, 1.5);
+  // a soft blip per line of each card
+  CFG.sequences.forEach((seq, i) => cardLines(seq.card, 0).forEach((_, li) => tone('square', hz(93 + li * 2), seqStart(i) + li * CFG.card.lineGap, 0.05, 0.025)));
+  // the last chord, under the end card's title: A minor
+  for (const m of [45, 57, 60, 64, 69]) tone(m === 45 ? 'triangle' : 'square', hz(m), musicEnd, END_DUR - 0.05, m === 45 ? 0.13 : 0.035, 1.2);
   let peak = 0; for (const v of out) peak = Math.max(peak, Math.abs(v));
-  for (let i = 0; i < n; i++) out[i] = (out[i] as number) * 0.85 / peak;                // peak at -1.4 dB
+  for (let i = 0; i < n; i++) out[i] = (out[i] as number) * 0.6 / peak;                 // moderate: peak at -4.4 dB
   return out;
 }
-/** The bed's level: lower under the title's jingle and under the flashes. */
-function bedGain(t: number): number { const s = shotAt(t); return s.kind === 'title' ? 0.6 : s.kind === 'flash' ? 0.5 : 1; }
+/** The music's level: a little lower under the clips. */
+function gainAt(t: number): number { return shotAt(t).kind === 'clip' ? 0.7 : 1; }
 function wav(samples: Float32Array): Buffer {
   const data = Buffer.alloc(samples.length * 4);
   samples.forEach((v, i) => { const x = Math.max(-1, Math.min(1, v)) * 32767; data.writeInt16LE(x | 0, i * 4); data.writeInt16LE(x | 0, i * 4 + 2); });
@@ -613,6 +609,9 @@ function wav(samples: Float32Array): Buffer {
 }
 
 /* ------------------------------------ video ------------------------------------- */
+// Three frames: 16:9 (the pixel world at 480 × 270, × 4), 9:16 and 1:1 (at 360 × 640 and 360 × 360, × 3).
+const FORMATS = { '16x9': { W: 480, H: 270, scale: 4 }, '9x16': { W: 360, H: 640, scale: 3 }, '1x1': { W: 360, H: 360, scale: 3 } } as const;
+type Format = keyof typeof FORMATS;
 /** One frame of the pixel world (title, end) at time `time`. */
 function pixelFrame(time: number, W: number, H: number): Frame | null {
   const s = shotAt(time), f = new Frame(W, H, 'ink');
@@ -621,33 +620,28 @@ function pixelFrame(time: number, W: number, H: number): Frame | null {
   else return null;
   return f;
 }
-async function renderVideo(name: string, W: number, H: number, scale: number): Promise<void> {
+async function renderVideo(format: Format): Promise<void> {
+  const { W, H, scale } = FORMATS[format], PW = W * scale, PH = H * scale, name = `teaser-${format}.mp4`;
   const tmp = await mkdtemp(join(tmpdir(), 'teaser-'));
   try {
-    const PW = W * scale, PH = H * scale, out = join(OUT, name);
-    const flashes: Uint8ClampedArray[][][] = [];
-    for (const [i, seq] of CFG.sequences.entries()) {
-      const set: Uint8ClampedArray[][] = [];
-      for (const [k, base] of seq.flashes.entries()) set.push(await prepareFlash(base, join(tmp, `flash-${i}-${k}`), PW, PH));
-      flashes.push(set);
-    }
+    const clips = CFG.sequences.map((seq) => clipFrames(seq.clip, PW, PH, Math.round(CLIP_DUR * FPS)));
     await writeFile(join(tmp, 'audio.wav'), wav(synth()));
     await mkdir(OUT, { recursive: true });
+    const out = join(OUT, name);
     const ff = spawn('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', `${PW}x${PH}`, '-r', String(FPS), '-i', '-',
       '-i', join(tmp, 'audio.wav'), '-c:v', 'libx264', '-preset', 'slow', '-crf', '16', '-pix_fmt', 'yuv420p', '-r', String(FPS),
       '-c:a', 'aac', '-b:a', '192k', '-shortest', '-movflags', '+faststart', out], { stdio: ['pipe', 'inherit', 'inherit'] });
     const done = new Promise<void>((resolve, reject) => ff.on('close', (code) => (code === 0 ? resolve() : reject(new Error(`ffmpeg exited ${code}`)))));
-    const ink = new Frame(W, H, 'ink').rgba(scale);
     for (let k = 0; k < Math.round(TOTAL * FPS); k++) {
       const time = k / FPS, s = shotAt(time);
       let buf: Uint8ClampedArray;
-      if (s.kind === 'card') buf = cardFrame((CFG.sequences[s.i] as Sequence).card, s.t, PW, PH, ink);
-      else if (s.kind === 'flash') { const frames = (flashes[s.i] as Uint8ClampedArray[][])[s.k] as Uint8ClampedArray[]; buf = frames[Math.min(frames.length - 1, Math.round(s.t * FPS))] as Uint8ClampedArray; }
+      if (s.kind === 'card') buf = cardFrame((CFG.sequences[s.i] as Sequence).card, s.t, PW, PH);
+      else if (s.kind === 'clip') { const frames = clips[s.i] as Uint8ClampedArray[]; buf = frames[Math.min(frames.length - 1, Math.round(s.t * FPS))] as Uint8ClampedArray; }
       else buf = (pixelFrame(time, W, H) as Frame).rgba(scale);
       if (!ff.stdin.write(Buffer.from(buf.buffer, buf.byteOffset, buf.byteLength))) await new Promise((r) => ff.stdin.once('drain', r));
     }
     ff.stdin.end(); await done;
-    console.log(`${out} (${TOTAL} s)`);
+    console.log(`${out} (${TOTAL} s, ${PW} × ${PH})`);
   } finally { await rm(tmp, { recursive: true, force: true }); }
 }
 async function renderGif(name: string): Promise<void> {
@@ -664,6 +658,42 @@ async function renderGif(name: string): Promise<void> {
   } finally { await rm(tmp, { recursive: true, force: true }); }
 }
 
+/* ------------------------------------ kit stills ------------------------------------ */
+async function pngRaw(data: Uint8ClampedArray, PW: number, PH: number, name: string): Promise<void> {
+  const cv = createCanvas(PW, PH), g = cv.getContext('2d'), img = g.createImageData(PW, PH); img.data.set(data); g.putImageData(img, 0, 0);
+  await mkdir(OUT, { recursive: true }); await writeFile(join(OUT, name), cv.toBuffer('image/png')); console.log(join(OUT, name));
+}
+/** scene-N.png, 1080 × 1350: the card's line on top, the clip's telling frame under it. */
+const STILL_AT = [1.9, 1.2, 2.45, 2.45];
+async function sceneStill(i: number): Promise<void> {
+  const seq = CFG.sequences[i] as Sequence, PW = 1080, PH = 1350, top = 400;
+  const card = cardFrame(seq.card, 3, PW, top);
+  const n = Math.round((STILL_AT[i] ?? 2) * FPS) + 1, clip = clipFrames(seq.clip, PW, PH - top, n).at(-1) as Uint8ClampedArray;
+  const out = new Uint8ClampedArray(PW * PH * 4); out.set(card, 0); out.set(clip, PW * top * 4);
+  await pngRaw(out, PW, PH, `scene-${i + 1}.png`);
+}
+/** holders.png, 1080 × 1080: the wall, three hearts, the dialogue box. */
+async function holders(): Promise<void> {
+  const f = new Frame(360, 360, 'ink');
+  longWall(f, 0, 300, 5, CFG.plaques.start + 72);
+  tree(f, 40, 230, 15); tree(f, 320, 230, 15);
+  for (let k = 0; k < 3; k++) {                                     // three hearts, three times the HUD's size
+    const x0 = 180 - Math.floor((3 * 33 + 2 * 10) / 2) + k * 43, y0 = 160;
+    HEART.forEach((row, j) => { for (let i = 0; i < row.length; i++) { const c = ({ '#': 'ink', b: 'blue', w: 'blueLight' } as Record<string, Colour>)[row[i] as string]; if (c) f.rect(x0 + i * 3, y0 + j * 3, 3, 3, c); } });
+  }
+  const lines = CFG.holders, bh = 24 + lines.length * 18, x = 6, y = f.h - bh - 6, w = f.w - 12;
+  f.rect(x, y, w, bh, 'ink'); f.frameRect(x, y, w, bh, 2, 'chalk');
+  lines.forEach((line, i) => f.text(line, x + 12, y + 14 + i * 18, 'big', i === 0 ? 'blue' : 'chalk'));
+  await png(f, 3, 'holders.png');
+}
+async function kit(): Promise<void> {
+  const title = new Frame(480, 270, 'ink'); titleScreen(title, 3.4); await png(title, 4, 'title-16x9.png');
+  const sq = new Frame(360, 360, 'ink'); titleScreen(sq, 3.4); await png(sq, 3, 'title-1x1.png');
+  for (let i = 0; i < CFG.sequences.length; i++) await sceneStill(i);
+  const end = new Frame(480, 270, 'ink'); endCard(end, 1); await png(end, 4, 'end-card-16x9.png');
+  await holders();
+}
+
 const command = argv[0] ?? 'stills';
 if (command === 'stills') {
   for (const seq of CFG.sequences) { const len = seq.line.length, cps = cpsFor(seq.line, SCENE_DUR); console.log(`${seq.scene}: ${len} chars at ${cps.toFixed(1)} cps, written by ${(CFG.typing.start + len / cps).toFixed(2)} s`); }
@@ -673,7 +703,9 @@ if (command === 'stills') {
   }
   const end = new Frame(480, 270, 'ink'); endCard(end, 1); await png(end, 4, 'board-5-end.png');
 } else if (command === 'video') {
-  await renderVideo('teaser-16x9.mp4', 480, 270, 4);
+  for (const f of (arg('formats', '16x9') as string).split(',')) await renderVideo(f as Format);
+} else if (command === 'kit') {
+  await kit();
 } else if (command === 'gif') {
   await renderGif('title-assembly.gif');
 }
