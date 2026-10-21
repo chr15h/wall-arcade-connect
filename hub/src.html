@@ -57,6 +57,13 @@ section{padding:clamp(32px,5vw,72px) var(--padx);border-top:1px solid var(--ink)
 .featured .game .line{font-size:clamp(16px,1.6vw,20px)}
 .featured .shot{max-height:min(52svh,560px)}
 
+/* the week's jackpot */
+.jackpot{background:var(--ink);color:var(--chalk);border-top:0}
+.jackpot h2{font-size:clamp(36px,5vw,72px)}
+.jackpot .amount{margin:clamp(10px,1.6vw,20px) 0 clamp(14px,2vw,24px);font-size:clamp(84px,17vw,240px);line-height:.85;color:var(--blue)}
+.jackpot .line{max-width:60ch;color:var(--chalk)}
+.jackpot .line + .line{margin-top:8px;opacity:.75}
+
 /* 2. the games */
 .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(14px,2vw,28px)}
 .yours{display:flex;flex-direction:column;justify-content:center;gap:14px;min-height:260px;padding:clamp(18px,2.4vw,32px);border:1px dashed var(--ink)}
@@ -126,7 +133,7 @@ dialog::backdrop{background:rgba(11,11,11,.6)}
     <dt>Scores</dt>
     <dd>The platform replays your inputs on its server and records the score. The browser never sends a score.</dd>
     <dt>Weekly prizes</dt>
-    <dd>One leaderboard per game for the week: Friday 15:00 to Friday 15:00, Lisbon time. The first week runs from Thursday Oct 22, 00:00 to Friday Oct 30, 15:00. Prizes are handled by the organizer.</dd>
+    <dd>One leaderboard per game for the week: Friday 15:00 to Friday 15:00, Lisbon time. The first week runs from Thursday Oct 22, 00:00 to Friday Oct 30, 15:00. Every paid play splits three ways: half to the week's jackpot, for the best score on each game; 40% to the artist who made the game; 10% to the wall.</dd>
     <dt>Paid but no credits?</dt>
     <dd>Open the game's wallet menu, then "purchase help".</dd>
   </dl>
@@ -144,6 +151,16 @@ dialog::backdrop{background:rgba(11,11,11,.6)}
     <p class="line lead">Games built on the names of a real wall in Lisbon. New games every week.</p>
   </div>
   <div class="wrap" style="width:100%" id="featured"></div>
+</section>
+
+<!-- the week's jackpot: the live /pot of the wall's backend (read-only, public) -->
+<section class="jackpot">
+  <div class="wrap">
+    <h2 class="anton">Every week, a jackpot.</h2>
+    <p class="amount anton" id="potAmount" aria-live="polite">— ETH</p>
+    <p class="line">Every paid play splits three ways: half to the week's jackpot, for the best score on each game; 40% to the artist who made the game; 10% to the wall.</p>
+    <p class="line">Winners announced live on People of the Wall every Friday.</p>
+  </div>
 </section>
 
 <!-- 2. the games -->
@@ -285,6 +302,17 @@ try {
       .map(function (x) { return { minted: Boolean(x.minted), name: x.name || '' }; });
     paintWall();
     document.getElementById('liveTag').textContent = ' · live';
+  }).catch(function () {});
+} catch (e) {}
+
+/* ---- the week's jackpot, live (public, read-only); left as "— ETH" if it cannot be read ---- */
+try {
+  fetch(API + '/pot', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (d) {
+    if (!d || typeof d.potEth !== 'string' || !/^\d+(\.\d+)?$/.test(d.potEth)) return;
+    var el = document.getElementById('potAmount'), text = d.potEth + ' ETH';
+    el.textContent = text;
+    el.style.fontSize = '';                                   // as big as the width allows (Anton: about half an em a character)
+    el.style.fontSize = Math.min(parseFloat(getComputedStyle(el).fontSize), el.parentElement.clientWidth / (text.length * 0.5)) + 'px';
   }).catch(function () {});
 } catch (e) {}
 

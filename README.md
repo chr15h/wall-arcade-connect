@@ -131,6 +131,12 @@ active group gates unpaid starts at once. Then add it to the hub's `GAMES` list 
 soon as it has an active scoring event. (CLI 0.1.0 applies `add-game` but may report "Unexpected response shape"
 because the API no longer returns `creditCost`: check the group afterwards before retrying.)
 
+## The split
+
+Every paid play splits three ways: half to the week's jackpot, for the best score on each game; 40% to the artist who made the game; 10% to the wall. It is stated once in each place a player or an artist reads it: the games' (i), the hub
+(jackpot block and (i)), the builders page and the kit. It replaces the original 50/35/15 split. The hub's jackpot
+amount is the live `GET https://otw-arcade.netlify.app/pot` (read-only).
+
 ## Required credit line
 
 Every game built from this project or the kit shows, visibly in the game, linked to the wall:
