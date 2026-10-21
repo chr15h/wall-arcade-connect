@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>THE WALL ARCADE — make a game on the wall</title>
-<meta name="description" content="Make a game on a real wall in Lisbon: 550 names, an arcade with real players. You keep what your game earns.">
+<meta name="description" content="Make a game on a real wall in Lisbon: 500 names, an arcade with real players. You keep what your game earns.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Mono:wght@500&family=Inter:wght@300;400&display=swap" rel="stylesheet">
@@ -82,7 +82,7 @@ footer a{color:var(--label)}
   <div>
     <p class="lbl">The Wall Arcade · For artists</p>
     <h1 class="anton">Make a game on the wall.</h1>
-    <p class="line">A real wall in Lisbon, 550 names, an arcade with real players. Your game, your name on it.</p>
+    <p class="line">A real wall in Lisbon, 500 names, an arcade with real players. Your game, your name on it.</p>
     <div class="actions">
       <button class="btn blue copy" type="button">Copy the kit</button>
       <a class="small" href="./">see the games →</a>
@@ -90,7 +90,7 @@ footer a{color:var(--label)}
   </div>
   <div class="wallbox">
     <div id="wallgrid" aria-hidden="true"></div>
-    <div class="wallmeta lbl"><b id="mintedCount">0</b> / 550 names painted</div>
+    <div class="wallmeta lbl"><b id="mintedCount">0</b> / 500 names painted</div>
   </div>
 </section>
 
@@ -159,7 +159,7 @@ var grid = SNAPSHOT.map(function (v) { return { minted: Boolean(v), name: typeof
 function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 function paintWall() {
   var html = '', minted = 0;
-  grid.slice(0, 550).forEach(function (c) { if (c.minted) minted++; html += '<div class="' + (c.minted ? 'm' : '') + '" title="' + esc(c.minted ? (c.name || 'minted') : 'waiting') + '"></div>'; });
+  grid.slice(0, 550).forEach(function (c, i) { if (c.minted && i < 500) minted++; html += '<div class="' + (c.minted ? 'm' : '') + '" title="' + esc(c.minted ? (c.name || 'minted') : 'waiting') + '"></div>'; });
   document.getElementById('wallgrid').innerHTML = html;
   document.getElementById('mintedCount').textContent = minted;
 }

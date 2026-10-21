@@ -196,7 +196,7 @@ dialog::backdrop{background:rgba(11,11,11,.6)}
     <div class="wallrow">
       <div class="wallbox">
         <div id="wallgrid" aria-hidden="true"></div>
-        <div class="wallmeta lbl"><b id="mintedCount">0</b> / 550 painted<span id="liveTag"></span></div>
+        <div class="wallmeta lbl"><b id="mintedCount">0</b> / 500 names painted<span id="liveTag"></span></div>
       </div>
       <a href="https://onthewall.nfcsummit.com" target="_blank" rel="noopener">onthewall.nfcsummit.com →</a>
     </div>
@@ -222,7 +222,7 @@ var grid = SNAPSHOT.map(function (v) { return { minted: Boolean(v), name: typeof
 function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 function paintWall() {
   var html = '', minted = 0;
-  grid.slice(0, 550).forEach(function (c) { if (c.minted) minted++; html += '<div class="' + (c.minted ? 'm' : '') + '" title="' + esc(c.minted ? (c.name || 'minted') : 'waiting') + '"></div>'; });
+  grid.slice(0, 550).forEach(function (c, i) { if (c.minted && i < 500) minted++; html += '<div class="' + (c.minted ? 'm' : '') + '" title="' + esc(c.minted ? (c.name || 'minted') : 'waiting') + '"></div>'; });
   document.getElementById('wallgrid').innerHTML = html;
   document.getElementById('mintedCount').textContent = minted;
 }

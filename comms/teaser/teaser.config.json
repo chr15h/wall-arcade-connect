@@ -19,8 +19,8 @@
   "sequences": [
     {
       "scene": "wall",
-      "line": "A real wall in Lisbon. 550 names, painted by hand.",
-      "card": "A real wall in Lisbon. *550 names*, painted by hand.",
+      "line": "A real wall in Lisbon. 500 names.",
+      "card": "A real wall in Lisbon. *500 names*.",
       "clip": "comms/teaser/clips/unbreakable.mp4"
     },
     {
@@ -39,8 +39,13 @@
     {
       "scene": "yourgame",
       "line": "You're an artist? Make your own game.",
-      "card": "You're an artist? *Make your own game*.",
-      "clip": "comms/teaser/clips/hub.mp4"
+      "card": [
+        "Artists: make *your own game*.",
+        "Get it played.",
+        "*Earn ETH*."
+      ],
+      "cardDuration": 5,
+      "lineGap": 0.8
     }
   ],
   "end": {

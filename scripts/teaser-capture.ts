@@ -4,21 +4,19 @@
 //   unbreakable   an aim, then the volley bouncing and breaking bricks of names         (the game stage)
 //   full-row      a piece dragged and placed, the row completes, ROW PAINTED            (the game stage)
 //   jackpot       FULL ROW's entry screen with this week's board, the band JACKPOT OF THE WEEK after 0.5 s (3 s)
-//   hub           the player page scrolling slowly through the games to "Artists: make your own game →"
 //
 // The game stages run on the test bench (src/dev/preview.ts: the shipped stage against an in-browser stand-in for the
 // coordinator) in Chromium on a virtual clock; the moves are planned with the very engines the verifier runs. The
 // entry screen runs with the fake Connect SDK of the dev flow (scripts/dev-flow.ts): its scores and ENS names are the
 // bench's, never anyone's.
 //
-//   node --import tsx scripts/teaser-capture.ts [unbreakable,full-row,jackpot,hub] [--out comms/teaser/clips]
+//   node --import tsx scripts/teaser-capture.ts [unbreakable,full-row,jackpot] [--out comms/teaser/clips]
 import { execFileSync } from 'node:child_process';
 import { createServer } from 'node:http';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { extname, join } from 'node:path';
 import { chromium, type Page } from 'playwright-core';
 import { createCanvas, GlobalFonts, loadImage } from '@napi-rs/canvas';
-import wall from '../src/generated/wall.json' with { type: 'json' };
 import { ELIG } from '../src/generated/wall.js';
 import { scoringConfiguration } from '../src/shell/config.js';
 import { createEngine as createUb, FLOOR, GT, CELL, MAX_ANGLE, MIN_ANGLE, R, type UbState } from '../src/games/unbreakable/engine.js';
@@ -27,7 +25,7 @@ import { createEngine as createFr, N, PIECES, evaluatePlacement, fits, type FrSt
 const argv = process.argv.slice(2);
 const arg = (name: string, fallback: string): string => { const i = argv.indexOf(`--${name}`); return i >= 0 ? argv[i + 1] ?? fallback : fallback; };
 const OUT = arg('out', 'comms/teaser/clips');
-const WHICH = (argv[0] && !argv[0].startsWith('--') ? argv[0] : 'unbreakable,full-row,jackpot,hub').split(',');
+const WHICH = (argv[0] && !argv[0].startsWith('--') ? argv[0] : 'unbreakable,full-row,jackpot').split(',');
 const CHROME = process.env.CHROME_PATH ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const LAUNCH_DAY = new Date('2026-10-22T14:00:00Z');       // FULL ROW's names move with the ISO week: the launch week's
 const FPS = 60, CLIP_FRAMES = 150;                          // a clip: 2.5 s at 60 fps
@@ -238,35 +236,9 @@ async function captureJackpot(): Promise<void> {
   }
   encode(dir, 'jackpot'); await rm(dir, { recursive: true, force: true });
 }
-/** The player page on a phone: a slow, even scroll from the games down to the artists' link. */
-async function captureHub(): Promise<void> {
-  const rows = Array.from({ length: 550 }, (_, i) => wall.positions.find((p) => p.p === i + 1)?.n ?? 0);
-  const html = (await readFile('hub/src.html', 'utf8')).replace(/\/\*SNAPSHOT:START\*\/.*?\/\*SNAPSHOT:END\*\//s, () => `/*SNAPSHOT:START*/${JSON.stringify(rows)}/*SNAPSHOT:END*/`);
-  await mkdir('dist/teaser-hub', { recursive: true });
-  await writeFile('dist/teaser-hub/index.html', html);
-  for (const f of ['builders.html', 'dragon.jpg']) await writeFile(join('dist/teaser-hub', f), await readFile(join('hub', f)));
-  const hub = await serve('dist/teaser-hub'), page = await openPhone(`${hub}/`);
-  const [from, to] = await page.evaluate(() => {
-    const games = document.querySelector('section.games') as HTMLElement, link = document.querySelector('.artists a') as HTMLElement;
-    const gamesTop = games.getBoundingClientRect().top + window.scrollY, linkTop = link.getBoundingClientRect().top + window.scrollY;   // no inner function: tsx would name it
-    return [Math.max(0, gamesTop - 16), Math.max(0, linkTop + link.offsetHeight / 2 - window.innerHeight * 0.62)];
-  });
-  console.log(`hub: scroll ${Math.round(from)} → ${Math.round(to)} css px`);
-  const dir = join(OUT, '.hub');
-  await rm(dir, { recursive: true, force: true }); await mkdir(dir, { recursive: true });
-  for (let f = 0; f < CLIP_FRAMES; f++) {
-    const u = Math.min(1, f / (CLIP_FRAMES - 30));                // the last half second rests on the link
-    await page.evaluate((y) => window.scrollTo(0, y), from + (to - from) * u);
-    await page.screenshot({ path: shot(dir, f) });
-  }
-  await page.close();
-  encode(dir, 'hub'); await rm(dir, { recursive: true, force: true });
-}
-
 await mkdir(OUT, { recursive: true });
 try {
   if (WHICH.includes('unbreakable')) await captureUnbreakable();
   if (WHICH.includes('full-row')) await captureFullRow();
   if (WHICH.includes('jackpot')) await captureJackpot();
-  if (WHICH.includes('hub')) await captureHub();
 } finally { await browser.close(); for (const s of servers) s.close(); }

@@ -33,7 +33,8 @@ const RGB = NAMES.map((n) => {
   const hex = paletteJson[n]; if (!hex || !/^#[0-9a-fA-F]{6}$/.test(hex)) throw new Error(`palette: ${n} missing`);
   return [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)] as const;
 });
-type Sequence = { scene: 'wall' | 'row' | 'chest' | 'yourgame'; line: string; card: string; clip: string; clipDuration?: number };
+/** A card is one text (cut in two lines by the script) or its lines as given; a sequence without a clip is its card alone. */
+type Sequence = { scene: 'wall' | 'row' | 'chest' | 'yourgame'; line: string; card: string | string[]; cardDuration?: number; lineGap?: number; clip?: string; clipDuration?: number };
 type Config = {
   title: [string, string]; hudNames: number | null; plaques: { start: number; skip?: string[] }; row: { start: number };
   sequences: Sequence[]; end: { line: string; url: string; credit: string }; yourGame: string;
@@ -477,10 +478,13 @@ async function png(f: Frame, scale: number, name: string): Promise<void> {
 /* ---------------------------------- timeline ---------------------------------- */
 // the opening (the two logos, "present") · the title (4 s) · for each sequence its card (3.5 s), then its clip (2.5 s,
 // or its own clipDuration) · the end card (3 s). Hard cuts only.
-const FPS = 30, OPEN_DUR = CFG.opening.duration, TITLE_DUR = 4, END_DUR = 3, CARD_DUR = CFG.card.duration;
-const clipDur = (i: number): number => (CFG.sequences[i] as Sequence).clipDuration ?? CFG.clip;
-const SEQ_STARTS = CFG.sequences.map((_, i) => OPEN_DUR + TITLE_DUR + CFG.sequences.slice(0, i).reduce((a, __, j) => a + CARD_DUR + clipDur(j), 0));
-const SEQS_END = OPEN_DUR + TITLE_DUR + CFG.sequences.reduce((a, _, j) => a + CARD_DUR + clipDur(j), 0);
+const FPS = 30, OPEN_DUR = CFG.opening.duration, TITLE_DUR = 4, END_DUR = 3;
+const seqAt = (i: number): Sequence => CFG.sequences[i] as Sequence;
+const cardDur = (i: number): number => seqAt(i).cardDuration ?? CFG.card.duration;
+const lineGapOf = (i: number): number => seqAt(i).lineGap ?? CFG.card.lineGap;
+const clipDur = (i: number): number => (seqAt(i).clip ? seqAt(i).clipDuration ?? CFG.clip : 0);
+const SEQ_STARTS = CFG.sequences.map((_, i) => OPEN_DUR + TITLE_DUR + CFG.sequences.slice(0, i).reduce((a, __, j) => a + cardDur(j) + clipDur(j), 0));
+const SEQS_END = OPEN_DUR + TITLE_DUR + CFG.sequences.reduce((a, _, j) => a + cardDur(j) + clipDur(j), 0);
 const TOTAL = SEQS_END + END_DUR;
 type Shot = { kind: 'open' | 'title' | 'end'; t: number } | { kind: 'card' | 'clip'; t: number; i: number };
 function shotAt(time: number): Shot {
@@ -489,7 +493,7 @@ function shotAt(time: number): Shot {
   if (time >= SEQS_END) return { kind: 'end', t: time - SEQS_END };
   let i = SEQ_STARTS.length - 1; while (i > 0 && (SEQ_STARTS[i] as number) > time) i--;
   const v = time - (SEQ_STARTS[i] as number);
-  return v < CARD_DUR ? { kind: 'card', t: v, i } : { kind: 'clip', t: v - CARD_DUR, i };
+  return v < cardDur(i) ? { kind: 'card', t: v, i } : { kind: 'clip', t: v - cardDur(i), i };
 }
 const seqStart = (i: number): number => SEQ_STARTS[i] as number;
 
@@ -498,11 +502,12 @@ const seqStart = (i: number): number => SEQ_STARTS[i] as number;
 // centred, two lines at most, the *starred* words in blue. Each line appears with a one-frame blink (the line in
 // reverse), the first at once, the second `lineGap` later; the whole line stays at least 3 s.
 type CardLine = { text: string; blue: boolean[] };
-function cardLines(src: string, maxChars = Infinity): CardLine[] {
+function cardLines(src: string | string[], maxChars = Infinity): CardLine[] {
+  if (Array.isArray(src)) return src.flatMap((line) => cardLines(line, Infinity));
   const plain = src.replace(/\*/g, ''), blue: boolean[] = [];
   let on = false; for (const ch of src) { if (ch === '*') { on = !on; continue; } blue.push(on); }
   // two lines cut between words, never inside a blue span; the most even cut, or a cut after a sentence when it is
-  // nearly as even (a fifth longer at most); one line when it is short enough for the frame
+  // nearly as even (a quarter longer at most); one line when it is short enough for the frame
   if (plain.length <= maxChars) return [{ text: plain, blue }];
   const words = plain.split(' '), cuts: { lines: string[]; w: number; sentence: boolean }[] = [];
   let at = 0;
@@ -513,13 +518,13 @@ function cardLines(src: string, maxChars = Infinity): CardLine[] {
     cuts.push({ lines, w: Math.max(...lines.map((l) => l.length)), sentence: /[.?!]$/.test(lines[0] as string) });
   }
   const even = cuts.reduce((m, c) => Math.min(m, c.w), Infinity);
-  const best = cuts.filter((c) => c.sentence && c.w <= even * 1.2).sort((p, q) => p.w - q.w)[0] ?? cuts.sort((p, q) => p.w - q.w)[0] ?? { lines: [plain] };
+  const best = cuts.filter((c) => c.sentence && c.w <= even * 1.25).sort((p, q) => p.w - q.w)[0] ?? cuts.sort((p, q) => p.w - q.w)[0] ?? { lines: [plain] };
   let from = 0;
   return best.lines.map((text) => { const line = { text, blue: blue.slice(from, from + text.length) }; from += text.length + 1; return line; });
 }
 const rgbOf = (c: Colour): readonly number[] => RGB[C[c]] as readonly number[];
 /** The card at time t, drawn into a PW × PH ink buffer. */
-function cardFrame(src: string, t: number, PW: number, PH: number): Uint8ClampedArray {
+function cardFrame(src: string | string[], t: number, PW: number, PH: number, lineGap = CFG.card.lineGap): Uint8ClampedArray {
   const out = new Uint8ClampedArray(PW * PH * 4), ink = rgbOf('ink');
   for (let o = 0; o < out.length; o += 4) { out[o] = ink[0] as number; out[o + 1] = ink[1] as number; out[o + 2] = ink[2] as number; out[o + 3] = 255; }
   const lines = cardLines(src, 0), margin = Math.round(Math.min(PW, PH) * 0.06);
@@ -531,7 +536,7 @@ function cardFrame(src: string, t: number, PW: number, PH: number): Uint8Clamped
     for (let yy = Math.max(0, y); yy < Math.min(PH, y + h); yy++) for (let xx = Math.max(0, x); xx < Math.min(PW, x + w); xx++) { const o = (yy * PW + xx) * 4; out[o] = rgb[0] as number; out[o + 1] = rgb[1] as number; out[o + 2] = rgb[2] as number; }
   };
   lines.forEach((line, li) => {
-    const shownAt = Math.round(li * CFG.card.lineGap * FPS); if (frame < shownAt) return;
+    const shownAt = Math.round(li * lineGap * FPS); if (frame < shownAt) return;
     const blink = frame === shownAt, m = mask(line.text, 'big'), x0 = Math.floor((PW - line.text.length * 8 * p) / 2), y = y0 + li * (lineH + gap);
     if (blink) paint(x0 - p, y - p, line.text.length * 8 * p + 2 * p, lineH + p, rgbOf('chalk'));
     for (let yy = 0; yy < Math.min(m.h, 9); yy++) for (let xx = 0; xx < m.w; xx++) {
@@ -597,7 +602,7 @@ function synth(): Float32Array {
     BASS.forEach((root, bar) => { for (let e = 0; e < 8; e++) { const t = start + (bar * 4 + e * 0.5) * BEAT; if (t < musicEnd) tone('triangle', hz(root + (e % 2 ? 12 : 0)), t, Math.min(BEAT * 0.45, musicEnd - t), 0.13 * gainAt(t)); } });
   }
   // a soft blip per line of each card
-  CFG.sequences.forEach((seq, i) => cardLines(seq.card, 0).forEach((_, li) => tone('square', hz(93 + li * 2), seqStart(i) + li * CFG.card.lineGap, 0.05, 0.025)));
+  CFG.sequences.forEach((seq, i) => cardLines(seq.card, 0).forEach((_, li) => tone('square', hz(93 + li * 2), seqStart(i) + li * lineGapOf(i), 0.05, 0.025)));
   // the last chord, under the end card's title: A minor
   for (const m of [45, 57, 60, 64, 69]) tone(m === 45 ? 'triangle' : 'square', hz(m), musicEnd, END_DUR - 0.05, m === 45 ? 0.13 : 0.035, 1.2);
   let peak = 0; for (const v of out) peak = Math.max(peak, Math.abs(v));
@@ -625,11 +630,12 @@ async function loadLogos(): Promise<Logos> {
   const [a, b] = CFG.opening.logos;
   return { nfc: await loadImage(await readFile(new URL(a, root))), sr: await loadImage(await readFile(new URL(b, root))) };
 }
-/** Sizes for an NFC block `h` high: the wordmark at 20 % of it, the ×, the gaps, "present" under them. */
+/** Sizes for the NFC SUMMIT wordmark `h` high: SUPERRARE STUDIO at 78 % of that (the same visual cap height), the ×,
+ *  the gaps, "present" under them. */
 function logoLayout(logos: Logos, h: number): { nfcW: number; srH: number; srW: number; gap: number; p: number; pp: number; w: number; rowH: number; total: number } {
-  const nfcW = h * logos.nfc.width / logos.nfc.height, srH = h * 0.2, srW = srH * logos.sr.width / logos.sr.height, gap = h * 0.2;
-  const p = Math.max(2, Math.round(h * 0.15 / 7)), pp = Math.max(2, Math.round(h * 0.11 / 7));
-  const w = nfcW + gap + 7 * p + gap + srW, rowH = h, total = h + gap * 0.7 + 8 * pp;
+  const nfcW = h * logos.nfc.width / logos.nfc.height, srH = h * 0.78, srW = srH * logos.sr.width / logos.sr.height, gap = h * 0.45;
+  const p = Math.max(2, Math.round(h * 0.55 / 7)), pp = Math.max(2, Math.round(h * 0.42 / 7));
+  const w = nfcW + gap + 7 * p + gap + srW, rowH = h, total = h + gap * 1.1 + 8 * pp;
   return { nfcW, srH, srW, gap, p, pp, w, rowH, total };
 }
 /** Pixel-font text at `p` screen pixels per font pixel, chalk, centred on cx, its cap top at y. */
@@ -646,7 +652,7 @@ function drawLogos(g: ReturnType<ReturnType<typeof createCanvas>['getContext']>,
   g.drawImage(logos.nfc, Math.round(left), Math.round(top), Math.round(L.nfcW), Math.round(nfcH));
   pixelText(g, '×', left + L.nfcW + L.gap + 3.5 * L.p, mid - 3.5 * L.p, L.p);
   g.drawImage(logos.sr, Math.round(left + L.nfcW + L.gap + 7 * L.p + L.gap), Math.round(mid - L.srH / 2), Math.round(L.srW), Math.round(L.srH));
-  pixelText(g, CFG.opening.present, x + w / 2, top + nfcH + L.gap * 0.7, L.pp);
+  pixelText(g, CFG.opening.present, x + w / 2, top + nfcH + L.gap * 1.1, L.pp);
 }
 /** The opening card: ink and the logo block. */
 function openingFrame(PW: number, PH: number, logos: Logos): Uint8ClampedArray {
@@ -681,7 +687,7 @@ async function renderVideo(format: Format): Promise<void> {
   const { W, H, scale } = FORMATS[format], PW = W * scale, PH = H * scale, name = `teaser-${format}.mp4`;
   const tmp = await mkdtemp(join(tmpdir(), 'teaser-'));
   try {
-    const clips = CFG.sequences.map((seq, i) => clipFrames(seq.clip, PW, PH, Math.round(clipDur(i) * FPS)));
+    const clips = CFG.sequences.map((seq, i) => (seq.clip ? clipFrames(seq.clip, PW, PH, Math.round(clipDur(i) * FPS)) : []));
     const logos = await loadLogos();
     await writeFile(join(tmp, 'audio.wav'), wav(synth()));
     await mkdir(OUT, { recursive: true });
@@ -693,7 +699,7 @@ async function renderVideo(format: Format): Promise<void> {
     for (let k = 0; k < Math.round(TOTAL * FPS); k++) {
       const time = k / FPS, s = shotAt(time);
       let buf: Uint8ClampedArray;
-      if (s.kind === 'card') buf = cardFrame((CFG.sequences[s.i] as Sequence).card, s.t, PW, PH);
+      if (s.kind === 'card') buf = cardFrame(seqAt(s.i).card, s.t, PW, PH, lineGapOf(s.i));
       else if (s.kind === 'clip') { const frames = clips[s.i] as Uint8ClampedArray[]; buf = frames[Math.min(frames.length - 1, Math.round(s.t * FPS))] as Uint8ClampedArray; }
       else if (s.kind === 'open') buf = openingFrame(PW, PH, logos);
       else if (s.kind === 'end') buf = withEndLogos((pixelFrame(time, W, H) as Frame).rgba(scale), W, H, scale, logos);
@@ -726,7 +732,8 @@ async function pngRaw(data: Uint8ClampedArray, PW: number, PH: number, name: str
 /** scene-N.png, 1080 × 1350: the card's line on top, the clip's telling frame under it. */
 const STILL_AT = [1.9, 1.2, 2.45, 2.45];
 async function sceneStill(i: number): Promise<void> {
-  const seq = CFG.sequences[i] as Sequence, PW = 1080, PH = 1350, top = 400;
+  const seq = seqAt(i), PW = 1080, PH = 1350, top = 400;
+  if (!seq.clip) { await pngRaw(cardFrame(seq.card, 4, PW, PH, lineGapOf(i)), PW, PH, `scene-${i + 1}.png`); return; }   // a card alone
   const card = cardFrame(seq.card, 3, PW, top);
   const n = Math.round((STILL_AT[i] ?? 2) * FPS) + 1, clip = clipFrames(seq.clip, PW, PH - top, n).at(-1) as Uint8ClampedArray;
   const out = new Uint8ClampedArray(PW * PH * 4); out.set(card, 0); out.set(clip, PW * top * 4);
