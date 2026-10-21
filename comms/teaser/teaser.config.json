@@ -1,5 +1,5 @@
 {
-  "_": "THE WALL ARCADE teaser (scripts/teaser.ts). Every text, the gameplay order and sources, the names on the plaques.",
+  "_": "THE WALL ARCADE teaser (scripts/teaser.ts). Texts (*stars* mark the words in blue), the flashes after each card (an .mp4 or a .png, without extension: whichever exists), the names on the plaques. 'line' is the scene's dialogue, used by the stills.",
   "title": [
     "THE WALL",
     "ARCADE"
@@ -20,42 +20,42 @@
     {
       "scene": "wall",
       "line": "A real wall in Lisbon. 550 names, painted by hand.",
-      "gameplay": {
-        "label": "UNBREAKABLE · #01",
-        "source": "comms/teaser/clips/unbreakable.mp4"
-      }
+      "card": "A real wall in Lisbon. *550 names*, painted by hand.",
+      "flashes": [
+        "comms/teaser/flashes/unbreakable-aim",
+        "comms/teaser/flashes/unbreakable-fire",
+        "comms/teaser/flashes/unbreakable-break"
+      ]
     },
     {
       "scene": "row",
       "line": "We turned it into an arcade.",
-      "gameplay": {
-        "label": "FULL ROW · #02",
-        "source": "comms/teaser/clips/full-row.mp4"
-      }
+      "card": "We turned it into an *arcade*.",
+      "flashes": [
+        "comms/teaser/flashes/full-row-slide",
+        "comms/teaser/flashes/full-row-place",
+        "comms/teaser/flashes/full-row-painted"
+      ]
     },
     {
       "scene": "chest",
       "line": "You're a player? Play the artists' games. Best score of the week wins the pot.",
-      "gameplay": {
-        "label": "STAR RUNNER · BY SUPERRARE",
-        "source": "comms/teaser/clips/star-runner.mp4",
-        "fallback": {
-          "label": "FULL ROW · #02",
-          "source": "comms/teaser/clips/full-row-end.mp4"
-        }
-      }
+      "card": "You're a player? Play the artists' games. Best score of the week *wins the pot*.",
+      "flashes": [
+        "comms/teaser/flashes/board",
+        "comms/teaser/flashes/card",
+        "comms/teaser/flashes/buy"
+      ]
     },
     {
       "scene": "yourgame",
       "line": "You're an artist? Make your own game.",
-      "gameplay": {
-        "label": "SKY HOPPER · BY SUPERRARE",
-        "source": "comms/teaser/clips/sky-hopper.mp4",
-        "fallback": {
-          "label": "UNBREAKABLE · #01",
-          "source": "comms/teaser/clips/unbreakable-end.mp4"
-        }
-      }
+      "card": "You're an artist? *Make your own game*.",
+      "flashes": [
+        "comms/teaser/flashes/hub-games",
+        "comms/teaser/flashes/hub-artists",
+        "comms/teaser/flashes/hub-kit"
+      ]
     }
   ],
   "end": {
@@ -68,5 +68,10 @@
     "cps": 25,
     "readable": 1.5,
     "start": 0.15
-  }
+  },
+  "card": {
+    "duration": 3.5,
+    "lineGap": 0.4
+  },
+  "flash": 0.5
 }
