@@ -22,7 +22,11 @@
       "line": "A real wall in Lisbon. 500 names.",
       "card": "A real wall in Lisbon. *500 names*.",
       "photo": "comms/teaser/assets/wall-photo.jpg",
-      "clipDuration": 3
+      "clipDuration": 3,
+      "photoFocus": [
+        0.5,
+        0.45
+      ]
     },
     {
       "scene": "row",
@@ -46,11 +50,16 @@
       ],
       "cardDuration": 5,
       "lineGap": 0.8
+    },
+    {
+      "scene": "yourgame",
+      "line": "Join us on the wall.",
+      "card": "Join us *on the wall*.",
+      "cardDuration": 3
     }
   ],
   "end": {
     "line": "Play the people of the wall.",
-    "url": "https://6972mvu4.srstudio.dev/",
     "credit": "Built with SuperRare Studio · NFC Summit 2027 · Lisbon",
     "duration": 4
   },

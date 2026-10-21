@@ -34,10 +34,10 @@ const RGB = NAMES.map((n) => {
   return [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)] as const;
 });
 /** A card is one text (cut in two lines by the script) or its lines as given; a sequence without a clip is its card alone. */
-type Sequence = { scene: 'wall' | 'row' | 'chest' | 'yourgame'; line: string; card: string | string[]; cardDuration?: number; lineGap?: number; clip?: string; photo?: string; clipDuration?: number };
+type Sequence = { scene: 'wall' | 'row' | 'chest' | 'yourgame'; line: string; card: string | string[]; cardDuration?: number; lineGap?: number; clip?: string; photo?: string; photoFocus?: [number, number]; clipDuration?: number };
 type Config = {
   title: [string, string]; hudNames: number | null; plaques: { start: number; skip?: string[] }; row: { start: number };
-  sequences: Sequence[]; end: { line: string; url: string; credit: string; duration?: number }; yourGame: string;
+  sequences: Sequence[]; end: { line: string; url?: string; credit: string; duration?: number }; yourGame: string;
   typing: { cps: number; readable: number; start: number }; card: { duration: number; lineGap: number }; clip: number; holders: string[];
   opening: { duration: number; logos: [string, string]; present: string }; jackpot: string;
 };
@@ -451,9 +451,11 @@ function sparkles(f: Frame, box: [number, number, number, number], t: number): v
     if (big) f.sprite(SPARK, x, y, SPARK_MAP); else f.sprite(SPARK_SMALL, x + 2, y + 2, SPARK_MAP);
   }
 }
-/** The end card's block: title (122) · line · link · the logos (END_LOGOS) · credit; centred. */
-const END_TOP = (H: number): number => Math.max(4, Math.round((H - 226) / 2) - 6);
-const END_LOGOS = { top: 170, height: 38 };
+/** The end card's block: title (122) · line · the link, when there is one · the logos (END_LOGOS) · credit; centred. */
+const END_URL = Boolean(CFG.end.url);
+const END_LOGOS = { top: END_URL ? 170 : 150, height: 38 };
+const END_BLOCK = END_LOGOS.top + END_LOGOS.height + 18;
+const END_TOP = (H: number): number => Math.max(4, Math.round((H - END_BLOCK) / 2) - 6);
 function endCard(f: Frame, t: number): void {
   sky(f, f.h, t + 4, 9); silhouette(f, f.h - 14);
   const y0 = END_TOP(f.h);                                      // the title, its line, the link, the logos, the credit
@@ -462,8 +464,8 @@ function endCard(f: Frame, t: number): void {
   sparkles(f, box, t);
   const E = CFG.end, cx = (s: string, font: Font): number => Math.floor((f.w - textWidth(s, font)) / 2);
   f.text(E.line, cx(E.line, 'big'), y0 + 136, 'big', 'chalk');
-  f.text(E.url, cx(E.url, 'big'), y0 + 156, 'big', 'chalk'); f.rect(cx(E.url, 'big'), y0 + 166, textWidth(E.url, 'big'), 1, 'midGrey');
-  f.text(E.credit, cx(E.credit, 'small'), y0 + 214, 'small', 'stone');
+  if (E.url) { f.text(E.url, cx(E.url, 'big'), y0 + 156, 'big', 'chalk'); f.rect(cx(E.url, 'big'), y0 + 166, textWidth(E.url, 'big'), 1, 'midGrey'); }
+  f.text(E.credit, cx(E.credit, 'small'), y0 + END_LOGOS.top + END_LOGOS.height + 6, 'small', 'stone');
 }
 
 /* -------------------------------------- run -------------------------------------- */
@@ -562,7 +564,7 @@ function clipFrames(src: string, PW: number, PH: number, n: number): Uint8Clampe
 }
 
 /* ------------------------------------- photos ------------------------------------- */
-// A photograph full frame, a slow push-in (8 % over its time, eased), nothing over it.
+// A photograph full frame, a slow push-in (8 % over its time, eased) towards its focus point, nothing over it.
 const ALLOW_MISSING_PHOTO = argv.includes('--allow-missing-photo');
 async function loadPhoto(src: string): Promise<Image | null> {
   const path = new URL(src, root);
@@ -571,7 +573,7 @@ async function loadPhoto(src: string): Promise<Image | null> {
   console.log(`photo: ${src} missing, a marked placeholder instead`);
   return null;
 }
-function photoFrame(img: Image | null, t: number, dur: number, PW: number, PH: number): Uint8ClampedArray {
+function photoFrame(img: Image | null, t: number, dur: number, PW: number, PH: number, focus: [number, number] = [0.5, 0.5]): Uint8ClampedArray {
   const cv = createCanvas(PW, PH), g = cv.getContext('2d');
   g.fillStyle = paletteJson.ink as string; g.fillRect(0, 0, PW, PH);
   if (!img) {                                                     // a preview without the photo: say so on the frame
@@ -582,7 +584,9 @@ function photoFrame(img: Image | null, t: number, dur: number, PW: number, PH: n
   const u = Math.max(0, Math.min(1, t / dur)), k = u * u * (3 - 2 * u), zoom = 1 + 0.08 * k;
   const cover = Math.max(PW / img.width, PH / img.height) * zoom, w = img.width * cover, h = img.height * cover;
   g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
-  g.drawImage(img, (PW - w) / 2, (PH - h) / 2, w, h);
+  // the focus point (a fraction of the photo) at the frame's centre, without uncovering an edge
+  const x = Math.min(0, Math.max(PW - w, PW / 2 - focus[0] * w)), y = Math.min(0, Math.max(PH - h, PH / 2 - focus[1] * h));
+  g.drawImage(img, x, y, w, h);
   return g.getImageData(0, 0, PW, PH).data;
 }
 
@@ -726,7 +730,7 @@ async function renderVideo(format: Format): Promise<void> {
       const time = k / FPS, s = shotAt(time);
       let buf: Uint8ClampedArray;
       if (s.kind === 'card') buf = cardFrame(seqAt(s.i).card, s.t, PW, PH, lineGapOf(s.i));
-      else if (s.kind === 'clip' && seqAt(s.i).photo) buf = photoFrame(photos[s.i] ?? null, s.t, clipDur(s.i), PW, PH);
+      else if (s.kind === 'clip' && seqAt(s.i).photo) buf = photoFrame(photos[s.i] ?? null, s.t, clipDur(s.i), PW, PH, seqAt(s.i).photoFocus);
       else if (s.kind === 'clip') { const frames = clips[s.i] as Uint8ClampedArray[]; buf = frames[Math.min(frames.length - 1, Math.round(s.t * FPS))] as Uint8ClampedArray; }
       else if (s.kind === 'open') buf = openingFrame(PW, PH, logos);
       else if (s.kind === 'end') buf = withEndLogos((pixelFrame(time, W, H) as Frame).rgba(scale), W, H, scale, logos);
@@ -757,12 +761,12 @@ async function pngRaw(data: Uint8ClampedArray, PW: number, PH: number, name: str
   await mkdir(OUT, { recursive: true }); await writeFile(join(OUT, name), cv.toBuffer('image/png')); console.log(join(OUT, name));
 }
 /** scene-N.png, 1080 × 1350: the card's line on top, the clip's telling frame under it. */
-const STILL_AT = [2.0, 1.9, 1.2, 0];                              // seconds into each sequence's clip or photo
+const STILL_AT = [2.0, 1.9, 1.2, 0, 0];                              // seconds into each sequence's clip or photo
 async function sceneStill(i: number): Promise<void> {
   const seq = seqAt(i), PW = 1080, PH = 1350, top = 400;
   if (!seq.clip && !seq.photo) { await pngRaw(cardFrame(seq.card, 4, PW, PH, lineGapOf(i)), PW, PH, `scene-${i + 1}.png`); return; }   // a card alone
   const card = cardFrame(seq.card, 3, PW, top), at = STILL_AT[i] ?? 2;
-  const clip = seq.photo ? photoFrame(await loadPhoto(seq.photo), at, clipDur(i), PW, PH - top)
+  const clip = seq.photo ? photoFrame(await loadPhoto(seq.photo), at, clipDur(i), PW, PH - top, seq.photoFocus)
     : clipFrames(seq.clip as string, PW, PH - top, Math.round(at * FPS) + 1).at(-1) as Uint8ClampedArray;
   const out = new Uint8ClampedArray(PW * PH * 4); out.set(card, 0); out.set(clip, PW * top * 4);
   await pngRaw(out, PW, PH, `scene-${i + 1}.png`);

@@ -158,9 +158,9 @@ NFC parts).
 
 ## The teaser
 
-`comms/teaser/` holds THE WALL ARCADE's launch teaser (34 s: the opening with the two logos, the title, four sequences of
-a card and a clip, the end card) in 16:9, 9:16 and 1:1, its stills and `holders.png`. `scripts/teaser-capture.ts` records the clips (the
+`comms/teaser/` holds THE WALL ARCADE's launch teaser (37 s: the opening with the two logos, the title, five sequences of
+a card and then a clip, the wall's photo or nothing, the end card) in 16:9, 9:16 and 1:1, its stills and `holders.png`. `scripts/teaser-capture.ts` records the clips (the
 game stages on the test bench, the entry screen with the fake Connect SDK, the player page), `scripts/teaser.ts`
-draws the pixel world (8 tones, `comms/teaser/palette.json`), the cards and the music (Korobeiniki, synthesized) and
-encodes the films; texts and sources are in `comms/teaser/teaser.config.json`.
+draws the pixel world (8 tones, `comms/teaser/palette.json`), the cards, the photo's push-in and the music (Korobeiniki,
+synthesized) and encodes the films; texts and sources are in `comms/teaser/teaser.config.json`.
 
