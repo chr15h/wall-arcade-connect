@@ -22,9 +22,11 @@ const REPO = 'https://github.com/hs7j4yk4sz-boop/wall-arcade-connect';
 const kitText = `${REPO}\n\n${kitBlock[1]}\n`;
 if (!buildersSource.includes("/*KIT*/''")) throw new Error("hub/builders.html must hold the /*KIT*/'' placeholder");
 // JSON is a JavaScript string literal; </ is escaped so the kit can never close the <script>
-// the player page's files: the dragon, the two games' screenshots, the teaser (square, 37 s) and its poster
+// the player page's files: the dragon, the two games' clips (scripts/capture-hub-clips.ts) and their screenshots as
+// posters, the teaser (square, 37 s) and its poster
 const ASSETS: Record<string, string> = {
   'dragon.png': '../hub/dragon.png', 'shots/full-row.jpg': '../hub/shots/full-row.jpg', 'shots/unbreakable.jpg': '../hub/shots/unbreakable.jpg',
+  'clips/unbreakable.mp4': '../hub/clips/unbreakable.mp4', 'clips/full-row.mp4': '../hub/clips/full-row.mp4',
   'teaser-1x1.mp4': '../comms/teaser/out/teaser-1x1.mp4', 'teaser-poster.png': '../comms/teaser/out/title-1x1.png',
 };
 const assets: Record<string, Uint8Array> = {};
