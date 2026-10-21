@@ -3,236 +3,72 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>THE WALL ARCADE — make your own cabinet</title>
-<meta name="description" content="Make a cabinet for THE WALL ARCADE: copy the Connect Kit, adapt SuperRare's template, test it, put it online.">
+<title>THE WALL ARCADE — make a game on the wall</title>
+<meta name="description" content="Make a game on a real wall in Lisbon: 550 names, an arcade with real players. You keep what your game earns.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@300&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@300;400&display=swap" rel="stylesheet">
 <style>
-/* NFC Summit brutalist design system: concrete/ink/chalk, Anton, one blue accent. See BRIEF-DESIGN-SYSTEM-nfcsummit.md. */
-:root{--concrete:#DEDBD3;--ink:#0B0B0B;--chalk:#F2F0EB;--label:#6B685F;--label-lt:#B0ACA2;--rule:#C4C0B6;--blue:#2E7FD6;
-  --anton:Anton,Impact,sans-serif;--mono:'IBM Plex Mono',ui-monospace,monospace;--inter:Inter,system-ui,sans-serif;--padx:5%}
+/* Builders page: six full-width blocks, each one big sentence in Anton, one or two lines of Inter, at most one blue button.
+   No columns, no numbered list, no secondary link, no mono label. NFC system: concrete / ink / chalk, one blue. */
+:root{--concrete:#DEDBD3;--ink:#0B0B0B;--chalk:#F2F0EB;--label:#6B685F;--blue:#2E7FD6;
+  --anton:Anton,Impact,'Arial Narrow',sans-serif;--inter:Inter,system-ui,sans-serif}
 *{box-sizing:border-box}
 html,body{margin:0;padding:0;background:var(--concrete);color:var(--ink)}
-body{font-family:var(--mono);-webkit-font-smoothing:antialiased;overflow-x:hidden}
-a{color:inherit}
-::selection{background:var(--blue);color:var(--chalk)}
-p,h1,h2,h3{margin:0}
-.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--label)}
-.anton{font-family:var(--anton);text-transform:uppercase;font-weight:400;line-height:.9;letter-spacing:-.01em}
-
-/* top bar: back to the arcade */
-header{position:sticky;top:0;z-index:20;background:var(--concrete);border-bottom:1px solid var(--ink);padding:0 var(--padx);height:48px;display:flex;align-items:center}
-header a{font-size:11px;letter-spacing:.2em;text-transform:uppercase;text-decoration:none;min-height:44px;display:inline-flex;align-items:center}
-header a:hover{color:var(--label)}
-
-/* sections */
-.sec{border-top:1px solid var(--ink);padding:clamp(40px,6vw,80px) var(--padx)}
-header+.sec{border-top:0}
-.wrap{max-width:1280px;margin:0 auto}
-.sec-head{display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap;margin-bottom:clamp(28px,3vw,44px)}
-.sec-head h1{font-size:clamp(40px,6vw,84px)}
-.sec-head .eyebrow{white-space:nowrap}
-
-/* how it works */
-.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,270px),1fr));border:1px solid var(--ink)}
-.step{padding:clamp(20px,2vw,28px);border-right:1px dashed var(--ink);border-bottom:1px dashed var(--ink);display:flex;flex-direction:column;gap:14px;min-height:340px}
-.step:last-child{border-right:0}
-.step .n{font-family:var(--mono);font-weight:500;font-size:clamp(46px,4.4vw,64px);color:var(--label-lt);line-height:.85}
-.step .st{font-size:clamp(24px,2.2vw,32px)}
-.step p{font-size:13px;line-height:1.55;color:var(--label)}
-.step p b{color:var(--ink);font-weight:500}
-.step p code{font-family:var(--mono);font-size:11.5px;color:var(--ink);overflow-wrap:anywhere}
-.step p.grow{flex:1}
-.bubble{margin-top:auto;background:var(--chalk);border:1px solid var(--ink);padding:14px 16px;font-size:13px;line-height:1.5;color:var(--ink);font-family:var(--inter);font-weight:300;font-style:italic}
-.tips{margin-top:auto;display:flex;flex-direction:column;gap:6px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--label)}
-.btn-ink{background:var(--ink);color:var(--chalk);border:1px solid var(--ink);font-family:var(--mono);font-weight:500;font-size:14px;letter-spacing:.12em;text-transform:uppercase;padding:12px 18px;line-height:1;cursor:pointer;text-align:left;text-decoration:none;display:inline-flex;align-items:center;justify-content:space-between;gap:10px;min-height:46px}
-.btn-ink:hover{background:var(--chalk);color:var(--ink)}
-.btn-ink.done{background:var(--blue);color:var(--ink)}
-#kitToggle{background:none;border:0;padding:0;text-align:left;font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--label);text-decoration:underline;text-underline-offset:4px;cursor:pointer}
-#kitToggle:hover{color:var(--ink)}
-#kitBox{display:none;border:1px solid var(--ink);border-top:0;background:var(--ink);color:var(--chalk)}
-#kitBox.open{display:block}
-.kithead{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--label);font-size:10px;letter-spacing:.16em;text-transform:uppercase}
-.kithead button{background:none;color:var(--chalk);border:0;font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;cursor:pointer;padding:6px}
-#kitText{margin:0;padding:16px;font-size:12px;line-height:1.6;overflow-x:auto;white-space:pre-wrap;font-family:var(--mono);max-height:360px;overflow-y:auto}
-.dev-intro{margin:calc(-1 * clamp(14px,1.6vw,24px)) 0 clamp(20px,2.4vw,32px);font-family:var(--mono);font-size:13px;letter-spacing:.06em;text-transform:uppercase}
-.dev-intro b{font-weight:500}
-.stuck{margin-top:clamp(20px,2.5vw,32px);border:1px dashed var(--ink);padding:clamp(16px,2vw,24px);display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
-.stuck .big{font-size:clamp(18px,2vw,24px)}
-.stuck .r{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
-.stuck .r span{font-size:13px;color:var(--label)}
-.btn-o{border:1px solid var(--ink);color:var(--ink);text-decoration:none;font-family:var(--mono);font-weight:500;font-size:13px;letter-spacing:.14em;text-transform:uppercase;padding:10px 16px;line-height:1;min-height:42px;display:inline-flex;align-items:center;white-space:nowrap}
-.btn-o:hover{background:var(--ink);color:var(--chalk)}
-
-/* deal (encre section) */
-#deal{background:var(--ink);color:var(--chalk);border-top:0}
-#deal .deal-t{font-size:clamp(40px,6vw,84px);margin-bottom:clamp(20px,3vw,32px)}
-.deal-l{display:flex;flex-direction:column;max-width:64ch}
-.deal-l div{padding:16px 0;border-bottom:1px solid var(--label);font-family:var(--inter);font-weight:300;font-size:clamp(16px,1.8vw,22px);line-height:1.4}
-.deal-l div:last-child{border-bottom:0}
-
-/* footer */
-footer{border-top:1px solid var(--ink);padding:28px var(--padx)}
-.foot-in{max-width:1280px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap}
-.foot-l{display:flex;flex-direction:column;gap:6px;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--label)}
-.foot-l a{text-decoration:none}
-.foot-l a:hover{color:var(--ink)}
-
-@media (max-width:640px){
-  .step{min-height:0;border-right:0}
-}
-/* phone: nothing under 13px */
-@media (max-width:520px){
-  header a,.eyebrow,.tips,#kitToggle,.kithead,.kithead button,#kitText,.step p code,.foot-l{font-size:13px}
-  .stuck .r{flex-direction:column;align-items:flex-start}
-  .btn-o{white-space:normal}
-}
+body{font-family:var(--inter);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+.block{padding:clamp(48px,9vw,120px) 5%;border-top:1px solid var(--ink)}
+.block:first-child{border-top:0}
+.block.ink{background:var(--ink);color:var(--chalk);border-top-color:var(--ink)}
+.block h1,.block h2{margin:0;max-width:16ch;font:400 clamp(56px,19vw,210px)/.88 var(--anton);text-transform:uppercase;letter-spacing:-.005em;overflow-wrap:break-word}
+.block p{margin:clamp(18px,2.6vw,30px) 0 0;max-width:40em;font:300 clamp(17px,2vw,22px)/1.5 var(--inter)}
+.btn{display:inline-flex;align-items:center;justify-content:center;margin-top:clamp(24px,3vw,36px);min-height:60px;padding:0 34px;border:0;
+  background:var(--blue);color:var(--ink);font:400 clamp(20px,2.4vw,26px)/1 var(--anton);letter-spacing:.06em;text-transform:uppercase;text-decoration:none;cursor:pointer}
+.btn:hover{background:var(--chalk);color:var(--ink)}
+.block:not(.ink) .btn:hover{background:var(--ink);color:var(--chalk)}
+footer{padding:28px 5% 36px;border-top:1px solid var(--ink);font:400 13px/1.5 var(--inter);color:var(--label)}
+footer a{color:var(--label)}
+@media (max-width:520px){.btn{width:100%}}
 </style>
 </head>
 <body>
 
-<header>
-  <a href="./">← The Wall Arcade</a>
-</header>
-
-<!-- HOW IT WORKS: make a cabinet -->
-<section id="how" class="sec">
-  <div class="wrap">
-    <div class="sec-head"><h1 class="anton">How it works</h1><span class="eyebrow">4 steps</span></div>
-    <p class="dev-intro"><b>This path is for developers.</b> Not one? Skip to the bottom: DM @NFCsummit and we put your game online with you.</p>
-    <div class="steps">
-      <div class="step">
-        <div class="n">1</div>
-        <div class="st anton">Copy the Connect Kit</div>
-        <p class="grow">One button. It tells your AI how a SuperRare Connect game works, what the server verifier must guarantee, and where the wall's data lives.</p>
-        <button class="btn-ink" id="copyBtn" type="button">COPY THE KIT</button>
-        <button id="kitToggle" type="button">read the kit</button>
-      </div>
-      <div class="step">
-        <div class="n">2</div>
-        <div class="st anton">Adapt SuperRare's template</div>
-        <p>You need: Node.js 22 or newer, pnpm (10.11, the template's package manager) and the rare-profile CLI (beta: <code>npm i -g @rareprotocol/rare-profile@beta</code>).</p>
-        <div class="tips"><span>› Node 22+</span><span>› pnpm 10.11</span><span>› rare-profile beta</span></div>
-        <p class="grow">Clone the public Studio games template, give your AI the kit, and describe the game. It rewrites three things that must agree: the rules (a deterministic engine), the verifier that replays your players' moves, and the screen.</p>
-        <div class="bubble">“Adapt this template into a memory game where I have to find the two halves of each name. Keep the verifier strict and deterministic.”</div>
-        <a class="btn-ink" href="https://github.com/superrare/studio-games-example" target="_blank" rel="noopener">OPEN THE TEMPLATE <span>↗</span></a>
-      </div>
-      <div class="step">
-        <div class="n">3</div>
-        <div class="st anton">Test it, then build it</div>
-        <p>Run the template's own checks (typecheck, tests, the local verifier exercise), then build the archive. Nothing is paid and nothing is public until you deploy.</p>
-        <div class="tips"><span>› pnpm test</span><span>› verifier exercise</span><span>› pnpm build → game.zip</span></div>
-      </div>
-      <div class="step">
-        <div class="n">4</div>
-        <div class="st anton">Put it online, get a cabinet</div>
-        <p class="grow">Create a free Studio account, deploy with the rare-profile CLI, publish your verifier and scoring event (the runbook has every command). Send your Studio link to @NFCsummit: your cabinet opens here.</p>
-        <p><b>Joining NFC's credit group means one treasury: NFC's.</b> Your players share one balance with NFC's other cabinets, and the money goes to NFC. To be paid directly, create your own credit group with your own treasury instead.</p>
-        <a class="btn-ink" href="https://github.com/superrare/studio-games-example/blob/main/docs/organizer-runbook.md" target="_blank" rel="noopener">READ THE RUNBOOK <span>↗</span></a>
-      </div>
-    </div>
-    <div id="kitBox">
-      <div class="kithead"><span>The Connect Kit · what your AI reads</span><button id="kitClose" type="button">Close ×</button></div>
-      <pre id="kitText"></pre>
-    </div>
-    <div class="stuck">
-      <div class="big anton">STUCK AT ANY STEP? DM @NFCSUMMIT.</div>
-      <div class="r">
-        <span>Send us your file, we put it online for you.</span>
-        <a class="btn-o" href="https://x.com/NFCsummit" target="_blank" rel="noopener">DM @NFCsummit →</a>
-      </div>
-    </div>
-  </div>
+<section class="block ink">
+  <h1>Make a game on the wall.</h1>
+  <p>A real wall in Lisbon, 550 names, an arcade with real players. Your game, your name on it.</p>
 </section>
 
-<!-- THE DEAL -->
-<section id="deal" class="sec on-ink">
-  <div class="wrap">
-    <div class="deal-t anton">The deal</div>
-    <div class="deal-l">
-      <div>Your game, your name on it.</div>
-      <div>Players sign in and pay through SuperRare Connect: credits are bought in packs (ETH or USDC, as the credit group sets), one credit per run. The money goes to the treasury of the credit group, never through our code.</div>
-      <div>Cabinets in NFC's group share one balance and NFC's treasury. To be paid directly, run your own credit group with your own treasury: your credits then stay with your game.</div>
-      <div>The platform's server decides every score. Prizes and payouts are manual, by the organizer of the group.</div>
-      <div>If your game stars a specific name from the wall, its holder gets an edition. Every game carries the credit line and a link back to the wall.</div>
-    </div>
-  </div>
+<section class="block">
+  <h2>You keep what your game earns.</h2>
+  <p>Every play on your game is yours. We settle every week.</p>
 </section>
 
-<!-- FOOTER -->
-<footer>
-  <div class="foot-in">
-    <div class="foot-l">
-      <span>A Remix The Wall experiment · NFC Summit 2027 · Lisbon</span>
-      <a href="https://onthewall.nfcsummit.com">onthewall.nfcsummit.com</a>
-    </div>
-    <div class="foot-l" style="text-align:right">
-      <span>Built on</span>
-      <a href="https://studio.superrare.com" target="_blank" rel="noopener">SuperRare Studio</a>
-    </div>
-  </div>
-</footer>
+<section class="block">
+  <h2>Every Friday, live.</h2>
+  <p>New games open on People of the Wall, and the week's best score wins the pot. The best games are shown next to the painted wall at NFC Summit in May.</p>
+</section>
+
+<section class="block">
+  <h2>You build with AI? Paste the kit.</h2>
+  <p>Copy the kit into Claude or ChatGPT, describe your game, put it online on SuperRare Studio (or pick THE WALL ARCADE template there). Send us the link: your game is in the arcade within 24 hours.</p>
+  <button class="btn" id="copyBtn" type="button">Copy the kit</button>
+</section>
+
+<section class="block">
+  <h2>You don't? Send us your work.</h2>
+  <p>Images, sounds, an idea. We make the game, your name on it.</p>
+  <a class="btn" href="https://x.com/johnkarp" target="_blank" rel="noopener" aria-label="Contact John: DM @johnkarp on X">Contact John</a>
+</section>
+
+<section class="block ink">
+  <h2>One rule.</h2>
+  <p>Every game carries the wall's credit line, and the holder of a name your game stars gets an edition.</p>
+</section>
+
+<footer><a href="https://onthewall.nfcsummit.com" target="_blank" rel="noopener">A Remix The Wall experiment · NFC Summit 2027 · Lisbon</a></footer>
 
 <script>
-/* ---- The Connect Kit: what an artist gives their AI (same text as docs/CONNECT-KIT.md) ---- */
-var KIT_TEXT = [
-'You are adapting the public SuperRare Studio game template into a NEW game for THE WALL ARCADE.',
-'Template: https://github.com/superrare/studio-games-example (MIT) on the published @rareprotocol/connect 0.9.0-beta.0.',
-'Read first, in the cloned repo: README.md, docs/organizer-runbook.md, docs/server-verification.md.',
-'',
-'HOW A CONNECT GAME WORKS (do not rewrite this plumbing)',
-'- The player signs in with SuperRare Connect, buys credits in a pack (ETH or USDC on Ethereum mainnet, as the credit group sets) and spends 1 credit per run.',
-'  Credits live in a CREDIT GROUP shared by every game registered in it. The template already implements sign-in, purchase,',
-'  consent, recovery and run start: leave src/credits.ts, src/account-storage.ts, src/main.ts and the paid-start parts of src/round.js alone.',
-'- The score is decided by the platform, never by the browser. A game is three pieces that must agree:',
-'  (1) a deterministic ENGINE (pure functions createRun, advance, applyInput, view, isFinished, score) in src/target-engine.ts,',
-'  (2) a VERIFIER Worker (src/server-verifier.ts) exposing that engine over POST /v1, bundled in the archive,',
-'  (3) the browser CLIENT (src/round.js) that sends ordered inputs and draws the state the server returns.',
-'- The browser sends only inputs such as {"action":"hit","targetId":3}: never a score, a time or a state.',
-'  The platform owns time in 50 ms server ticks (20 per second), accepts at most one input per tick, 1 KiB per message.',
-'',
-'RULES FOR THE ENGINE AND THE VERIFIER',
-'- Deterministic and small: no Math.random, Date, network or storage. Same seed, same game. 10 ms CPU per call, no outbound request,',
-'  state under 64 KiB, bundle under 256 KB.',
-'- Validate every input strictly (reject extra fields, bound every number). An illegal input is a no-op, never a score.',
-'- Never trust the client for score, time, positions or state: derive everything from the previous server state and the tick.',
-'- Run the template checks: pnpm install --frozen-lockfile, pnpm typecheck, pnpm test, and the local verifier and bundled-verifier',
-'  exercises in docs/server-verification.md. Add tests for your new rules (wrong action, replay, timing, forged input).',
-'- Perfectly legal automated inputs are accepted by these rules: do not call your game bot-proof.',
-'',
-'THE WALL (public data, free, no key)',
-'  GET https://otw-arcade.netlify.app/positions',
-'  Array of 557 objects: { position, tier, idx, minted, name, owner, xHandle }',
-'  "name" and "owner" (wallet address) only when minted is true; "xHandle" (X handle, no @) only when known.',
-'  tier is one of: name, pfp, house, mural, flag.',
-'  Names grid (tier "name"): 500 bricks, 25 columns x 20 rows (column = idx % 25).',
-'  PFPs (tier "pfp"): 50 bricks, 25 x 2, above the names. That makes the 550 bricks of the wall.',
-'  The verifier has NO network: embed the names/positions it needs as a snapshot at build time. In the browser, fetch the live',
-'  data at load and fall back to the snapshot if it fails.',
-'',
-'IDENTITY (use, remix or ignore): the NFC system. Concrete #DEDBD3, ink #0B0B0B, chalk #F2F0EB, one blue #2E7FD6.',
-'  Anton for titles, IBM Plex Mono for labels. Dashed = empty brick, solid = minted.',
-'',
-'REQUIRED CREDIT LINE, visible in the game:',
-'  A REMIX THE WALL EXPERIMENT · NFC SUMMIT 2027 · LISBON — link to https://onthewall.nfcsummit.com',
-'',
-'OPTIONAL: tell the weekly Survivor which minted name was hit (best effort, batched, never blocks play):',
-'  POST https://otw-arcade.netlify.app/hits   {"game":"your-game-slug","hits":{"name-0":2,"pfp-3":1}}   keys: name-<idx>, pfp-<idx>',
-'',
-'DEPLOYMENT (the artist runs these, not the AI): docs/organizer-runbook.md. rare-profile CLI 0.1.0-beta.4+, app deploy (placeholder),',
-'  credit group, pnpm build, app update, then publish the verifier version and the scoring event. Never put keys, tokens, treasury',
-'  overrides or secrets in config.json.',
-'',
-'When done, give me: every changed file in full, the new tests, and the exact commands to run.'
-].join('\n');
-
-document.getElementById('kitText').textContent = KIT_TEXT;
-var kitBox = document.getElementById('kitBox'), toggle = document.getElementById('kitToggle');
-function setKit(open) { kitBox.className = open ? 'open' : ''; toggle.textContent = open ? 'hide the kit' : 'read the kit'; }
-toggle.onclick = function () { setKit(kitBox.className !== 'open'); };
-document.getElementById('kitClose').onclick = function () { setKit(false); };
-
+/* COPY THE KIT: the repository's link, then the kit itself (docs/CONNECT-KIT.md, inlined by scripts/build-hub.ts). */
+var KIT_TEXT = /*KIT*/'';
 function fallbackCopy(text) {
   var ta = document.createElement('textarea');
   ta.value = text; ta.setAttribute('readonly', '');
@@ -244,15 +80,14 @@ function fallbackCopy(text) {
   document.body.removeChild(ta);
   return ok;
 }
-var copyBtn = document.getElementById('copyBtn');
+var copyBtn = document.getElementById('copyBtn'), timer = 0;
 function flash(ok) {
-  copyBtn.textContent = ok ? 'COPIED ✓' : 'COPY FAILED — OPEN THE KIT';
-  copyBtn.className = 'btn-ink' + (ok ? ' done' : '');
-  if (!ok) setKit(true);
-  setTimeout(function () { copyBtn.textContent = 'COPY THE KIT'; copyBtn.className = 'btn-ink'; }, 1800);
+  copyBtn.textContent = ok ? 'Copied' : 'Copy failed, try again';
+  clearTimeout(timer);
+  timer = setTimeout(function () { copyBtn.textContent = 'Copy the kit'; }, 2200);
 }
 copyBtn.onclick = function () {
-  if (navigator.clipboard && navigator.clipboard.writeText && window.isSecureContext) {
+  if (navigator.clipboard && window.isSecureContext) {
     navigator.clipboard.writeText(KIT_TEXT).then(function () { flash(true); }, function () { flash(fallbackCopy(KIT_TEXT)); });
   } else { flash(fallbackCopy(KIT_TEXT)); }
 };

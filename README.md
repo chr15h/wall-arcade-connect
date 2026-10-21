@@ -1,12 +1,12 @@
 # THE WALL ARCADE on SuperRare Connect
 
-Arcade cabinets played on the names of a real wall in Lisbon (550 panels, ON THE WALL by NFC Summit), running entirely
+Arcade games played on the names of a real wall in Lisbon (550 panels, ON THE WALL by NFC Summit), running entirely
 on SuperRare's plumbing: Connect sign-in, a shared credit group paid in ETH (50 plays for 0.005 ETH), server-run games whose score is computed by a
 verifier the platform runs, and the server leaderboard.
 
 | | URL |
 | --- | --- |
-| Hub (the cabinets; `builders.html`: how to make one, the kit) | https://6972mvu4.srstudio.dev/ |
+| Hub (the games; `builders.html`: make a game on the wall, the kit) | https://6972mvu4.srstudio.dev/ |
 | UNBREAKABLE (the reference game of this repo) | https://7x2phv5j.srstudio.dev/ |
 | FULL ROW (cabinet #02: Block Blast rules, the names of the wall on the pieces) | https://yfq52eu3.srstudio.dev/ |
 
@@ -110,11 +110,26 @@ rare-profile app update <app-id> --zip dist/unbreakable.zip --max-attempts 10000
   It proves the page, not SuperRare's side. On a phone: `node --import tsx scripts/dev-serve.ts <dir> --lan` serves it over
   HTTPS with a throwaway self-signed certificate (the paid flow needs a secure context) and prints the wifi address.
 
-## The kit
+## The kit, and adding an artist's game
 
-`docs/CONNECT-KIT.md` is what an artist hands to their AI to turn SuperRare's template into a new cabinet (the hub's
-COPY THE KIT button, `hub/builders.html`). It states what not to touch (the paid plumbing), the three pieces, the data of the
-wall, the deployment steps and the required credit line.
+`docs/CONNECT-KIT.md` is what an artist pastes into their AI to make a new game for the arcade: how a Connect game works
+(what not to touch, Practice, embedded Connect, the weekly leaderboard window, credits given by the organizer), the data of
+the wall, the shared group id, the two commands that put a game online, SuperRare's developer guide
+([`docs/creator-handoff.md`](https://github.com/superrare/studio-games-example/blob/main/docs/creator-handoff.md)) and what
+to send back. The hub's builders page (`hub/builders.html`) copies this repository's link followed by that kit; the build
+inlines it from the Markdown file, so the file is the only place to edit it.
+
+When an artist sends their name, game address, app ID and "I agree to enable this app in the shared arcade group at
+1 credit per play", the organizer attaches the game to the shared group in one line:
+
+```sh
+rare-profile credit-group add-game 60faaf46-ba4b-460c-a82a-adb852371a94 --app <ARTIST_APP_ID> --origin https://<artist-host>.srstudio.dev --credits 1
+```
+
+The origin is the exact HTTPS origin (no path, no trailing slash). Attach a game only once its paid flow is ready: an
+active group gates unpaid starts at once. Then add it to the hub's `GAMES` list (`hub/src.html`); the hub shows it as
+soon as it has an active scoring event. (CLI 0.1.0 applies `add-game` but may report "Unexpected response shape"
+because the API no longer returns `creditCost`: check the group afterwards before retrying.)
 
 ## Required credit line
 

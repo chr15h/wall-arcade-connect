@@ -1,6 +1,7 @@
-// Builds the hub archive: index.html (the player page: the wall and the cabinets), builders.html (artists: make your
-// own cabinet) and dragon.jpg. A plain static app: no Connect, no verifier, no config. The player page's wall grid is
-// embedded as a snapshot of the public /positions data; the builders page has no data and is copied as is.
+// Builds the hub archive: index.html (the player page: the wall and the games), builders.html (artists: make a game on
+// the wall) and dragon.jpg. A plain static app: no Connect, no verifier, no config. The player page's wall grid is
+// embedded as a snapshot of the public /positions data; the builders page gets the Connect Kit (docs/CONNECT-KIT.md)
+// inlined behind its COPY THE KIT button, after the repository's link.
 import { createHash } from 'node:crypto';
 import { access, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
@@ -13,7 +14,15 @@ const { values } = parseArgs({ args: process.argv.slice(2)[0] === '--' ? process
 if (!values.output) throw new Error('Usage: npm run build:hub -- --output <hub.zip> [--force] [--offline]');
 
 const html = await readFile(new URL('../hub/src.html', import.meta.url), 'utf8');
-const builders = await readFile(new URL('../hub/builders.html', import.meta.url), 'utf8');
+const buildersSource = await readFile(new URL('../hub/builders.html', import.meta.url), 'utf8');
+const kitDoc = await readFile(new URL('../docs/CONNECT-KIT.md', import.meta.url), 'utf8');
+const kitBlock = /```text\n([\s\S]*?)\n```/.exec(kitDoc);
+if (!kitBlock) throw new Error('docs/CONNECT-KIT.md must hold the kit in a ```text block');
+const REPO = 'https://github.com/hs7j4yk4sz-boop/wall-arcade-connect';
+const kitText = `${REPO}\n\n${kitBlock[1]}\n`;
+if (!buildersSource.includes("/*KIT*/''")) throw new Error("hub/builders.html must hold the /*KIT*/'' placeholder");
+// JSON is a JavaScript string literal; </ is escaped so the kit can never close the <script>
+const builders = buildersSource.replace("/*KIT*/''", () => JSON.stringify(kitText).replace(/<\//g, '<\\/'));
 const dragon = await readFile(new URL('../hub/dragon.jpg', import.meta.url));
 let rows: (string | number)[];
 if (values.offline) {
@@ -29,9 +38,8 @@ if (values.offline) {
 const marker = /\/\*SNAPSHOT:START\*\/.*?\/\*SNAPSHOT:END\*\//s;
 if (!marker.test(html)) throw new Error('Snapshot markers missing in hub/src.html');
 const page = html.replace(marker, () => `/*SNAPSHOT:START*/${JSON.stringify(rows)}/*SNAPSHOT:END*/`);
-// the two pages link to each other with relative links only
+// the player page links to the builders page with a relative link (the builders page has no secondary link)
 if (!page.includes('href="./builders.html"')) throw new Error('hub/src.html must link to ./builders.html');
-if (!builders.includes('href="./"')) throw new Error('hub/builders.html must link back to ./');
 
 const output = resolve(values.output);
 let exists = false;
