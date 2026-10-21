@@ -64,7 +64,7 @@ THE WALL (public data, free, no key)
 
 IDENTITY (use, remix or ignore): concrete #DEDBD3, ink #0B0B0B, chalk #F2F0EB, one blue #2E7FD6; Anton for titles.
 
-THE DEAL: Every paid play splits three ways: half to the week's jackpot, for the best score on each game; 40% to the artist who made the game; 10% to the wall.
+THE DEAL: Every paid play goes straight into the jackpot. Every Friday it's split: half to the best score on each game, 40% to the artists who made the games, 10% to the wall.
 
 THE RULE
 - The credit line, visible in the game, linked:

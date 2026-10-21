@@ -22,7 +22,7 @@ import { PaidRound } from './paid-round.js';
 import { Practice } from './practice.js';
 import { copyText, diag } from './diagnostics.js';
 import { lisbonWeek, WEEK_LABEL, weekEnds } from './week.js';
-import { wirePostLink } from '../share/post.js';
+import { CARD_SERVICE, wirePostLink } from '../share/post.js';
 
 function requiredElement<ElementType extends HTMLElement>(selector: string): ElementType {
   const element = document.querySelector<ElementType>(selector);
@@ -389,6 +389,10 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
   if (boardTitle) boardTitle.textContent = `Top 3 · ${WEEK_LABEL}`;
   const boardEnds = ui.board.querySelector('.board-ends');
   if (boardEnds) boardEnds.textContent = weekEnds(lisbonWeek());
+  // the jackpot, live (the card service's /pot: the treasury's balance); left out if it cannot be read
+  void fetch(`${CARD_SERVICE}/pot`).then((r) => (r.ok ? r.json() : null)).then((d: { pot?: unknown } | null) => {
+    if (boardEnds && d && typeof d.pot === 'string' && /^\d+\.\d{4}$/.test(d.pot)) boardEnds.textContent = `Jackpot ${d.pot} ETH · ${weekEnds(lisbonWeek())}`;
+  }).catch(() => undefined);
   /* "post on X", a text link right of the label: a card made by the card service from the platform's own leaderboard
      (the rows are read there, not sent from here), the player's line in blue; the link is ready before the tap. */
   const boardPost = node('a', 'post on X', 'board-post');

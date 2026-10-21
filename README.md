@@ -131,11 +131,15 @@ active group gates unpaid starts at once. Then add it to the hub's `GAMES` list 
 soon as it has an active scoring event. (CLI 0.1.0 applies `add-game` but may report "Unexpected response shape"
 because the API no longer returns `creditCost`: check the group afterwards before retrying.)
 
-## The split
+## The jackpot and the split
 
-Every paid play splits three ways: half to the week's jackpot, for the best score on each game; 40% to the artist who made the game; 10% to the wall. It is stated once in each place a player or an artist reads it: the games' (i), the hub
-(jackpot block and (i)), the builders page and the kit. It replaces the original 50/35/15 split. The hub's jackpot
-amount is the live `GET https://otw-arcade.netlify.app/pot` (read-only).
+Every paid play goes straight into the jackpot. Every Friday it's split: half to the best score on each game, 40% to the artists who made the games, 10% to the wall. It is stated once in each place a player or an artist reads it: the games' (i), the hub
+(jackpot block and (i)) and the kit. It replaces the original 50/35/15 split.
+
+The jackpot shown is the treasury wallet's balance (0xb6ede0158e1792ed25e1367edeec05a824d7c9ad), live: the card
+service's own `GET https://wall-arcade-cards.netlify.app/pot` (`cards/src/pot.ts`) reads it by a public RPC and answers
+`{ pot }` (ETH, 4 decimals), cached 60 s; if no RPC answers, the last amount served. The hub's jackpot block and the
+line "Jackpot … ETH" on the games' entry screen read it. The former arcade's `/pot` (otw-arcade) is not read any more.
 
 ## Required credit line
 
