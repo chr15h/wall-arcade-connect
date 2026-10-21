@@ -28,13 +28,14 @@ const esc = (s: string): string => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;',
 const fmt = (n: number): string => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 
 /** Bump when the drawing changes: a card's id (and so its cached image) then changes too. */
-export const RENDER_VERSION = 3;
+export const RENDER_VERSION = 4;
 export const cardId = (card: Card): string => createHash('sha256').update(`${RENDER_VERSION}:${JSON.stringify(card)}`).digest('base64url').slice(0, 16);
 
 /** The line under the preview in X, and the page's description. */
 export function describe(card: Card): string {
-  if (card.kind === 'row') return `${card.names.join(' · ')}: painted together on FULL ROW${card.player ? ` by ${card.player}` : ''}. ${fmt(card.score)} points.`;
-  if (card.kind === 'bounce') return `Bounced off ${card.people} people of the wall on UNBREAKABLE. ${fmt(card.score)} points.`;
+  const rank = card.kind !== 'board' && card.rank ? ` #${card.rank} this week.` : '';
+  if (card.kind === 'row') return `${card.names.join(' · ')}: painted together on FULL ROW${card.player ? ` by ${card.player}` : ''}. ${fmt(card.score)} points.${rank}`;
+  if (card.kind === 'bounce') return `Bounced off ${card.people} people of the wall on UNBREAKABLE. ${fmt(card.score)} points.${rank}`;
   const me = card.rows.find((r) => r.me);
   return me ? `#${me.rank} on ${GAMES[card.game].title} · ${fmt(me.score)} points.` : `The top 5 of ${GAMES[card.game].title}.`;
 }
@@ -71,7 +72,7 @@ function page(origin: string, id: string, card: Card): string {
 }
 
 class BoardUnavailable extends Error {}
-/** The rows of a board card come from the platform's public leaderboard (top 10 all time): the top 5, plus the
+/** The rows of a board card come from the platform's public leaderboard (top 10 of THIS WEEK, Friday 15:00 Lisbon): the top 5, plus the
  *  highlighted player's own line when they rank lower. */
 async function boardFromPlatform(asked: BoardRequest, deps: Deps): Promise<BoardCard> {
   let entries: LeaderEntry[];

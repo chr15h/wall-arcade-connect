@@ -4,8 +4,8 @@
   "displayName": "THE WALL ARCADE credits",
   "chainId": 1,
   "treasuryAddress": "0xb6ede0158e1792ed25e1367edeec05a824d7c9ad",
-  "packPriceAtomic": "10000000",
+  "packPriceAtomic": "5000000000000000",
   "packCredits": 50,
-  "currency": "USDC",
-  "tokenAddress": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+  "currency": "ETH",
+  "tokenAddress": null
 }

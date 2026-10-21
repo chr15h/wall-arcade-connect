@@ -11,13 +11,13 @@ import { createEngine as createUb } from '../games/unbreakable/engine.js';
 import { createEngine as createTap } from '../games/tap-the-name/engine.js';
 import { createEngine as createFullRow } from '../games/full-row/engine.js';
 import { scoringConfiguration } from '../shell/config.js';
+import { PACK, formatPrice } from '../shell/credits.js';
 
 declare const __FAKE_GAME__: 'unbreakable' | 'tap-the-name' | 'full-row';
 
 const params = new URLSearchParams(location.search);
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/.test(params.get('address') ?? '') ? (params.get('address') as string).toLowerCase() : '0xdec0de0000000000000000000000000000000001';
 const TREASURY = '0xb6ede0158e1792ed25e1367edeec05a824d7c9ad';
-const USDC = '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48';
 const GAME = typeof __FAKE_GAME__ === 'string' ? __FAKE_GAME__ : 'unbreakable';
 const engine = (GAME === 'tap-the-name' ? createTap(TAP_POOL) : GAME === 'full-row' ? createFullRow() : createUb(ELIG)) as unknown as ReturnType<typeof createUb>;
 const lagMs = Number(params.get('lag') ?? 0);          // one-way network delay, both directions
@@ -28,6 +28,8 @@ const later = (ms: number): string => new Date(Date.now() + ms).toISOString();
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 const log = (...args: unknown[]): void => { (window as any).__fakeLog ??= []; (window as any).__fakeLog.push(args.map(String).join(' ')); console.info('[fake-connect]', ...args); };
 
+/** Fictitious ENS names, so the screens show how ENS replaces addresses (the real ones come from Studio). */
+const FAKE_ENS: Record<string, string> = { [ADDRESS]: 'player.eth', '0xaaaa00000000000000000000000000000000beef': 'wallhero.eth' };
 const store = {
   get session(): any { const raw = localStorage.getItem('fake:session'); return raw ? JSON.parse(raw) : undefined; },
   set session(value: any) { if (value) localStorage.setItem('fake:session', JSON.stringify(value)); else localStorage.removeItem('fake:session'); },
@@ -35,7 +37,7 @@ const store = {
   set balance(value: number) { localStorage.setItem('fake:balance', String(value)); },
   purchases: new Map<string, any>(),
   board: [
-    { name: '0x38f1000000000000000000000000000000008b18', score: 35 },
+    { name: '0xaaaa00000000000000000000000000000000beef', score: 35 },
     { name: '0x510f00000000000000000000000000000000c839', score: 22 },
   ] as { name: string; score: number }[],
 };
@@ -78,7 +80,7 @@ export function createSuperRareClient(options: any = {}) {
       const intent = { intentId: uuid() };
       request.beforeOpen?.(intent);
       void (async () => {
-        const approved = await hosted(options, `Pay ${Number(request.amount) / 1e6} USDC to ${request.to}`, 2000);
+        const approved = await hosted(options, `Pay ${formatPrice(request.amount, request.currency)} to ${request.to}`, 2000);
         const result = approved ? { intentId: intent.intentId, status: 'completed', result: { transactionHash: `0x${'ab'.repeat(32)}` } } : { intentId: intent.intentId, status: 'cancelled' };
         log('intent settled', result.status);
         options.onIntentSettled?.(result);
@@ -100,8 +102,8 @@ export function createSuperRareClient(options: any = {}) {
       credits: {
         getBalance: async () => ({ accountId: 'a', groupId, chainId: 1, address: ADDRESS, balance: store.balance, reserved: 0, available: store.balance }),
         createPurchase: async () => {
-          const purchase = { id: uuid(), accountId: 'a', paymentConfigId: 'p', chainId: 1, address: ADDRESS, treasuryAddress: TREASURY, currency: 'USDC', tokenAddress: USDC,
-            packPriceAtomic: '10000000', packCredits: 50, minBlock: '1', createdAt: new Date().toISOString(), expiresAt: later(600_000), transactionHash: null, creditedAt: null };
+          const purchase = { id: uuid(), accountId: 'a', paymentConfigId: 'p', chainId: 1, address: ADDRESS, treasuryAddress: TREASURY, currency: PACK.currency, tokenAddress: PACK.tokenAddress,
+            packPriceAtomic: PACK.priceAtomic, packCredits: PACK.credits, minBlock: '1', createdAt: new Date().toISOString(), expiresAt: later(600_000), transactionHash: null, creditedAt: null };
           store.purchases.set(purchase.id, purchase);
           log('quote', purchase.id);
           return purchase;
@@ -128,7 +130,7 @@ export function createSuperRareClient(options: any = {}) {
       getActiveScoringEvent: async () => ({ eventId: '11111111-1111-4111-8111-111111111111' }),
       getServerLeaderboard: async () => [...store.board].sort((a, b) => b.score - a.score).slice(0, 10).map((entry, index) => ({
         rank: index + 1, scoreId: `s${index}`, score: String(entry.score), secondaryValue: null, trustLevel: 'server_verified', achievedAt: new Date().toISOString(),
-        player: { kind: 'wallet', id: null, handle: null, displayName: entry.name, avatarUrl: null }, isCurrentPlayer: false })),
+        player: { kind: 'wallet', id: null, handle: null, displayName: entry.name, ensName: FAKE_ENS[entry.name] ?? null, avatarUrl: null }, isCurrentPlayer: false })),
       startServerValidatedRun: async ({ idempotencyKey }: { idempotencyKey: string }) => {
         const known = JSON.parse(localStorage.getItem(`fake:run:${idempotencyKey}`) ?? 'null');
         if (known) { runs.set(known.run.runId, runs.get(known.run.runId) ?? known.run.state); log('server run recovered', known.run.runId); return known; }

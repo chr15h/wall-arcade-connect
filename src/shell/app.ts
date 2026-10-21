@@ -1,5 +1,7 @@
-// The game page: one screen. A thin bar (← arcade, title, credits, wallet), the game full frame, and an overlay on the
-// game for everything a player decides: PLAY, PRACTICE, the "spend 1 credit" consent, the end of a run.
+// The game page: one screen. A thin bar (← arcade, credits, (i)), the game full frame, and an overlay on the game for
+// everything a player decides: PLAY, practice, the "spend 1 credit" consent, the end of a run. During a run the bar
+// goes away: the game has the whole screen, with a discreet ← in a corner. One job and one blue button per screen;
+// every explanation lives behind the (i) ("How it works").
 //
 // PLAY walks the four Connect approvals behind one button, each one still explicit and cancellable:
 //   1. not signed in        -> SuperRare Connect sign-in (hosted window: embed or popup, from config.json)
@@ -19,6 +21,7 @@ import { describeSdkFailure } from './hosted-flow.js';
 import { PaidRound } from './paid-round.js';
 import { Practice } from './practice.js';
 import { copyText, diag } from './diagnostics.js';
+import { lisbonWeek, WEEK_LABEL, weekEnds } from './week.js';
 import { wirePostLink } from '../share/post.js';
 
 function requiredElement<ElementType extends HTMLElement>(selector: string): ElementType {
@@ -37,23 +40,29 @@ const DISPLAY_FALLBACK_KEY = 'wall-arcade:connect-display';
 
 const ui = {
   overlay: requiredElement('#overlay'),
-  eyebrow: requiredElement('#overlay-eyebrow'),
   title: requiredElement('#overlay-title'),
   line: requiredElement('#overlay-line'),
   score: requiredElement('#overlay-score'),
   actions: requiredElement('#overlay-actions'),
+  links: requiredElement('#overlay-links'),
   status: requiredElement('#overlay-status'),
   roundActions: requiredElement('#round-actions'),
   board: requiredElement('#overlay-board'),
   boardList: requiredElement<HTMLOListElement>('#board-list'),
-  fine: requiredElement('#overlay-fine'),
+  credit: requiredElement('#overlay-credit'),
   banner: requiredElement('#practice-banner'),
-  bannerReal: requiredElement<HTMLButtonElement>('#practice-real'),
+  cornerBack: requiredElement<HTMLAnchorElement>('#corner-back'),
   balance: requiredElement<HTMLButtonElement>('#balance-badge'),
-  walletButton: requiredElement<HTMLButtonElement>('#wallet-button'),
+  balanceText: requiredElement('#balance-text'),
   walletDot: requiredElement('#wallet-dot'),
+  info: requiredElement<HTMLDialogElement>('#info-panel'),
+  infoButton: requiredElement<HTMLButtonElement>('#info-button'),
   walletPanel: requiredElement<HTMLDialogElement>('#wallet-panel'),
-  walletAddress: requiredElement('#wallet-address'),
+  walletCredits: requiredElement('#wallet-credits'),
+  walletAddress: requiredElement<HTMLButtonElement>('#wallet-address'),
+  walletBuy: requiredElement<HTMLButtonElement>('#wallet-buy'),
+  purchaseHelp: requiredElement<HTMLButtonElement>('#purchase-help'),
+  helpPanel: requiredElement<HTMLDialogElement>('#help-panel'),
   signIn: requiredElement<HTMLButtonElement>('#sign-in'),
   signOut: requiredElement<HTMLButtonElement>('#sign-out'),
   authorize: requiredElement<HTMLButtonElement>('#connect'),
@@ -80,17 +89,19 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
   if (configuration.game !== adapter.id) throw new Error(`This archive is built for ${adapter.id}, its config says ${configuration.game}.`);
   document.title = `${adapter.title} · THE WALL ARCADE`;
   // Every price on the page comes from the purchase guard's constants (src/shell/credits.ts): one source of truth.
-  requiredElement('#buy-offer').textContent = `${EXPECTED_PACK_CREDITS} plays · ${packPriceLabel()}`;
-  requiredElement('#buy-pay').textContent = `Pay ${packPriceLabel()} with SuperRare Connect`;
-  requiredElement('#overlay-fine').textContent = `Practice is free. Pay to compete. ${EXPECTED_PACK_CREDITS} plays for ${packPriceLabel()} (Ethereum mainnet, real USDC), one credit per run, shared by every cabinet of the arcade. Prizes are handled manually by the organizer.`;
-  requiredElement('#game-title').textContent = adapter.title;
+  const pack = `${EXPECTED_PACK_CREDITS} plays · ${packPriceLabel()}`;
+  requiredElement('#buy-offer').textContent = pack;
+  ui.walletBuy.textContent = `Buy ${EXPECTED_PACK_CREDITS} · ${packPriceLabel()}`;
+  ui.buyPay.textContent = `Pay ${packPriceLabel()}`;
+  requiredElement('#buy-explain').textContent = `SuperRare Connect opens and your wallet asks you to approve ${packPriceLabel()} on Ethereum mainnet, plus the network fee: nothing is sent before you confirm there. Pay from the wallet shown, because another wallet cannot claim the credits. The ${EXPECTED_PACK_CREDITS} credits arrive on this wallet a moment later.`;
+  requiredElement('#info-price').textContent = `${pack}, paid on Ethereum mainnet. One credit per paid run, and one balance for every cabinet of the arcade.`;
   if (configuration.diagnostics) {
     diag.rotate();
     diag.enable({ game: adapter.id, appId: configuration.appId, groupId: configuration.groupId, display: configuration.display });
   }
   if (configuration.hubUrl) {
     const hub = requiredElement<HTMLAnchorElement>('#hub-link');
-    hub.href = configuration.hubUrl;
+    hub.href = configuration.hubUrl; ui.cornerBack.href = configuration.hubUrl;
     hub.hidden = false;
   }
 
@@ -172,7 +183,7 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
     playerAddress: () => client.auth.getSession()?.address.toLowerCase(),
   };
   const stage = adapter.createStage(arena, io);
-  arena.append(ui.overlay, ui.banner);
+  arena.append(ui.overlay, ui.banner, ui.cornerBack);
   // The paid round never touches the stage while a practice run is on screen.
   const roundStage: Stage = {
     setMessage: (text, extra) => { if (!practice?.active) stage.setMessage(text, extra); },
@@ -221,24 +232,37 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
     ui.actions.append(button);
     return button;
   }
-  function overlay(next: Mode, content: { eyebrow?: string; title?: string; line?: string; status?: string; showBoard?: boolean; end?: boolean; busy?: boolean }): void {
+  function linkButton(label: string, action: () => void): HTMLButtonElement {
+    const button = node('button', label, 'linklike');
+    button.type = 'button';
+    button.addEventListener('click', action);
+    ui.links.append(button);
+    return button;
+  }
+  /** Full screen for the game while a run is on: no bar, a discreet ← in a corner. */
+  function setPlaying(on: boolean): void {
+    document.body.classList.toggle('is-playing', on);
+    ui.cornerBack.hidden = !on || !configuration.hubUrl;
+  }
+  function overlay(next: Mode, content: { title?: string; line?: string; status?: string; showBoard?: boolean; end?: boolean; busy?: boolean }): void {
     if (consentResolve && next !== 'consent') { const resolve = consentResolve; consentResolve = null; resolve(false); }
     mode = next;
     if (round) round.viewKind = null;        // the page drew its own screen: the round's next report must get through
+    setPlaying(false);
     ui.overlay.hidden = false;
     ui.banner.hidden = true;
     ui.overlay.classList.toggle('is-end', Boolean(content.end));
     ui.overlay.classList.toggle('is-busy', Boolean(content.busy));
-    ui.eyebrow.textContent = content.eyebrow ?? 'A Remix The Wall experiment';
     ui.title.textContent = content.title ?? adapter.title;
     ui.line.textContent = content.line ?? '';
     ui.line.hidden = !content.line;
     ui.score.hidden = true;
     ui.actions.replaceChildren();
+    ui.links.replaceChildren();
     if (content.status !== undefined) ui.status.textContent = content.status;
     ui.roundActions.hidden = next !== 'recovery';
     ui.board.hidden = content.showBoard === false;
-    ui.fine.hidden = next === 'end' || next === 'practice-end';
+    ui.credit.hidden = next !== 'entry';
   }
   function scoreGrid(cells: { label: string; value: string; main?: boolean }[]): void {
     ui.score.replaceChildren(...cells.map(({ label, value, main }) => {
@@ -252,34 +276,34 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
     mode = next;
     ui.overlay.hidden = true;
     ui.banner.hidden = next !== 'practice';
+    setPlaying(true);
   }
 
   function showEntry(status?: string): void {
     stage.setMessage('', { idle: true });
     overlay('entry', { line: adapter.tagline ?? adapter.lede, status: status ?? '' });
     actionButton('Play · 1 credit', () => void play(), 'play');
-    if (practice?.available) actionButton('Practice · no score', () => startPractice(), 'secondary');
+    if (practice?.available) linkButton('Practice, free', () => startPractice());
     renderBoard();
   }
   function showBusy(status?: string): void {
     overlay('busy', { line: '', busy: true, showBoard: false, ...(status !== undefined ? { status } : {}) });
   }
   function showRecovery(): void {
-    overlay('recovery', { eyebrow: 'Your paid round', line: '' });
+    overlay('recovery', { line: '' });
     copyLogButton();
     renderBoard();
   }
   function showConsent(): Promise<boolean> {
     overlay('consent', {
-      eyebrow: 'One credit per run',
-      line: `Spend 1 credit to start a server-verified run? You have ${available()} credit${available() === 1 ? '' : 's'}.`,
+      line: `Spend 1 credit to start a run? You have ${available()} credit${available() === 1 ? '' : 's'}.`,
       status: '',
       showBoard: false,
     });
     return new Promise((resolve) => {
       consentResolve = resolve;
       actionButton('Spend 1 credit · start', () => { consentResolve = null; resolve(true); }, 'play');
-      actionButton('Cancel', () => { consentResolve = null; resolve(false); }, 'secondary');
+      linkButton('cancel', () => { consentResolve = null; resolve(false); });
     });
   }
   /** Diagnostic build: COPY LOG copies the journal of this page (and of the previous load, if it was reloaded). */
@@ -292,26 +316,31 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
       void copyText(text, ui.actions).then((ok) => { button.textContent = ok ? 'Log copied' : 'Select the text below and copy it'; });
     }, 'secondary');
   }
+  /** Under the card: real run, PLAY AGAIN in ink (the screen's blue is POST ON X) and "get on the wall"; practice,
+   *  PLAY FOR REAL in blue and "practice again". */
   function endActions(): void {
     ui.actions.replaceChildren();
+    ui.links.replaceChildren();
     if (mode === 'practice-end') {
       actionButton('Play for real · 1 credit', () => void play(), 'play');
-      actionButton('Practice again', () => startPractice(), 'secondary');
+      linkButton('practice again', () => startPractice());
       return;
     }
-    if (authenticated && credits?.balance && available() < 1) actionButton('Buy credits', () => void play(true), 'play');
-    else actionButton('Play again · 1 credit', () => void play(), 'play');
-    if (practice?.available) actionButton('Practice · no score', () => startPractice(), 'secondary');
+    const again = authenticated && credits?.balance && available() < 1 ? 'Buy credits' : 'Play again · 1 credit';
+    actionButton(again, () => void play(again === 'Buy credits'), stage.endStats ? 'ink' : 'play');
+    const wall = node('a', 'get on the wall');
+    wall.href = 'https://onthewall.nfcsummit.com'; wall.target = '_blank'; wall.rel = 'noopener';
+    ui.links.append(wall);
     copyLogButton();
   }
   function showEnd(score: number): void {
     diag.add('end', { score, board: board.slice(0, 3).map((e) => e.score) });
     const wallet = address();
     rememberBest(wallet, score);
-    overlay('end', { eyebrow: 'Server-verified · recorded by SuperRare', title: 'Run over', line: '', status: '', end: true });
+    overlay('end', { title: 'Run over', line: '', status: '', end: true, showBoard: false });
     const mine = myEntry(wallet);
     const best = Math.max(score, localBest(wallet) ?? 0, mine ? Number(mine.score) : 0);
-    scoreGrid([
+    if (!stage.endStats) scoreGrid([
       { label: 'Score', value: String(score), main: true },
       { label: 'Rank', value: mine ? `#${mine.rank}` : '—' },
       { label: mine ? 'Best' : 'Best · this device', value: String(best) },
@@ -332,7 +361,7 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
     const mine = myEntry(wallet);
     const best = Math.max(score, localBest(wallet) ?? 0, mine ? Number(mine.score) : 0);
     const rank = mine ? `#${mine.rank}` : fresh && score < Number(board.at(-1)?.score ?? 0) && board.length >= 10 ? 'Not top 10' : '—';
-    scoreGrid([
+    if (!stage.endStats) scoreGrid([
       { label: 'Score', value: String(score), main: true },
       { label: 'Rank', value: rank },
       { label: mine ? 'Best' : 'Best · this device', value: String(best) },
@@ -345,9 +374,9 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
     stage.endStats?.({ score, practice: isPractice, rank, best, bestLabel, ...(ens ? { player: ens } : {}) });
   }
   function showPracticeEnd(score: number): void {
-    overlay('practice-end', { eyebrow: "Practice · scores don't count", title: 'Practice over', line: '', status: '', end: true });
+    overlay('practice-end', { title: 'Practice over', line: '', status: '', end: true, showBoard: false });
     const best = localBest(address());
-    scoreGrid([
+    if (!stage.endStats) scoreGrid([
       { label: 'Practice score', value: String(score), main: true },
       { label: 'Recorded', value: 'No' },
       { label: 'Your best (real)', value: best === null ? '—' : String(best) },
@@ -358,11 +387,16 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
   }
 
   /* ----------------------------- leaderboard ---------------------------- */
-  /* POST ON X under the leaderboard: a card made by the card service from the platform's own leaderboard (the rows are
-     read there, not sent from here), the player's line in blue; the link is ready before the tap. */
-  const boardPost = node('a', 'Post on X', 'board-post');
+  // One board: THIS WEEK (Friday 15:00 Lisbon to Friday 15:00), read from Studio with explicit bounds (src/shell/week.ts).
+  const boardTitle = ui.board.querySelector('.board-title');
+  if (boardTitle) boardTitle.textContent = WEEK_LABEL;
+  const boardEnds = ui.board.querySelector('.board-ends');
+  if (boardEnds) boardEnds.textContent = weekEnds(lisbonWeek());
+  /* "post on X", a text link right of the label: a card made by the card service from the platform's own leaderboard
+     (the rows are read there, not sent from here), the player's line in blue; the link is ready before the tap. */
+  const boardPost = node('a', 'post on X', 'board-post');
   boardPost.hidden = true;
-  ui.board.querySelector('.board-title')?.after(boardPost);
+  boardTitle?.after(boardPost);
   let boardPostKey = '';
   function prepareBoardPost(): void {
     const wallet = address(), mine = myEntry(wallet);
@@ -372,21 +406,54 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
     boardPostKey = key;
     const cabinet = `${location.origin}/`, game = adapter.id === 'unbreakable' ? 'unbreakable' : 'full-row';
     wirePostLink(boardPost, { kind: 'board', game, ...(me ? { me } : {}) },
-      (link) => (mine ? `#${mine.rank} on ${adapter.title} · ${mine.score} points. ${link}` : `The top 5 of ${adapter.title} on THE WALL ARCADE. ${link}`),
-      cabinet, 'Post on X', 'Post on X');
+      (link) => (mine ? `#${mine.rank} on ${adapter.title} this week · ${mine.score} points. ${link}` : `This week's top 5 of ${adapter.title} on THE WALL ARCADE. ${link}`),
+      cabinet, 'post on X', 'post on X');
   }
+  /** ENS when Studio resolved one, else the shortened address (the full address stays in the tooltip). */
+  function playerLabel(entry: BoardEntry): string {
+    if (entry.player.ensName) return entry.player.ensName;
+    return entry.player.kind === 'wallet' ? shortAddress(entry.player.displayName) : entry.player.displayName;
+  }
+  /** The signed-in wallet's ENS, when this week's board knows it. */
+  function myEns(): string | undefined {
+    const wallet = address();
+    return wallet ? board.find((entry) => entry.player.displayName.toLowerCase() === wallet && entry.player.ensName)?.player.ensName ?? undefined : undefined;
+  }
+  /** The wallet: the ENS when this week's board knows it, and the shortened address (a tap copies the full one). */
+  function renderWalletLabel(): void {
+    const current = session();
+    const ens = current ? myEns() : undefined;
+    ui.walletAddress.hidden = !current;
+    if (!current) return;
+    if (ui.walletAddress.dataset.copied) return;
+    ui.walletAddress.textContent = ens ? `${ens} · ${shortAddress(current.address)}` : shortAddress(current.address);
+    ui.walletAddress.title = `${current.address} · tap to copy`;
+  }
+  ui.walletAddress.addEventListener('click', () => {
+    const current = session();
+    if (!current) return;
+    void copyText(current.address, ui.walletAddress).then((ok) => {
+      ui.walletAddress.dataset.copied = '1';
+      ui.walletAddress.textContent = ok ? 'address copied' : current.address;
+      window.setTimeout(() => { delete ui.walletAddress.dataset.copied; renderWalletLabel(); }, 1400);
+    });
+  });
   function renderBoard(): void {
     const wallet = address();
-    const top = board.slice(0, 5);
+    renderWalletLabel();
+    // the top 3 of the week, and the player's own line under them when they rank lower
+    const mine = myEntry(wallet);
+    const top = board.slice(0, 3);
+    if (mine && mine.rank > 3) top.push(mine);
     boardPost.hidden = !top.length || adapter.id === 'tap-the-name';
     if (!boardPost.hidden) prepareBoardPost();
     if (!top.length) {
-      ui.boardList.replaceChildren(node('li', boardFailed ? 'Scores could not be loaded right now.' : boardLoaded ? 'No server-verified score yet. Be the first.' : 'Loading scores…', 'empty'));
+      ui.boardList.replaceChildren(node('li', boardFailed ? 'Scores could not be loaded right now.' : boardLoaded ? 'No score yet this week. Be the first.' : 'Loading scores…', 'empty'));
       return;
     }
     ui.boardList.replaceChildren(...top.map((entry) => {
       const item = node('li', undefined, entry.player.kind === 'wallet' && entry.player.displayName.toLowerCase() === wallet ? 'me' : undefined);
-      const name = entry.player.kind === 'wallet' ? shortAddress(entry.player.displayName) : entry.player.displayName;
+      const name = playerLabel(entry);
       const who = node('span', name);
       who.title = entry.player.displayName;
       item.append(node('span', String(entry.rank), 'rank'), who, node('span', entry.score));
@@ -398,7 +465,7 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
   async function loadBoard(): Promise<boolean> {
     let fresh = false;
     try {
-      board = await scoringGame.getServerLeaderboard() as BoardEntry[];
+      board = await scoringGame.getServerLeaderboard(lisbonWeek()) as BoardEntry[];
       boardLoaded = true;
       boardFailed = false;
       fresh = true;
@@ -412,14 +479,17 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
   /* -------------------------------- bar --------------------------------- */
   function renderBar(): void {
     const balance = credits?.balance;
-    ui.balance.textContent = !session() ? 'Sign in' : balance ? `${balance.available} credit${balance.available === 1 ? '' : 's'}` : '— credits';
+    const label = !session() ? 'Sign in' : balance ? `${balance.available} credit${balance.available === 1 ? '' : 's'}` : '— credits';
+    ui.balanceText.textContent = label;
+    ui.walletCredits.textContent = !session() ? 'Not signed in' : balance ? `${balance.available} credit${balance.available === 1 ? '' : 's'}` : '— credits';
+    ui.walletBuy.hidden = !authenticated || !balance;
     ui.walletDot.hidden = !credits?.pendingPurchase();
   }
 
   /* --------------------------- wallet panel ----------------------------- */
   function renderAuth(): void {
     const current = session();
-    ui.walletAddress.textContent = current ? current.address : 'Not signed in';
+    renderWalletLabel();
     ui.signIn.hidden = authenticated;
     ui.signIn.textContent = failedVerification ? 'Retry Connect session check' : 'Sign in to SuperRare';
     ui.signIn.disabled = busy || flowBusy;
@@ -437,20 +507,31 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
     if (expiries.length) expiryTimer = window.setTimeout(() => { void verifySession(); }, Math.min(Math.min(...expiries) - Date.now(), 2_147_483_647));
     renderBar();
   }
+  /** The wallet; `recovery` opens "purchase help" instead, its recovery details unfolded. */
   function openWallet(recovery = false): void {
+    if (recovery) { openHelp(true); return; }
     if (!ui.walletPanel.open) ui.walletPanel.showModal();
+    void credits?.refresh();
+  }
+  function openHelp(recovery = false): void {
+    for (const panel of [ui.walletPanel, ui.buyPanel]) if (panel.open) panel.close();
+    if (!ui.helpPanel.open) ui.helpPanel.showModal();
     if (recovery) credits?.openRecovery();
     void credits?.refresh();
   }
-  for (const panel of [ui.walletPanel, ui.buyPanel]) {
+  for (const panel of [ui.walletPanel, ui.buyPanel, ui.helpPanel, ui.info]) {
     panel.querySelector<HTMLButtonElement>('[data-close]')?.addEventListener('click', () => panel.close());
+    panel.addEventListener('click', (event) => { if (event.target === panel) panel.close(); });   // a tap on the backdrop
   }
-  ui.walletButton.addEventListener('click', () => openWallet());
   ui.balance.addEventListener('click', () => openWallet());
+  ui.infoButton.addEventListener('click', () => { if (!ui.info.open) ui.info.showModal(); });
+  ui.purchaseHelp.addEventListener('click', () => openHelp());
+  ui.walletBuy.addEventListener('click', () => { void openBuy(); });
 
   /* ----------------------------- buy screen ----------------------------- */
   function openBuy(): Promise<boolean> {
-    ui.buyWallet.textContent = address() ?? 'your signed-in wallet';
+    const wallet = address(), ens = myEns();
+    ui.buyWallet.textContent = wallet ? (ens ? `${ens} (${shortAddress(wallet)})` : shortAddress(wallet)) : 'your signed-in wallet';
     ui.buyStatus.textContent = '';
     ui.buyRecovery.hidden = true;
     ui.buyPay.disabled = false;
@@ -468,7 +549,7 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
     ui.buyPay.disabled = true;
     try { await credits.buyNow(); } finally { ui.buyPay.disabled = false; }
   });
-  ui.buyRecovery.addEventListener('click', () => { ui.buyPanel.close(); openWallet(true); });
+  ui.buyRecovery.addEventListener('click', () => openHelp(true));
 
   /* ------------------------ credits and paid round ---------------------- */
   credits = new Credits({
@@ -529,10 +610,6 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
     hideOverlay('practice');
     practice.start();
   }
-  ui.bannerReal.addEventListener('click', () => {
-    practice?.stop();
-    void play(true);
-  });
 
   creditPanel.render();
   paidRound.render();
@@ -620,14 +697,14 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
       if (!creditPanel.balance) { back('Your credit balance could not be loaded. Try again.'); return; }
       if (available() < 1) {
         if (creditPanel.pendingPurchase() && !creditPanel.record?.confirmPayment) {
-          back('A purchase is still being confirmed. Open the wallet menu to finish it.');
+          back('A purchase is still being confirmed. Open the wallet, then purchase help, to finish it.');
           openWallet(true);
           return;
         }
         showBusy('Buy credits to play.');
         if (!(await openBuy())) {
           back(creditPanel.pendingPurchase() && !creditPanel.record?.confirmPayment
-            ? 'Your purchase is still being confirmed. The wallet menu shows where it stands; nothing was started.'
+            ? 'Your purchase is still being confirmed. Purchase help, in the wallet, shows where it stands; nothing was started.'
             : 'No credit was bought. Nothing was started.');
           return;
         }

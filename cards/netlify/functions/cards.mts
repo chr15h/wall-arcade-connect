@@ -1,5 +1,6 @@
 // Netlify entry of the card service (cards/src/service.ts): cards stored in Netlify Blobs, the wall's names from the
 // build-time snapshot plus the live public /positions of the NFC backend (read-only, cached a few minutes).
+import { lisbonWeek } from '../../src/week.js';
 import { getStore } from '@netlify/blobs';
 import snapshot from '../../../src/generated/wall.json' with { type: 'json' };
 import { handle, type CardStore, type LeaderEntry } from '../../src/service.js';
@@ -32,7 +33,8 @@ function cardStore(): CardStore {
 // a board card's rows: the platform's public, read-only leaderboard of that cabinet (what the hub already shows)
 async function leaderboard(game: GameKey): Promise<LeaderEntry[]> {
   const g = GAMES[game];
-  const response = await fetch(`${g.url.replace(/\/$/, '')}/api/v1/games/${g.appId}/scoring/leaderboard`, { signal: AbortSignal.timeout(4000) });
+  const week = lisbonWeek();                                            // THIS WEEK, as on the games and the hub
+  const response = await fetch(`${g.url.replace(/\/$/, '')}/api/v1/games/${g.appId}/scoring/leaderboard?${new URLSearchParams(week)}`, { signal: AbortSignal.timeout(4000) });
   if (!response.ok) throw new Error(`leaderboard HTTP ${response.status}`);
   return ((await response.json()) as { entries?: LeaderEntry[] }).entries ?? [];
 }

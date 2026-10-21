@@ -29,7 +29,7 @@ const pngSize = (buf: ArrayBuffer): [number, number] => { const v = new DataView
 mkdirSync(new URL('../../dist/cards/', import.meta.url), { recursive: true });
 const save = (name: string, buf: ArrayBuffer) => writeFileSync(new URL(`../../dist/cards/${name}`, import.meta.url), Buffer.from(buf));
 
-const ROW = { kind: 'row', names: ['K4NCUN0', 'normies', 'JPEG-FRENS'], line: 'ROW 4', points: 120, score: 1460, player: 'player.eth' };
+const ROW = { kind: 'row', names: ['K4NCUN0', 'normies', 'JPEG-FRENS'], line: 'ROW 4', score: 1460, rank: 2, player: 'player.eth', grid: [0b10110011, 0b01100110, 0b11001100, 255, 0b00011000, 0b10000001, 0b01111110, 0b11100111] };
 
 test('a row card: created once, same id for the same card, a page with the X tags that sends people to the cabinet', async () => {
   const r1 = await post(ROW), b1 = await r1.json() as { id: string; url: string; image: string };
@@ -46,7 +46,7 @@ test('a row card: created once, same id for the same card, a page with the X tag
 });
 
 test('a bounce card and a board card render too', async () => {
-  const bounce = await (await post({ kind: 'bounce', names: ['THE', 'CERA', 'GVC', 'ANIMATTTIC', 'DAN'], people: 12, score: 208 }, 'https://7x2phv5j.srstudio.dev')).json() as { id: string };
+  const bounce = await (await post({ kind: 'bounce', names: ['THE', 'CERA', 'GVC', 'ANIMATTTIC', 'DAN'], people: 12, score: 208, rank: 3, player: '0x1234567890abcdef1234567890abcdef12345678' }, 'https://7x2phv5j.srstudio.dev')).json() as { id: string };
   const html = await (await get(`/r/${bounce.id}`)).text();
   assert.ok(html.includes('url=https://7x2phv5j.srstudio.dev/'));
   save('service-bounce.png', await (await get(`/r/${bounce.id}.png`)).arrayBuffer());
@@ -65,7 +65,7 @@ test('nothing else can appear on a card', async () => {
     { ...ROW, names: ['HELLO WORLD'] }, { ...ROW, names: [] }, { ...ROW, names: Array(9).fill('NORMIES') },
     { ...ROW, score: '1460' }, { ...ROW, score: -1 }, { ...ROW, score: 1.5 }, { ...ROW, points: 10 ** 9 },
     { ...ROW, player: 'buy my token' }, { ...ROW, player: '<script>' }, { ...ROW, player: 'x'.repeat(50) + '.eth' },
-    { ...ROW, line: 'ROW 9' }, { ...ROW, extra: 1 }, { ...ROW, kind: 'tweet' },
+    { ...ROW, line: 'ROW 9' }, { ...ROW, grid: [1, 2, 3] }, { ...ROW, grid: [0, 0, 0, 0, 0, 0, 0, 256] }, { ...ROW, rank: 0 }, { ...ROW, rank: '1' }, { ...ROW, extra: 1 }, { ...ROW, kind: 'tweet' },
     { kind: 'bounce', names: ['NORMIES', 'STONE'], people: 1, score: 3 },
     { kind: 'board', game: 'tap-the-name' },
     { kind: 'board', game: 'full-row', rows: [{ rank: 1, name: 'a.eth', score: 999999 }] },

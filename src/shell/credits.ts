@@ -45,19 +45,28 @@ const archivedPurchasesSchema = z.array(z.object({
   archivedAt: z.string(),
 }));
 const MAINNET_USDC = '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48';
-/** The quote is paid in canonical Ethereum-mainnet USDC (the token this arcade's pack is priced in). */
-export function quoteTokenIsUsdc(quote: { currency?: string; tokenAddress?: string | null }): boolean {
-  return quote.currency === 'USDC' && typeof quote.tokenAddress === 'string' && quote.tokenAddress.toLowerCase() === MAINNET_USDC;
-}
+type PackTerms = { currency: 'ETH' | 'USDC'; tokenAddress: string | null; priceAtomic: string; credits: number };
+/** The packs the arcade has sold. USDC (2026-10-17 to 2026-10-20) is kept to switch back in one line. */
+const PACKS = {
+  USDC: { currency: 'USDC', tokenAddress: MAINNET_USDC, priceAtomic: '10000000', credits: 50 },          // 10 USDC (6 decimals)
+  ETH: { currency: 'ETH', tokenAddress: null, priceAtomic: '5000000000000000', credits: 50 },             // 0.005 ETH, in wei
+} as const satisfies Record<string, PackTerms>;
 /**
- * The pack this arcade's credit group sells (deploy/credit-group.json): 50 credits for 10 USDC. The single source of
+ * The pack this arcade's credit group sells (deploy/credit-group.json): 50 credits for 0.005 ETH. The single source of
  * truth for the price: the client refuses any quote that differs, and every price shown on the page is derived from it.
  * tests/credits-terms.test.ts keeps these in step with the group's terms.
  */
-export const EXPECTED_PACK_PRICE_ATOMIC = '10000000';
-export const EXPECTED_PACK_CREDITS = 50;
-/** "10 USDC" / "0.10 USDC": the pack price as players read it. */
-export function packPriceLabel(): string { return formatPrice(EXPECTED_PACK_PRICE_ATOMIC).replace(/^\$/, '').replace(/\.00 /, ' '); }
+export const PACK: PackTerms = PACKS.ETH;
+export const EXPECTED_PACK_PRICE_ATOMIC = PACK.priceAtomic;
+export const EXPECTED_PACK_CREDITS = PACK.credits;
+/** The quote is paid in the pack's currency: native ETH (no token address at all), or canonical mainnet USDC. */
+export function quoteTokenMatches(quote: { currency?: string; tokenAddress?: string | null }): boolean {
+  if (quote.currency !== PACK.currency) return false;
+  if (PACK.tokenAddress === null) return quote.tokenAddress === null;
+  return typeof quote.tokenAddress === 'string' && quote.tokenAddress.toLowerCase() === PACK.tokenAddress;
+}
+/** "0.005 ETH" / "10 USDC": the pack price as players read it. */
+export function packPriceLabel(): string { return formatPrice(EXPECTED_PACK_PRICE_ATOMIC, PACK.currency).replace(/^\$/, '').replace(/\.00 /, ' '); }
 export function packTermsMatch(quote: { packPriceAtomic: string; packCredits: number }): boolean {
   return quote.packPriceAtomic === EXPECTED_PACK_PRICE_ATOMIC && quote.packCredits === EXPECTED_PACK_CREDITS;
 }
@@ -93,10 +102,14 @@ function text(element: HTMLElement, value: string): void {
   element.textContent = value;
 }
 
-/** USDC has 6 decimals; show at least cents so 100000 reads "$0.10 USDC", not "$0.1 USDC". */
-export function formatPrice(atomic: string): string {
+/** ETH has 18 decimals ("0.005 ETH"); USDC 6, shown with at least cents so 100000 reads "$0.10 USDC", not "$0.1 USDC". */
+export function formatPrice(atomic: string, currency: string = PACK.currency): string {
   if (!/^\d+$/.test(String(atomic))) return 'an amount shown by the wallet';
   const value = BigInt(atomic);
+  if (currency === 'ETH') {
+    const fraction = String(value % 10n ** 18n).padStart(18, '0').replace(/0+$/, '');
+    return `${value / 10n ** 18n}${fraction ? `.${fraction}` : ''} ETH`;
+  }
   const whole = value / 1_000_000n;
   const fraction = String(value % 1_000_000n).padStart(6, '0').replace(/0+$/, '').padEnd(2, '0');
   return `$${whole}.${fraction} USDC`;
@@ -193,7 +206,7 @@ export class Credits {
     if (await this._createQuote()) await this._pay();
   }
 
-  /** Open the recovery details (the wallet menu's "Advanced purchase recovery"). */
+  /** Open the recovery details ("purchase help" in the wallet). */
   openRecovery(): void {
     if (!this.rendered) return;
     this.technical.open = true;
@@ -220,14 +233,14 @@ export class Credits {
 
     const historyTitle = document.createElement('h3');
     historyTitle.className = 'panel-subtitle';
-    text(historyTitle, 'Purchase history');
+    text(historyTitle, 'Purchases on this device');
     this.historyList = document.createElement('ol');
     this.historyList.className = 'purchase-history';
     this.root.append(historyTitle, this.historyList);
 
     this.technical = document.createElement('details');
     const summary = document.createElement('summary');
-    text(summary, 'Advanced purchase recovery');
+    text(summary, 'Recovery details');
     this.technical.append(summary);
     this.detailsText = document.createElement('p');
     this.detailsText.className = 'technical-details';
@@ -296,7 +309,7 @@ export class Credits {
       const credited = Boolean(record.credited || purchase.creditedAt);
       const hash = record.transactionHash ?? purchase.transactionHash ?? undefined;
       const state = credited ? 'credited' : hash ? 'paid · not claimed' : record.intentId || record.outcomeUnknown ? 'payment pending' : record.confirmPayment ? 'quote, not paid' : 'pending';
-      text(item, `${purchase.packCredits} credits · ${formatPrice(purchase.packPriceAtomic)} · ${state}${archived ? ' · archived' : ''} · ${purchase.createdAt.slice(0, 10)} `);
+      text(item, `${purchase.packCredits} credits · ${formatPrice(purchase.packPriceAtomic, purchase.currency)} · ${state}${archived ? ' · archived' : ''} · ${purchase.createdAt.slice(0, 10)} `);
       if (hash && /^0x[0-9a-fA-F]{64}$/.test(hash)) {
         const link = document.createElement('a');
         link.href = `https://etherscan.io/tx/${hash}`;
@@ -309,7 +322,8 @@ export class Credits {
     if (!rows.length) {
       const item = document.createElement('li');
       item.className = 'empty';
-      text(item, this.accountAddress ? 'No purchase yet.' : 'Sign in to see your purchases.');
+      // only this browser's records: a purchase made elsewhere, or credits given, are in the balance, not here
+      text(item, this.accountAddress ? 'No purchase recorded on this device. Credits bought elsewhere or given show in your balance.' : 'Sign in to see your purchases.');
       this.historyList.append(item);
     }
   }
@@ -410,12 +424,13 @@ export class Credits {
     if (!this.accountAddress) return;
     const record = this.record;
     const buy = (): void => { if (this.onBuyRequested) this.onBuyRequested(); else void this._createQuote(); };
+    // the plain "Buy credits" (nothing to recover) is hidden where the page has its own buy button (.buy-plain)
     if (record?.credited || record?.purchase?.creditedAt) {
-      addButton('Buy credits', buy, 'primary');
+      addButton('Buy credits', buy, 'primary buy-plain');
       return;
     }
     if (!record) {
-      addButton('Buy credits', buy, 'primary');
+      addButton('Buy credits', buy, 'primary buy-plain');
       return;
     }
 
@@ -436,7 +451,7 @@ export class Credits {
     }
 
     if (record.confirmPayment) {
-      addButton(`Confirm ${record.purchase.packCredits} credits · ${formatPrice(record.purchase.packPriceAtomic)}`, () => this._pay(), 'primary');
+      addButton(`Confirm ${record.purchase.packCredits} credits · ${formatPrice(record.purchase.packPriceAtomic, record.purchase.currency)}`, () => this._pay(), 'primary');
       addButton('Cancel quote', () => this._discardQuote());
       return;
     }
@@ -521,10 +536,10 @@ export class Credits {
       if (!authorization) throw new Error('Connect a game wallet before buying credits.');
       if (quote.chainId !== 1) throw new Error('This example only accepts Ethereum mainnet credit quotes.');
       if (!packTermsMatch(quote)) {
-        throw new Error(`This arcade requires ${formatPrice(EXPECTED_PACK_PRICE_ATOMIC)} for ${EXPECTED_PACK_CREDITS} credits, but the quote is ${formatPrice(quote.packPriceAtomic)} for ${quote.packCredits} credits. Ask the organizer to correct the payment configuration.`);
+        throw new Error(`This arcade requires ${formatPrice(EXPECTED_PACK_PRICE_ATOMIC)} for ${EXPECTED_PACK_CREDITS} credits, but the quote is ${formatPrice(quote.packPriceAtomic, quote.currency)} for ${quote.packCredits} credits. Ask the organizer to correct the payment configuration.`);
       }
-      if (!quoteTokenIsUsdc(quote)) {
-        throw new Error('The credit quote does not use the configured Ethereum mainnet USDC contract. No payment was started.');
+      if (!quoteTokenMatches(quote)) {
+        throw new Error(`The credit quote is not paid in ${PACK.currency === 'ETH' ? 'native ETH' : 'Ethereum mainnet USDC'}, as this arcade's pack is. No payment was started.`);
       }
       if (quote.address.toLowerCase() !== authorization.address) {
         throw new Error('This quote belongs to a different wallet. Refresh your game connection and try again.');
@@ -587,7 +602,7 @@ export class Credits {
       this._say('This quote expired before payment. Cancel it and request a fresh quote; no transfer was started.');
       return;
     }
-    if (quote.chainId !== 1 || !packTermsMatch(quote) || !quoteTokenIsUsdc(quote) || quote.address.toLowerCase() !== authorization.address) {
+    if (quote.chainId !== 1 || !packTermsMatch(quote) || !quoteTokenMatches(quote) || quote.address.toLowerCase() !== authorization.address) {
       this._say('This quote no longer matches the connected mainnet wallet. No payment was started.');
       return;
     }
@@ -601,8 +616,8 @@ export class Credits {
       const intent = await this.client.actions.transfer({
         chainId: 1,
         to: quote.treasuryAddress,
-        currency: 'USDC',
-        amount: quote.packPriceAtomic,
+        currency: PACK.currency,                                // the quote's own currency, checked just above
+        amount: quote.packPriceAtomic,                          // wei for ETH, 6-decimal units for USDC
         beforeOpen: (intent: ConnectIntentCreation) => this._saveRecord({
           ...pending,
           intentId: intent.intentId,

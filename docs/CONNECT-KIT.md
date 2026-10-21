@@ -1,6 +1,6 @@
 # The Connect Kit
 
-What an artist gives their AI to adapt SuperRare's template into a new cabinet (the same text as the hub's COPY THE KIT button, `hub/src.html`).
+What an artist gives their AI to adapt SuperRare's template into a new cabinet (the same text as the hub's COPY THE KIT button, `hub/builders.html`).
 
 ```text
 You are adapting the public SuperRare Studio game template into a NEW game for THE WALL ARCADE.
@@ -8,7 +8,7 @@ Template: https://github.com/superrare/studio-games-example (MIT) on the publish
 Read first, in the cloned repo: README.md, docs/organizer-runbook.md, docs/server-verification.md.
 
 HOW A CONNECT GAME WORKS (do not rewrite this plumbing)
-- The player signs in with SuperRare Connect, buys credits in a pack (USDC, Ethereum mainnet) and spends 1 credit per run.
+- The player signs in with SuperRare Connect, buys credits in a pack (ETH or USDC on Ethereum mainnet, as the credit group sets) and spends 1 credit per run.
   Credits live in a CREDIT GROUP shared by every game registered in it. The template already implements sign-in, purchase,
   consent, recovery and run start: leave src/credits.ts, src/account-storage.ts, src/main.ts and the paid-start parts of src/round.js alone.
 - The score is decided by the platform, never by the browser. A game is three pieces that must agree:

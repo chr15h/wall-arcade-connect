@@ -3,357 +3,164 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>THE WALL ARCADE — server-verified cabinets on SuperRare Connect</title>
-<meta name="description" content="A real wall in Lisbon. 550 names, one live dataset. Arcade cabinets on SuperRare Connect: one sign-in, credits paid in USDC, scores decided by the platform's server.">
+<title>THE WALL ARCADE</title>
+<meta name="description" content="Games built on the names of a real wall in Lisbon.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@300&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@300;500&display=swap" rel="stylesheet">
 <style>
-/* NFC Summit brutalist design system: concrete/ink/chalk, Anton, one blue accent. See BRIEF-DESIGN-SYSTEM-nfcsummit.md. */
+/* NFC Summit brutalist design system: concrete/ink/chalk, Anton, one blue accent. See BRIEF-DESIGN-SYSTEM-nfcsummit.md.
+   Player page: no font under 13px, at most two mono uppercase labels per screen, one blue button per cabinet. */
 :root{--concrete:#DEDBD3;--ink:#0B0B0B;--chalk:#F2F0EB;--label:#6B685F;--label-lt:#B0ACA2;--rule:#C4C0B6;--blue:#2E7FD6;
-  --anton:Anton,Impact,sans-serif;--mono:'IBM Plex Mono',ui-monospace,monospace;--inter:Inter,system-ui,sans-serif;--padx:5%}
+  --anton:Anton,Impact,sans-serif;--mono:'IBM Plex Mono',ui-monospace,monospace;--inter:Inter,system-ui,sans-serif;--padx:max(16px,5%)}
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{margin:0;padding:0;background:var(--concrete);color:var(--ink)}
 body{font-family:var(--mono);-webkit-font-smoothing:antialiased;overflow-x:hidden}
 a{color:inherit}
 ::selection{background:var(--blue);color:var(--chalk)}
-p,h1,h2,h3{margin:0}
-.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--label)}
-.on-ink .eyebrow{color:var(--label-lt)}
+p,h1,h2,h3,dl,dd{margin:0}
+.lbl{font-family:var(--mono);font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--label)}
 .anton{font-family:var(--anton);text-transform:uppercase;font-weight:400;line-height:.9;letter-spacing:-.01em}
 .inter{font-family:var(--inter);font-weight:300;line-height:1.45}
-.rule{height:1px;background:var(--ink);border:0}
-.rule-lt{height:1px;background:var(--rule);border:0}
 
-/* header */
-header{position:sticky;top:0;z-index:20;background:var(--concrete);border-bottom:1px solid var(--ink);padding:0 var(--padx);height:56px;display:flex;align-items:center;justify-content:space-between}
-header .lbl{font-size:11px;letter-spacing:.2em;text-transform:uppercase}
-header nav{display:flex;gap:clamp(16px,3vw,36px);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--label)}
-header nav a{text-decoration:none}header nav a:hover{color:var(--ink)}
+/* thin top bar: the (i) opens "How it works" */
+.bar{position:sticky;top:0;z-index:20;background:var(--concrete);border-bottom:1px solid var(--ink);padding:0 var(--padx);height:48px;display:flex;align-items:center;justify-content:space-between}
+.info{width:44px;height:44px;margin-right:-8px;display:inline-flex;align-items:center;justify-content:center;background:none;border:0;cursor:pointer;padding:0;color:var(--ink)}
+.info span{width:28px;height:28px;border:1px solid var(--ink);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:500;font-size:15px;line-height:1}
+.info:hover span{background:var(--ink);color:var(--chalk)}
 
-/* hero */
-.hero{position:relative;padding:clamp(40px,7vw,88px) var(--padx) clamp(48px,8vw,120px);overflow:hidden}
-.hero .presents{margin-bottom:14px}
-.hero h1{font-size:clamp(56px,14cqw,150px);font-size:clamp(56px,13vw,150px)}
-.hero .sub{font-family:var(--mono);text-transform:uppercase;letter-spacing:0;font-size:clamp(22px,3vw,34px);line-height:1.15;margin-top:10px;max-width:16ch}
-.hero .lead{font-size:clamp(15px,1.3vw,18px);max-width:44ch;margin-top:20px}
-.cta-row{display:flex;align-items:center;gap:28px;flex-wrap:wrap;margin-top:32px;position:relative;z-index:2}
-.cta-blue{background:var(--blue);color:var(--ink);text-decoration:none;font-family:var(--mono);font-weight:500;letter-spacing:.14em;text-transform:uppercase;font-size:15px;padding:20px 30px;display:inline-flex;align-items:center;gap:16px}
-.cta-blue b{font-family:var(--anton);font-weight:400;font-size:22px;letter-spacing:0}
-.link-u{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--label);text-decoration:underline;text-underline-offset:4px}
-.link-u:hover{color:var(--ink)}
-.dragon{position:absolute;right:-4%;bottom:-6%;width:clamp(220px,30vw,420px);mix-blend-mode:multiply;pointer-events:none;z-index:1}
-.wallbox{position:relative;z-index:2;border:1px solid var(--ink);padding:10px;margin-top:40px;max-width:640px;background:var(--concrete)}
+/* hero: title, one sentence, the live wall small */
+.hero{position:relative;padding:clamp(28px,5vw,64px) var(--padx) clamp(28px,4vw,48px)}
+.hero h1{font-size:clamp(52px,10vw,120px)}
+.hero .lead{font-size:clamp(16px,1.4vw,19px);max-width:36ch;margin-top:14px}
+.visual{display:flex;align-items:flex-end;gap:clamp(12px,3vw,32px);margin-top:clamp(22px,3vw,36px)}
+.wallbox{flex:0 1 380px;min-width:0}
 #wallgrid{display:grid;grid-template-columns:repeat(25,1fr);gap:2px}
-#wallgrid div{aspect-ratio:1;border:1px dashed var(--ink);background:transparent;opacity:.5}
+#wallgrid div{aspect-ratio:1;border:1px dashed var(--ink);opacity:.45}
 #wallgrid div.m{background:var(--ink);border-style:solid;opacity:1}
-.wallmeta{display:flex;justify-content:space-between;align-items:center;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--label);margin-top:10px;gap:12px;flex-wrap:wrap}
-.wallmeta b{color:var(--ink)}
+.wallmeta{margin-top:8px}
+.wallmeta b{color:var(--ink);font-weight:500}
+.dragon{flex:0 0 auto;width:clamp(96px,16vw,190px);mix-blend-mode:multiply;pointer-events:none;display:block}
 
-/* sections */
-.sec{border-top:1px solid var(--ink);padding:clamp(40px,6vw,80px) var(--padx)}
+/* cabinets */
+.games{border-top:1px solid var(--ink);padding:clamp(24px,4vw,56px) var(--padx)}
 .wrap{max-width:1280px;margin:0 auto}
-.sec-head{display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap;margin-bottom:clamp(28px,3vw,44px)}
-.sec-head h2{font-size:clamp(40px,6vw,84px)}
-.sec-head .eyebrow{white-space:nowrap}
-
-/* what it is */
-.what{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:clamp(24px,3vw,40px)}
-.what>div{border-top:1px solid var(--ink);padding-top:16px}
-.what .t{font-size:clamp(36px,4.2vw,58px);color:var(--ink);margin-bottom:10px}
-.what p{font-size:14px;color:var(--ink)}
-
-/* how it works */
-.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,270px),1fr));border:1px solid var(--ink)}
-.step{padding:clamp(20px,2vw,28px);border-right:1px dashed var(--ink);border-bottom:1px dashed var(--ink);display:flex;flex-direction:column;gap:14px;min-height:340px}
-.step:last-child{border-right:0}
-.step .n{font-family:var(--mono);font-weight:500;font-size:clamp(46px,4.4vw,64px);color:var(--label-lt);line-height:.85}
-.step .st{font-size:clamp(24px,2.2vw,32px)}
-.step p{font-size:13px;line-height:1.55;color:var(--label)}
-.step p b{color:var(--ink);font-weight:500}
-.step p code{font-family:var(--mono);font-size:11.5px;color:var(--ink);overflow-wrap:anywhere}
-.step p.grow{flex:1}
-.bubble{margin-top:auto;background:var(--chalk);border:1px solid var(--ink);padding:14px 16px;font-size:13px;line-height:1.5;color:var(--ink);font-family:var(--inter);font-weight:300;font-style:italic}
-.tips{margin-top:auto;display:flex;flex-direction:column;gap:6px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--label)}
-.btn-ink{background:var(--ink);color:var(--chalk);border:1px solid var(--ink);font-family:var(--mono);font-weight:500;font-size:14px;letter-spacing:.12em;text-transform:uppercase;padding:12px 18px;line-height:1;cursor:pointer;text-align:left;text-decoration:none;display:inline-flex;align-items:center;justify-content:space-between;gap:10px;min-height:46px}
-.btn-ink:hover{background:var(--chalk);color:var(--ink)}
-.btn-ink.done{background:var(--blue);color:var(--ink)}
-#kitToggle{background:none;border:0;padding:0;text-align:left;font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--label);text-decoration:underline;text-underline-offset:4px;cursor:pointer}
-#kitToggle:hover{color:var(--ink)}
-#kitBox{display:none;border:1px solid var(--ink);border-top:0;background:var(--ink);color:var(--chalk)}
-#kitBox.open{display:block}
-.kithead{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--label);font-size:10px;letter-spacing:.16em;text-transform:uppercase}
-.kithead button{background:none;color:var(--chalk);border:0;font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;cursor:pointer;padding:6px}
-#kitText{margin:0;padding:16px;font-size:12px;line-height:1.6;overflow-x:auto;white-space:pre-wrap;font-family:var(--mono);max-height:360px;overflow-y:auto}
-.dev-intro{margin:calc(-1 * clamp(14px,1.6vw,24px)) 0 clamp(20px,2.4vw,32px);font-family:var(--mono);font-size:13px;letter-spacing:.06em;text-transform:uppercase}
-.dev-intro b{font-weight:500}
-.stuck{margin-top:clamp(20px,2.5vw,32px);border:1px dashed var(--ink);padding:clamp(16px,2vw,24px);display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
-.stuck .big{font-size:clamp(18px,2vw,24px)}
-.stuck .r{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
-.stuck .r span{font-size:13px;color:var(--label)}
-.btn-o{border:1px solid var(--ink);color:var(--ink);text-decoration:none;font-family:var(--mono);font-weight:500;font-size:13px;letter-spacing:.14em;text-transform:uppercase;padding:10px 16px;line-height:1;min-height:42px;display:inline-flex;align-items:center;white-space:nowrap}
-.btn-o:hover{background:var(--ink);color:var(--chalk)}
-
-/* games */
-#cabs{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));gap:clamp(16px,2vw,28px)}
+#cabs{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr));gap:clamp(16px,2vw,28px)}
 .cab{display:flex;flex-direction:column;border:1px solid var(--ink);background:var(--concrete)}
-.cab-h{background:var(--ink);color:var(--chalk);padding:12px 14px;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
-.cab-h .ti{font-family:var(--anton);font-size:22px;line-height:1}
-.cab-h .nu{font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--label-lt)}
-.screen{position:relative;aspect-ratio:4/3;background:var(--ink);margin:12px;overflow:hidden;border:1px solid var(--ink)}
-.mini{position:absolute;inset:8%;display:grid;grid-template-columns:repeat(10,1fr);gap:2px}
-.mini div{background:transparent;border:1px dashed var(--label)}
-.mini div.m{background:var(--chalk);border-style:solid;border-color:var(--chalk)}
-.cab .pitch{padding:10px 14px 2px;font-family:var(--inter);font-weight:300;font-size:13px;line-height:1.5;color:var(--ink)}
-.cab .by{padding:0 14px 10px;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--label)}
-.top3{padding:0 14px 10px;font-size:11px}
-.top3 .lbl{font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--label);margin-bottom:4px}
-.top3 .row{display:flex;justify-content:space-between;padding:2px 0}
-.cab-post{display:flex;align-items:center;justify-content:center;margin-top:8px;min-height:36px;border:1px solid var(--ink);color:var(--ink);text-decoration:none;font-family:var(--mono);font-weight:500;font-size:11px;letter-spacing:.14em}
-.cab-post:hover{background:var(--ink);color:var(--chalk)}
-.cab-post.is-preparing{opacity:.45;pointer-events:none}
-.lastweek{padding:0 14px 10px;font-size:10.5px;color:var(--label);border-top:1px dashed var(--rule);margin:0 14px;padding-top:8px}
-.lastweek a{color:var(--blue);text-decoration:underline;text-underline-offset:2px}
-.cab-f{margin-top:auto;border-top:1px solid var(--ink);padding:12px}
-.cab-f .cab-wait{display:block;text-align:center;padding:14px 10px;border:1px dashed var(--ink);font-family:var(--mono);font-size:12px;letter-spacing:.16em;color:var(--label)}
-.cab-f a{display:flex;justify-content:center;align-items:center;gap:10px;background:var(--ink);color:var(--chalk);text-decoration:none;font-family:var(--mono);font-weight:500;letter-spacing:.12em;text-transform:uppercase;font-size:14px;padding:14px;line-height:1;min-height:46px}
-.cab-f a:hover{background:var(--chalk);color:var(--ink);border:1px solid var(--ink)}
-.cab.empty{border-style:dashed}
-.cab.empty .cab-h{background:transparent;color:var(--ink);border-bottom:1px dashed var(--ink)}
-.cab.empty .screen{background:transparent;border:1px dashed var(--ink);display:flex;align-items:center;justify-content:center;text-align:center;padding:20px}
-.cab.empty .screen span{font-family:var(--mono);font-weight:500;font-size:16px;letter-spacing:.1em;color:var(--label)}
-.cab.empty .pitch{color:var(--label)}
-.cab.empty .cab-f{border-top:1px dashed var(--ink)}
-.cab.empty .cab-f a{background:transparent;border:1px dashed var(--ink);color:var(--ink)}
-.cab.empty .cab-f a:hover{background:var(--ink);color:var(--chalk);border-style:solid}
+.cab-h{background:var(--ink);color:var(--chalk);padding:12px 14px}
+.cab-h h2{font-size:28px;line-height:1}
+.cab .pitch{padding:12px 14px 14px;font-size:15px;flex:1}
+.cab-f{padding:0 14px}
+.cab-f a{display:flex;justify-content:center;align-items:center;gap:10px;width:100%;background:var(--blue);color:var(--ink);text-decoration:none;font-family:var(--mono);font-weight:500;letter-spacing:.14em;text-transform:uppercase;font-size:16px;padding:14px;line-height:1;min-height:52px;border:1px solid var(--blue)}
+.cab-f a:hover{background:var(--ink);color:var(--chalk);border-color:var(--ink)}
+.cab-f .cab-wait{display:flex;justify-content:center;align-items:center;min-height:52px;border:1px dashed var(--ink);font-family:var(--mono);font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--label)}
+.top3{padding:12px 14px 14px;font-size:13px;line-height:1.5}
+.top3:empty{padding:0 0 14px}
+.top3 .wk{font-family:var(--inter);font-weight:300;font-size:13px;color:var(--label);margin-bottom:2px}
+.top3 .row{display:flex;justify-content:space-between;gap:12px}
+.top3 .row span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.top3 .row span:last-child{font-weight:500}
 
-/* deal (encre section) */
-#deal{background:var(--ink);color:var(--chalk);border-top:0}
-#deal .deal-t{font-size:clamp(40px,6vw,84px);margin-bottom:clamp(20px,3vw,32px)}
-.deal-l{display:flex;flex-direction:column;max-width:64ch}
-.deal-l div{padding:16px 0;border-bottom:1px solid var(--label);font-family:var(--inter);font-weight:300;font-size:clamp(16px,1.8vw,22px);line-height:1.4}
-.deal-l div:last-child{border-bottom:0}
+/* to the builders page */
+.artists{padding:clamp(24px,3vw,40px) var(--padx);border-top:1px solid var(--ink)}
+.artists a{font-family:var(--inter);font-weight:300;font-size:17px;text-decoration:underline;text-underline-offset:4px}
+.artists a:hover{color:var(--blue)}
 
 /* footer */
-footer{border-top:1px solid var(--ink);padding:28px var(--padx)}
-.foot-in{max-width:1280px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap}
-.foot-l{display:flex;flex-direction:column;gap:6px;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--label)}
-.foot-l a{text-decoration:none}
-.foot-l a:hover{color:var(--ink)}
+footer{border-top:1px solid var(--ink);padding:24px var(--padx) 32px}
+.foot-in{max-width:1280px;margin:0 auto;display:flex;justify-content:space-between;align-items:flex-end;gap:12px 20px;flex-wrap:wrap}
+footer .lbl a{text-decoration:none}
+footer .lbl a:hover{color:var(--ink)}
+footer .built{font-family:var(--inter);font-weight:300;font-size:13px;color:var(--label)}
 
-@media (max-width:640px){
-  header nav{display:none}
-  .step{min-height:0;border-right:0}
-  .hero{padding-bottom:clamp(220px,55vw,320px)}
-  .dragon{width:60vw;right:-6%}
-}
+/* "How it works" panel */
+dialog{width:min(560px,calc(100% - 32px));max-height:calc(100dvh - 32px);padding:0;border:1px solid var(--ink);background:var(--concrete);color:var(--ink);overflow:auto}
+dialog::backdrop{background:rgba(11,11,11,.6)}
+.dlg-h{position:sticky;top:0;display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--ink);color:var(--chalk);padding:10px 8px 10px 18px}
+.dlg-h h2{font-size:30px;line-height:1}
+.dlg-h button{width:44px;height:44px;background:none;border:0;color:var(--chalk);font-family:var(--mono);font-size:24px;line-height:1;cursor:pointer}
+.dlg-b{padding:4px 18px 18px}
+.dlg-b dt{font-family:var(--anton);text-transform:uppercase;font-size:22px;line-height:1;margin-top:18px}
+.dlg-b dd{font-family:var(--inter);font-weight:300;font-size:15px;line-height:1.5;margin-top:6px}
+.dlg-b dd b{font-weight:500}
 </style>
 </head>
 <body>
 
-<header>
-  <a class="lbl" href="#top" style="text-decoration:none">THE WALL ARCADE</a>
-  <nav><a href="#how">How it works</a><a href="#games">Games</a></nav>
-  <a class="btn-o" id="navPlay" href="https://7x2phv5j.srstudio.dev/" target="_blank" rel="noopener">PLAY GAME #01</a>
-</header>
+<div class="bar">
+  <span class="lbl">On The Wall presents</span>
+  <button class="info" id="infoBtn" type="button" aria-label="How it works" aria-haspopup="dialog"><span aria-hidden="true">i</span></button>
+</div>
 
-<!-- 1. HERO -->
-<section class="hero" id="top">
-  <div class="eyebrow presents">On The Wall presents</div>
+<section class="hero">
   <h1 class="anton">The Wall<br>Arcade</h1>
-  <div class="sub">One sign-in. Credits in USDC. Server-verified.</div>
-  <p class="inter lead">A real wall in Lisbon. 550 names, one live dataset. Sign in once with SuperRare Connect, buy credits once, play every cabinet: the platform's server runs the game and records the score.</p>
-  <div class="cta-row">
-    <a class="cta-blue" href="#games">PLAY <b>→</b></a>
-    <a class="link-u" href="#how">or make your own cabinet</a>
-  </div>
-  <div class="wallbox">
-    <div id="wallgrid"></div>
-    <div class="wallmeta">
-      <span><b id="mintedCount">0</b> / 550 painted · <span id="dataMode">snapshot</span></span>
-      <span>■ minted · ┈ waiting</span>
+  <p class="inter lead">Games built on the names of a real wall in Lisbon.</p>
+  <div class="visual">
+    <div class="wallbox">
+      <div id="wallgrid" aria-hidden="true"></div>
+      <div class="wallmeta lbl"><b id="mintedCount">0</b> / 550 names painted</div>
     </div>
-  </div>
-  <img class="dragon" src="dragon.jpg" alt="">
-</section>
-
-<!-- 2. WHAT IT IS -->
-<section class="sec what-sec">
-  <div class="wrap what">
-    <div><div class="t anton">The wall</div><p class="inter">A real painted wall in Lisbon for NFC Summit 2027. Every brick is a person.</p></div>
-    <div><div class="t anton">The credits</div><p class="inter">One SuperRare Connect sign-in. NFC's cabinets share one balance of credits. A pack is paid in USDC on Ethereum; each run uses one credit.</p></div>
-    <div><div class="t anton">The scores</div><p class="inter">The browser only sends your moves. The platform replays them on its server and records the score: no score ever comes from the page.</p></div>
+    <img class="dragon" src="dragon.jpg" alt="">
   </div>
 </section>
 
-<!-- 3. HOW IT WORKS -->
-<section id="how" class="sec">
-  <div class="wrap">
-    <div class="sec-head"><h2 class="anton">How it works</h2><span class="eyebrow">4 steps</span></div>
-    <p class="dev-intro"><b>This path is for developers.</b> Not one? Skip to the bottom: DM @NFCsummit and we put your game online with you.</p>
-    <div class="steps">
-      <div class="step">
-        <div class="n">1</div>
-        <div class="st anton">Copy the Connect Kit</div>
-        <p class="grow">One button. It tells your AI how a SuperRare Connect game works, what the server verifier must guarantee, and where the wall's data lives.</p>
-        <button class="btn-ink" id="copyBtn" type="button">COPY THE KIT</button>
-        <button id="kitToggle" type="button">read the kit</button>
-      </div>
-      <div class="step">
-        <div class="n">2</div>
-        <div class="st anton">Adapt SuperRare's template</div>
-        <p>You need: Node.js 22 or newer, pnpm (10.11, the template's package manager) and the rare-profile CLI (beta: <code>npm i -g @rareprotocol/rare-profile@beta</code>).</p>
-        <div class="tips"><span>› Node 22+</span><span>› pnpm 10.11</span><span>› rare-profile beta</span></div>
-        <p class="grow">Clone the public Studio games template, give your AI the kit, and describe the game. It rewrites three things that must agree: the rules (a deterministic engine), the verifier that replays your players' moves, and the screen.</p>
-        <div class="bubble">“Adapt this template into a memory game where I have to find the two halves of each name. Keep the verifier strict and deterministic.”</div>
-        <a class="btn-ink" href="https://github.com/superrare/studio-games-example" target="_blank" rel="noopener">OPEN THE TEMPLATE <span>↗</span></a>
-      </div>
-      <div class="step">
-        <div class="n">3</div>
-        <div class="st anton">Test it, then build it</div>
-        <p>Run the template's own checks (typecheck, tests, the local verifier exercise), then build the archive. Nothing is paid and nothing is public until you deploy.</p>
-        <div class="tips"><span>› pnpm test</span><span>› verifier exercise</span><span>› pnpm build → game.zip</span></div>
-      </div>
-      <div class="step">
-        <div class="n">4</div>
-        <div class="st anton">Put it online, get a cabinet</div>
-        <p class="grow">Create a free Studio account, deploy with the rare-profile CLI, publish your verifier and scoring event (the runbook has every command). Send your Studio link to @NFCsummit: your cabinet opens here.</p>
-        <p><b>Joining NFC's credit group means one treasury: NFC's.</b> Your players share one balance with NFC's other cabinets, and the USDC goes to NFC. To be paid directly, create your own credit group with your own treasury instead.</p>
-        <a class="btn-ink" href="https://github.com/superrare/studio-games-example/blob/main/docs/organizer-runbook.md" target="_blank" rel="noopener">READ THE RUNBOOK <span>↗</span></a>
-      </div>
-    </div>
-    <div id="kitBox">
-      <div class="kithead"><span>The Connect Kit · what your AI reads</span><button id="kitClose" type="button">Close ×</button></div>
-      <pre id="kitText"></pre>
-    </div>
-    <div class="stuck">
-      <div class="big anton">STUCK AT ANY STEP? DM @NFCSUMMIT.</div>
-      <div class="r">
-        <span>Send us your file, we put it online for you.</span>
-        <a class="btn-o" href="https://x.com/NFCsummit" target="_blank" rel="noopener">DM @NFCsummit →</a>
-      </div>
-    </div>
-  </div>
+<section class="games" aria-label="Games">
+  <div class="wrap"><div id="cabs"></div></div>
 </section>
 
-<!-- 4. THE GAMES -->
-<section id="games" class="sec">
-  <div class="wrap">
-    <div class="sec-head"><h2 class="anton">The games</h2><span class="eyebrow" id="gamesCount"></span></div>
-    <div id="cabs"></div>
-  </div>
-</section>
+<div class="artists"><div class="wrap"><a href="./builders.html">Artists: make your own cabinet →</a></div></div>
 
-<!-- 5. THE DEAL -->
-<section id="deal" class="sec on-ink">
-  <div class="wrap">
-    <div class="deal-t anton">The deal</div>
-    <div class="deal-l">
-      <div>Your game, your name on it.</div>
-      <div>Players sign in and pay through SuperRare Connect: credits are bought in packs of USDC, one credit per run. The money goes to the treasury of the credit group, never through our code.</div>
-      <div>Cabinets in NFC's group share one balance and NFC's treasury. To be paid directly, run your own credit group with your own treasury: your credits then stay with your game.</div>
-      <div>The platform's server decides every score. Prizes and payouts are manual, by the organizer of the group.</div>
-      <div>If your game stars a specific name from the wall, its holder gets an edition. Every game carries the credit line and a link back to the wall.</div>
-    </div>
-  </div>
-</section>
-
-<!-- 6. FOOTER -->
 <footer>
   <div class="foot-in">
-    <div class="foot-l">
-      <span>A Remix The Wall experiment · NFC Summit 2027 · Lisbon</span>
-      <a href="https://onthewall.nfcsummit.com">onthewall.nfcsummit.com</a>
-    </div>
-    <div class="foot-l" style="text-align:right">
-      <span>Built on</span>
-      <a href="https://studio.superrare.com" target="_blank" rel="noopener">SuperRare Studio</a>
-    </div>
+    <div class="lbl"><a href="https://onthewall.nfcsummit.com">A Remix The Wall experiment · NFC Summit 2027 · Lisbon</a></div>
+    <div class="built">Built on <a href="https://studio.superrare.com" target="_blank" rel="noopener">SuperRare Studio</a></div>
   </div>
 </footer>
 
+<dialog id="how" aria-labelledby="howTitle">
+  <div class="dlg-h"><h2 class="anton" id="howTitle">How it works</h2><button type="button" id="howClose" aria-label="Close">×</button></div>
+  <dl class="dlg-b">
+    <dt>Credits</dt>
+    <dd><b>50 plays for 0.005 ETH</b>, paid on Ethereum mainnet. Each run uses 1 credit. One balance covers all of NFC's cabinets. Star Runner and Sky Hopper are SuperRare's own games and use their own credits.</dd>
+    <dt>Practice</dt>
+    <dd>Free, and not recorded.</dd>
+    <dt>Scores</dt>
+    <dd>The platform replays your inputs on its server and records the score. The browser never sends a score.</dd>
+    <dt>Weekly prizes</dt>
+    <dd>One leaderboard per game for the week: Friday 15:00 to Friday 15:00, Lisbon time. The first week runs from Thursday Oct 22, 00:00 to Friday Oct 30, 15:00. Prizes are handled by the organizer.</dd>
+    <dt>Paid but no credits?</dt>
+    <dd>Open the game's wallet menu, then "purchase help".</dd>
+  </dl>
+</dialog>
+
 <script>
-/* ---- Cabinets: add a game = add an entry. Empty cabinets fill the rest up to SLOTS.
+/* ---- Cabinets: add a game = add an entry.
    Scores are read, read-only and public, from each game's own origin: GET <url>/api/v1/games/<appId>/scoring/leaderboard.
    The two Studio games are SuperRare's own template examples (their credits live in SuperRare's group, not ours). ---- */
 var GAMES = [
-  { id: 'unbreakable', num: '01', title: 'UNBREAKABLE', artist: 'NFC',
-    pitch: 'Aim and fire. Every brick is a name of the wall: break it and the name gets painted. Three minutes on the server clock.',
-    url: 'https://7x2phv5j.srstudio.dev/', appId: 'c5285ae3-512e-464a-aceb-17571e1fe3e9', share: true },
-  { id: 'full-row', num: '02', title: 'FULL ROW', artist: 'NFC',
-    pitch: 'Place the names of the wall. Full rows get painted.',
-    url: 'https://yfq52eu3.srstudio.dev/', appId: '5932be45-7ccb-483a-916d-0dcebff40ca2', share: true },
-  { id: 'star-runner', num: '03', title: 'STAR RUNNER', artist: 'SuperRare Studio',
-    pitch: 'Collect stars, avoid spikes and reach the beacon in all three levels. From the Studio game template.',
+  { id: 'unbreakable', title: 'UNBREAKABLE',
+    pitch: 'Aim and fire: every brick you break is a name of the wall, and it gets painted.',
+    url: 'https://7x2phv5j.srstudio.dev/', appId: 'c5285ae3-512e-464a-aceb-17571e1fe3e9' },
+  { id: 'full-row', title: 'FULL ROW',
+    pitch: 'Place the names of the wall: full rows get painted.',
+    url: 'https://yfq52eu3.srstudio.dev/', appId: '5932be45-7ccb-483a-916d-0dcebff40ca2' },
+  { id: 'star-runner', title: 'STAR RUNNER',
+    pitch: 'Collect stars, avoid spikes and reach the beacon in all three levels.',
     url: 'https://q77e66pg.srstudio.dev/', appId: '7d0a34a0-ca86-413a-871c-7b731adf4511' },
-  { id: 'sky-hopper', num: '04', title: 'SKY HOPPER', artist: 'SuperRare Studio',
-    pitch: 'Tap, press Space or the up arrow to flap between the pipes. From the Studio game template.',
+  { id: 'sky-hopper', title: 'SKY HOPPER',
+    pitch: 'Tap, press Space or the up arrow to flap between the pipes.',
     url: 'https://tu9zzywe.srstudio.dev/', appId: 'f89bd492-1479-46ff-b455-1ec479e45684' }
 ];
-var SLOTS = 4;
 var API = 'https://otw-arcade.netlify.app';        // the wall's public data only
 
-var EMPTY_LINES = ['A wall of 550 real people, waiting for your rules.', 'Any genre. A deterministic engine and a verifier.', 'Memory, puzzle, racer, quiz. Your call.', 'Your cabinet, your name on it.', 'Insert idea here.'];
-
-var KIT_TEXT = [
-'You are adapting the public SuperRare Studio game template into a NEW game for THE WALL ARCADE.',
-'Template: https://github.com/superrare/studio-games-example (MIT) on the published @rareprotocol/connect 0.9.0-beta.0.',
-'Read first, in the cloned repo: README.md, docs/organizer-runbook.md, docs/server-verification.md.',
-'',
-'HOW A CONNECT GAME WORKS (do not rewrite this plumbing)',
-'- The player signs in with SuperRare Connect, buys credits in a pack (USDC, Ethereum mainnet) and spends 1 credit per run.',
-'  Credits live in a CREDIT GROUP shared by every game registered in it. The template already implements sign-in, purchase,',
-'  consent, recovery and run start: leave src/credits.ts, src/account-storage.ts, src/main.ts and the paid-start parts of src/round.js alone.',
-'- The score is decided by the platform, never by the browser. A game is three pieces that must agree:',
-'  (1) a deterministic ENGINE (pure functions createRun, advance, applyInput, view, isFinished, score) in src/target-engine.ts,',
-'  (2) a VERIFIER Worker (src/server-verifier.ts) exposing that engine over POST /v1, bundled in the archive,',
-'  (3) the browser CLIENT (src/round.js) that sends ordered inputs and draws the state the server returns.',
-'- The browser sends only inputs such as {"action":"hit","targetId":3}: never a score, a time or a state.',
-'  The platform owns time in 50 ms server ticks (20 per second), accepts at most one input per tick, 1 KiB per message.',
-'',
-'RULES FOR THE ENGINE AND THE VERIFIER',
-'- Deterministic and small: no Math.random, Date, network or storage. Same seed, same game. 10 ms CPU per call, no outbound request,',
-'  state under 64 KiB, bundle under 256 KB.',
-'- Validate every input strictly (reject extra fields, bound every number). An illegal input is a no-op, never a score.',
-'- Never trust the client for score, time, positions or state: derive everything from the previous server state and the tick.',
-'- Run the template checks: pnpm install --frozen-lockfile, pnpm typecheck, pnpm test, and the local verifier and bundled-verifier',
-'  exercises in docs/server-verification.md. Add tests for your new rules (wrong action, replay, timing, forged input).',
-'- Perfectly legal automated inputs are accepted by these rules: do not call your game bot-proof.',
-'',
-'THE WALL (public data, free, no key)',
-'  GET https://otw-arcade.netlify.app/positions',
-'  Array of 557 objects: { position, tier, idx, minted, name, owner, xHandle }',
-'  "name" and "owner" (wallet address) only when minted is true; "xHandle" (X handle, no @) only when known.',
-'  tier is one of: name, pfp, house, mural, flag.',
-'  Names grid (tier "name"): 500 bricks, 25 columns x 20 rows (column = idx % 25).',
-'  PFPs (tier "pfp"): 50 bricks, 25 x 2, above the names. That makes the 550 bricks of the wall.',
-'  The verifier has NO network: embed the names/positions it needs as a snapshot at build time. In the browser, fetch the live',
-'  data at load and fall back to the snapshot if it fails.',
-'',
-'IDENTITY (use, remix or ignore): the NFC system. Concrete #DEDBD3, ink #0B0B0B, chalk #F2F0EB, one blue #2E7FD6.',
-'  Anton for titles, IBM Plex Mono for labels. Dashed = empty brick, solid = minted.',
-'',
-'REQUIRED CREDIT LINE, visible in the game:',
-'  A REMIX THE WALL EXPERIMENT · NFC SUMMIT 2027 · LISBON — link to https://onthewall.nfcsummit.com',
-'',
-'OPTIONAL: tell the weekly Survivor which minted name was hit (best effort, batched, never blocks play):',
-'  POST https://otw-arcade.netlify.app/hits   {"game":"your-game-slug","hits":{"name-0":2,"pfp-3":1}}   keys: name-<idx>, pfp-<idx>',
-'',
-'DEPLOYMENT (the artist runs these, not the AI): docs/organizer-runbook.md. rare-profile CLI 0.1.0-beta.4+, app deploy (placeholder),',
-'  credit group, pnpm build, app update, then publish the verifier version and the scoring event. Never put keys, tokens, treasury',
-'  overrides or secrets in config.json.',
-'',
-'When done, give me: every changed file in full, the new tests, and the exact commands to run.'
-].join('\n');
-
 /* ---- data ---- */
-/* Real snapshot of /positions (names + PFPs, in wall order): 0 = waiting, 1 = minted, "NAME" = minted.
-   Refresh with: python3 tools/snapshot.py */
+/* Snapshot of /positions (names + PFPs, in wall order), inlined by scripts/build-hub.ts: 0 = waiting, 1 = minted, "NAME" = minted. */
 var SNAPSHOT = /*SNAPSHOT:START*/["MONOKAI"]/*SNAPSHOT:END*/;
 function snapshot() {
   return SNAPSHOT.map(function (v, i) { return v ? { minted: true, idx: i, name: typeof v === 'string' ? v : undefined } : { minted: false, idx: i }; });
 }
-var grid = snapshot(), live = false;
+var grid = snapshot();
 
 function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 
@@ -366,126 +173,92 @@ function paintWall() {
   }
   document.getElementById('wallgrid').innerHTML = html;
   document.getElementById('mintedCount').textContent = minted;
-  document.getElementById('dataMode').textContent = live ? 'live' : 'snapshot';
-  paintCabinets();
 }
 
-function pad2(n) { return (n < 10 ? '0' : '') + n; }
-
 function paintCabinets() {
-  var mini = '', b = grid.slice(50, 100), i, html = '';
-  for (i = 0; i < b.length; i++) mini += '<div class="' + (b[i].minted ? 'm' : '') + '"></div>';
+  var html = '', i;
   for (i = 0; i < GAMES.length; i++) {
     var g = GAMES[i];
-    html += '<article class="cab" data-game="' + esc(g.id) + '"><div class="cab-h"><span class="ti">' + esc(g.title) + '</span><span class="nu">#' + esc(g.num) + '</span></div>' +
-      '<div class="screen"><div class="mini">' + mini + '</div></div>' +
-      '<div class="pitch">' + esc(g.pitch) + '</div><div class="by" data-slot="by">by ' + esc(g.artist) + '</div>' +
-      '<div class="top3" data-slot="top3"></div>' +
-      '<div class="cab-f" data-slot="foot"><span class="cab-wait">CHECKING…</span></div></article>';
-  }
-  var empties = Math.max(1, SLOTS - GAMES.length);
-  for (i = 0; i < empties; i++) {
-    html += '<article class="cab empty"><div class="cab-h"><span class="ti">YOUR GAME</span><span class="nu">#' + pad2(GAMES.length + i + 1) + '</span></div>' +
-      '<div class="screen"><span>HERE</span></div>' +
-      '<div class="pitch">' + esc(EMPTY_LINES[i % EMPTY_LINES.length]) + '</div><div class="by">by you</div>' +
-      '<div class="cab-f"><a href="#how">MAKE IT ↑</a></div></article>';
+    html += '<article class="cab" hidden data-game="' + esc(g.id) + '"><div class="cab-h"><h2 class="anton">' + esc(g.title) + '</h2></div>' +
+      '<p class="pitch inter">' + esc(g.pitch) + '</p>' +
+      '<div class="cab-f" data-slot="foot"><span class="cab-wait">Checking…</span></div>' +
+      '<div class="top3" data-slot="top3"></div></article>';
   }
   document.getElementById('cabs').innerHTML = html;
-  document.getElementById('gamesCount').textContent = pad2(GAMES.length) + ' cabinets · ' + pad2(empties) + ' open';
   loadGameData();
 }
 
-/* Per-cabinet best server-verified scores, read from each game's own origin (public, read-only, no key). Best effort:
-   a slow or unreachable game leaves the slot as is. Only the platform's recorded scores ever show up here. */
-function shortPlayer(p) { var n = (p && p.displayName) || ''; return /^0x[0-9a-f]{40}$/i.test(n) ? n.slice(0, 6) + '…' + n.slice(-4) : n.slice(0, 18); }
-/* A cabinet offers PLAY only while its deployment has an active scoring event (public, CORS-enabled read on the game's
-   own origin). 404 = the game was redeployed without one (it is SuperRare's to republish): "being updated", no PLAY.
-   It comes back by itself once the event exists. An unreachable game keeps PLAY (we cannot tell). */
+/* Per-cabinet top 3 of the week, as recorded by the platform, read from each game's own origin (public, read-only, no key).
+   Best effort: a slow or unreachable game leaves the slot empty. */
+function shortPlayer(p) { if (p && p.ensName) return String(p.ensName).slice(0, 24); var n = (p && p.displayName) || ''; return /^0x[0-9a-f]{40}$/i.test(n) ? n.slice(0, 6) + '…' + n.slice(-4) : n.slice(0, 18); }
+/* A cabinet is shown only while its deployment has an active scoring event (public, CORS-enabled read on the game's
+   own origin). 404 = no event (redeployed without one, or not live yet): the cabinet does not appear at all. It comes
+   back by itself once the event exists. An unreachable or slow game is shown with PLAY (we cannot tell). */
 function setCabinetState(g, art, playable) {
-  var foot = art.querySelector('[data-slot="foot"]'), by = art.querySelector('[data-slot="by"]');
-  if (playable) {
-    foot.innerHTML = '<a href="' + esc(g.url) + '" target="_blank" rel="noopener">PLAY →</a>';
-    by.textContent = 'by ' + g.artist;
-  } else {
-    foot.innerHTML = '<span class="cab-wait">BEING UPDATED</span>';
-    by.textContent = 'by ' + g.artist + ' · being updated';
+  if (!playable) { art.remove(); return; }
+  art.querySelector('[data-slot="foot"]').innerHTML = '<a href="' + esc(g.url) + '" target="_blank" rel="noopener">PLAY →</a>';
+  art.hidden = false;
+}
+/* week:start  THIS WEEK = Friday 15:00 Lisbon -> next Friday 15:00 Lisbon; week 1 runs from Thursday 22 October 2026
+   00:00 to Friday 30 October 15:00 Lisbon (same as src/shell/week.ts, pinned by tests/week.test.ts which evaluates this
+   block). Sent to each game as ?from=&to= (UTC instants, [from, to)). */
+function lisbonWeek(now) {
+  var DAY = 86400000, fmt = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Lisbon', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
+  function parts(t) {
+    var o = {}; fmt.formatToParts(new Date(t)).forEach(function (p) { o[p.type] = Number(p.value); });
+    return { y: o.year, m: o.month, d: o.day, hh: o.hour, mm: o.minute, weekday: new Date(Date.UTC(o.year, o.month - 1, o.day)).getUTCDay() };
   }
+  function toUtc(y, m, d, hh) {
+    var wall = Date.UTC(y, m - 1, d, hh), guess = wall;
+    for (var i = 0; i < 2; i++) { var p = parts(guess); guess += wall - Date.UTC(p.y, p.m - 1, p.d, p.hh, p.mm); }
+    return guess;
+  }
+  var firstTo = toUtc(2026, 10, 30, 15);
+  if (now < firstTo) return { from: new Date(toUtc(2026, 10, 22, 0)).toISOString(), to: new Date(firstTo).toISOString() };
+  var p = parts(now), back = (p.weekday - 5 + 7) % 7, friday = new Date(Date.UTC(p.y, p.m - 1, p.d) - back * DAY);
+  var from = toUtc(friday.getUTCFullYear(), friday.getUTCMonth() + 1, friday.getUTCDate(), 15);
+  if (from > now) { var prev = new Date(friday.getTime() - 7 * DAY); from = toUtc(prev.getUTCFullYear(), prev.getUTCMonth() + 1, prev.getUTCDate(), 15); }
+  var s = parts(from), next = new Date(Date.UTC(s.y, s.m - 1, s.d) + 7 * DAY);
+  return { from: new Date(from).toISOString(), to: new Date(toUtc(next.getUTCFullYear(), next.getUTCMonth() + 1, next.getUTCDate(), 15)).toISOString() };
 }
-/* Our two cabinets: POST ON X. The card service (wall-arcade-cards.netlify.app) makes the top-5 card from the platform's
-   own leaderboard and answers a link whose preview in X is the card; the button is a plain link to the X composer, ready
-   before the tap (it opens the X app on a phone). If the service cannot be reached, the tweet links to the cabinet. */
-var CARDS = 'https://wall-arcade-cards.netlify.app';
-function addBoardPost(g, slot) {
-  var a = document.createElement('a');
-  a.className = 'cab-post is-preparing'; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'PREPARING THE CARD…';
-  slot.appendChild(a);
-  var done = function (link) {
-    a.href = 'https://x.com/intent/post?text=' + encodeURIComponent('The top 5 of ' + g.title + ' on THE WALL ARCADE. ' + link);
-    a.className = 'cab-post'; a.textContent = 'POST ON X';
-  };
-  fetch(CARDS + '/api/cards', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'board', game: g.id }) })
-    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-    .then(function (d) { done(d && typeof d.url === 'string' && d.url.indexOf(CARDS + '/r/') === 0 ? d.url : g.url); }, function () { done(g.url); });
-}
+/* week:end */
 function loadGameData() {
+  var week = lisbonWeek(Date.now());
   GAMES.forEach(function (g) {
     var art = document.querySelector('[data-game="' + g.id + '"]'); if (!art) return;
-    if (g.updating) setCabinetState(g, art, false);            // manual override, if ever needed
-    else fetch(g.url.replace(/\/$/, '') + '/api/v1/games/' + g.appId + '/scoring/active-event')
+    if (g.updating) { setCabinetState(g, art, false); return; }   // manual override, if ever needed
+    var ctl = typeof AbortController === 'function' ? new AbortController() : null;
+    if (ctl) setTimeout(function () { ctl.abort(); }, 5000);
+    fetch(g.url.replace(/\/$/, '') + '/api/v1/games/' + g.appId + '/scoring/active-event', ctl ? { signal: ctl.signal } : {})
       .then(function (r) { setCabinetState(g, art, r.status !== 404); })
       .catch(function () { setCabinetState(g, art, true); });
     var slot = art.querySelector('[data-slot="top3"]'); if (!slot) return;
-    fetch(g.url.replace(/\/$/, '') + '/api/v1/games/' + g.appId + '/scoring/leaderboard').then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function (d) {
+    fetch(g.url.replace(/\/$/, '') + '/api/v1/games/' + g.appId + '/scoring/leaderboard?from=' + encodeURIComponent(week.from) + '&to=' + encodeURIComponent(week.to)).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function (d) {
       var entries = (d && d.entries) || [];
-      if (!entries.length) { slot.innerHTML = '<div class="lbl">Server-verified scores</div><div class="row"><span>none yet</span><span>—</span></div>'; return; }
-      var rows = entries.slice(0, 3).map(function (e) { return '<div class="row"><span>#' + e.rank + ' ' + esc(shortPlayer(e.player)) + '</span><span>' + esc(e.score) + '</span></div>'; }).join('');
-      slot.innerHTML = '<div class="lbl">Best: ' + esc(entries[0].score) + ' · server-verified</div>' + rows;
-      if (g.share) addBoardPost(g, slot);
+      if (!entries.length) { slot.innerHTML = '<div class="wk">This week: no score yet.</div>'; return; }
+      var rows = entries.slice(0, 3).map(function (e) { return '<div class="row"><span>' + esc(e.rank) + '. ' + esc(shortPlayer(e.player)) + '</span><span>' + esc(e.score) + '</span></div>'; }).join('');
+      slot.innerHTML = '<div class="wk">This week</div>' + rows;
     }).catch(function () { slot.innerHTML = ''; });
   });
 }
 
 paintWall();
+paintCabinets();
 try {
   fetch(API + '/positions').then(function (r) { return r.json(); }).then(function (d) {
     if (Array.isArray(d) && d.length) {
       grid = d.filter(function (x) { return x.tier === 'name' || x.tier === 'pfp'; })
               .sort(function (a, b) { return a.position - b.position; });
-      live = true; paintWall();
+      paintWall();
     }
   }).catch(function () {});
 } catch (e) {}
 
-/* ---- kit ---- */
-document.getElementById('kitText').textContent = KIT_TEXT;
-var kitBox = document.getElementById('kitBox'), toggle = document.getElementById('kitToggle');
-function setKit(open) { kitBox.className = open ? 'open' : ''; toggle.textContent = open ? 'hide the kit' : 'read the kit'; }
-toggle.onclick = function () { setKit(kitBox.className !== 'open'); };
-document.getElementById('kitClose').onclick = function () { setKit(false); };
-
-function fallbackCopy(text) {
-  var ta = document.createElement('textarea');
-  ta.value = text; ta.setAttribute('readonly', '');
-  ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;font-size:16px';
-  document.body.appendChild(ta);
-  ta.focus(); ta.select(); ta.setSelectionRange(0, text.length);
-  var ok = false;
-  try { ok = document.execCommand('copy'); } catch (e) {}
-  document.body.removeChild(ta);
-  return ok;
-}
-var copyBtn = document.getElementById('copyBtn');
-function flash(ok) {
-  copyBtn.textContent = ok ? 'COPIED ✓' : 'COPY FAILED — OPEN THE KIT';
-  copyBtn.className = 'btn-ink' + (ok ? ' done' : '');
-  if (!ok) setKit(true);
-  setTimeout(function () { copyBtn.textContent = 'COPY THE KIT'; copyBtn.className = 'btn-ink'; }, 1800);
-}
-copyBtn.onclick = function () {
-  if (navigator.clipboard && navigator.clipboard.writeText && window.isSecureContext) {
-    navigator.clipboard.writeText(KIT_TEXT).then(function () { flash(true); }, function () { flash(fallbackCopy(KIT_TEXT)); });
-  } else { flash(fallbackCopy(KIT_TEXT)); }
-};
+/* ---- "How it works" panel ---- */
+var how = document.getElementById('how');
+document.getElementById('infoBtn').onclick = function () { if (how.showModal) how.showModal(); else how.setAttribute('open', ''); };
+document.getElementById('howClose').onclick = function () { if (how.close) how.close(); else how.removeAttribute('open'); };
+how.addEventListener('click', function (e) { if (e.target === how && how.close) how.close(); });   // tap on the backdrop
 </script>
 </body>
 </html>

@@ -1,5 +1,6 @@
-// Builds the hub archive (index.html + dragon.jpg): the NFC arcade page with its cabinets. A plain static app:
-// no Connect, no verifier, no config. The wall grid is embedded as a snapshot of the public /positions data.
+// Builds the hub archive: index.html (the player page: the wall and the cabinets), builders.html (artists: make your
+// own cabinet) and dragon.jpg. A plain static app: no Connect, no verifier, no config. The player page's wall grid is
+// embedded as a snapshot of the public /positions data; the builders page has no data and is copied as is.
 import { createHash } from 'node:crypto';
 import { access, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
@@ -12,6 +13,7 @@ const { values } = parseArgs({ args: process.argv.slice(2)[0] === '--' ? process
 if (!values.output) throw new Error('Usage: npm run build:hub -- --output <hub.zip> [--force] [--offline]');
 
 const html = await readFile(new URL('../hub/src.html', import.meta.url), 'utf8');
+const builders = await readFile(new URL('../hub/builders.html', import.meta.url), 'utf8');
 const dragon = await readFile(new URL('../hub/dragon.jpg', import.meta.url));
 let rows: (string | number)[];
 if (values.offline) {
@@ -27,14 +29,17 @@ if (values.offline) {
 const marker = /\/\*SNAPSHOT:START\*\/.*?\/\*SNAPSHOT:END\*\//s;
 if (!marker.test(html)) throw new Error('Snapshot markers missing in hub/src.html');
 const page = html.replace(marker, () => `/*SNAPSHOT:START*/${JSON.stringify(rows)}/*SNAPSHOT:END*/`);
+// the two pages link to each other with relative links only
+if (!page.includes('href="./builders.html"')) throw new Error('hub/src.html must link to ./builders.html');
+if (!builders.includes('href="./"')) throw new Error('hub/builders.html must link back to ./');
 
 const output = resolve(values.output);
 let exists = false;
 try { await access(output); exists = true; } catch { /* new output expected */ }
 if (exists && !values.force) throw new Error(`Output exists: ${output}. Use another path or --force.`);
-const archive = zipSync({ 'index.html': strToU8(page), 'dragon.jpg': new Uint8Array(dragon) }, { level: 9 });
+const archive = zipSync({ 'index.html': strToU8(page), 'builders.html': strToU8(builders), 'dragon.jpg': new Uint8Array(dragon) }, { level: 9 });
 await mkdir(dirname(output), { recursive: true });
 const temporary = `${output}.${process.pid}.tmp`;
 try { await writeFile(temporary, archive, { flag: 'wx' }); await rename(temporary, output); } finally { await rm(temporary, { force: true }); }
 const minted = rows.filter(Boolean).length;
-process.stdout.write(`Hub archive: ${output}\nBricks: ${rows.length} (${minted} minted)\nSHA-256: ${createHash('sha256').update(archive).digest('hex')}\nSize: ${archive.byteLength} bytes\n`);
+process.stdout.write(`Hub archive: ${output}\nFiles: index.html, builders.html, dragon.jpg\nBricks: ${rows.length} (${minted} minted)\nSHA-256: ${createHash('sha256').update(archive).digest('hex')}\nSize: ${archive.byteLength} bytes\n`);
