@@ -1,5 +1,5 @@
 // Builds the hub archive: index.html (the player page: the wall and the games), builders.html (artists: make a game on
-// the wall) and dragon.jpg. A plain static app: no Connect, no verifier, no config. Both pages' wall grid is embedded as
+// the wall), the player page's dragon, game screenshots and teaser video. A plain static app: no Connect, no verifier, no config. Both pages' wall grid is embedded as
 // a snapshot of the public /positions data; the builders page also gets the Connect Kit (docs/CONNECT-KIT.md) inlined
 // behind its COPY THE KIT buttons, after the repository's link.
 import { createHash } from 'node:crypto';
@@ -22,7 +22,13 @@ const REPO = 'https://github.com/hs7j4yk4sz-boop/wall-arcade-connect';
 const kitText = `${REPO}\n\n${kitBlock[1]}\n`;
 if (!buildersSource.includes("/*KIT*/''")) throw new Error("hub/builders.html must hold the /*KIT*/'' placeholder");
 // JSON is a JavaScript string literal; </ is escaped so the kit can never close the <script>
-const dragon = await readFile(new URL('../hub/dragon.jpg', import.meta.url));
+// the player page's files: the dragon, the two games' screenshots, the teaser (square, 37 s) and its poster
+const ASSETS: Record<string, string> = {
+  'dragon.png': '../hub/dragon.png', 'shots/full-row.jpg': '../hub/shots/full-row.jpg', 'shots/unbreakable.jpg': '../hub/shots/unbreakable.jpg',
+  'teaser-1x1.mp4': '../comms/teaser/out/teaser-1x1.mp4', 'teaser-poster.png': '../comms/teaser/out/title-1x1.png',
+};
+const assets: Record<string, Uint8Array> = {};
+for (const [name, path] of Object.entries(ASSETS)) assets[name] = new Uint8Array(await readFile(new URL(path, import.meta.url)));
 let rows: (string | number)[];
 if (values.offline) {
   rows = Array.from({ length: 550 }, () => 0);
@@ -49,9 +55,9 @@ const output = resolve(values.output);
 let exists = false;
 try { await access(output); exists = true; } catch { /* new output expected */ }
 if (exists && !values.force) throw new Error(`Output exists: ${output}. Use another path or --force.`);
-const archive = zipSync({ 'index.html': strToU8(page), 'builders.html': strToU8(builders), 'dragon.jpg': new Uint8Array(dragon) }, { level: 9 });
+const archive = zipSync({ 'index.html': strToU8(page), 'builders.html': strToU8(builders), ...assets }, { level: 9 });
 await mkdir(dirname(output), { recursive: true });
 const temporary = `${output}.${process.pid}.tmp`;
 try { await writeFile(temporary, archive, { flag: 'wx' }); await rename(temporary, output); } finally { await rm(temporary, { force: true }); }
 const minted = rows.filter(Boolean).length;
-process.stdout.write(`Hub archive: ${output}\nFiles: index.html, builders.html, dragon.jpg\nBricks: ${rows.length} (${minted} minted)\nSHA-256: ${createHash('sha256').update(archive).digest('hex')}\nSize: ${archive.byteLength} bytes\n`);
+process.stdout.write(`Hub archive: ${output}\nFiles: index.html, builders.html, ${Object.keys(assets).join(', ')}\nBricks: ${rows.length} (${minted} minted)\nSHA-256: ${createHash('sha256').update(archive).digest('hex')}\nSize: ${archive.byteLength} bytes\n`);

@@ -4,203 +4,320 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>THE WALL ARCADE</title>
-<meta name="description" content="Games built on the names of a real wall in Lisbon.">
+<meta name="description" content="Play arcade games built on the names of a real wall in Lisbon. Every paid play feeds the jackpot.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@300;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=DotGothic16&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-/* NFC Summit brutalist design system: concrete/ink/chalk, Anton, one blue accent. See BRIEF-DESIGN-SYSTEM-nfcsummit.md.
-   Player page: no font under 13px, at most two mono uppercase labels per screen, one blue button per game. */
-:root{--concrete:#DEDBD3;--ink:#0B0B0B;--chalk:#F2F0EB;--label:#6B685F;--label-lt:#B0ACA2;--rule:#C4C0B6;--blue:#2E7FD6;
-  --anton:Anton,Impact,sans-serif;--mono:'IBM Plex Mono',ui-monospace,monospace;--inter:Inter,system-ui,sans-serif;--padx:max(16px,5%)}
-*{box-sizing:border-box}
+/* THE WALL ARCADE, player page, from the Claude Design mockup "The Wall Arcade": paper #FBF8EC, ink #14161F, blue
+   #3F4BA2, highlight yellow #FFF8A7; Anton for titles, DotGothic16 for subtitles and buttons, IBM Plex Mono for text;
+   2 px borders, no rounding. Mobile first: everything stacks in the same order. */
+:root{--paper:#FBF8EC;--ink:#14161F;--blue:#3F4BA2;--yellow:#FFF8A7;--grey:#464A5E;
+  --anton:Anton,Impact,sans-serif;--dot:'DotGothic16',monospace;--mono:'IBM Plex Mono',ui-monospace,monospace;--padx:clamp(16px,4vw,48px)}
+*{box-sizing:border-box;border-radius:0}
 [hidden]{display:none!important}
-html,body{margin:0;padding:0;background:var(--concrete);color:var(--ink)}
+html,body{margin:0;padding:0;background:var(--paper);color:var(--ink)}
 body{font-family:var(--mono);-webkit-font-smoothing:antialiased;overflow-x:hidden}
-a{color:inherit}
-::selection{background:var(--blue);color:var(--chalk)}
-p,h1,h2,h3,dl,dd{margin:0}
-.lbl{font-family:var(--mono);font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--label)}
-.anton{font-family:var(--anton);text-transform:uppercase;font-weight:400;line-height:.9;letter-spacing:-.01em}
-.inter{font-family:var(--inter);font-weight:300;line-height:1.45}
-
-/* thin top bar: the (i) opens "How it works" */
-.bar{position:sticky;top:0;z-index:20;background:var(--concrete);border-bottom:1px solid var(--ink);padding:0 var(--padx);height:48px;display:flex;align-items:center;justify-content:space-between}
-.info{width:44px;height:44px;margin-right:-8px;display:inline-flex;align-items:center;justify-content:center;background:none;border:0;cursor:pointer;padding:0;color:var(--ink)}
-.info span{width:28px;height:28px;border:1px solid var(--ink);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:500;font-size:15px;line-height:1}
-.info:hover span{background:var(--ink);color:var(--chalk)}
-
-/* hero: title, one sentence, the live wall small */
-.hero{position:relative;padding:clamp(28px,5vw,64px) var(--padx) clamp(28px,4vw,48px)}
-.hero h1{font-size:clamp(52px,10vw,120px)}
-.hero .jackpot{margin-top:clamp(10px,1.6vw,18px);font-size:clamp(44px,9vw,112px);line-height:.95;color:var(--blue);white-space:nowrap}   /* the live /pot */
-.hero .lead{font-size:clamp(16px,1.4vw,19px);max-width:36ch;margin-top:14px}
-.visual{display:flex;align-items:flex-end;gap:clamp(12px,3vw,32px);margin-top:clamp(22px,3vw,36px)}
-.wallbox{flex:0 1 380px;min-width:0}
-#wallgrid{display:grid;grid-template-columns:repeat(25,1fr);gap:2px}
-#wallgrid div{aspect-ratio:1;border:1px dashed var(--ink);opacity:.45}
-#wallgrid div.m{background:var(--ink);border-style:solid;opacity:1}
-.wallmeta{margin-top:8px}
-.wallmeta b{color:var(--ink);font-weight:500}
-.dragon{flex:0 0 auto;width:clamp(96px,16vw,190px);mix-blend-mode:multiply;pointer-events:none;display:block}
-
-/* games */
-.games{border-top:1px solid var(--ink);padding:clamp(24px,4vw,56px) var(--padx)}
+a{color:var(--blue)}a:hover{color:var(--ink)}
+::selection{background:var(--yellow);color:var(--ink)}
+p,h1,h2,h3{margin:0}
+@keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}
 .wrap{max-width:1280px;margin:0 auto}
-#cabs{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr));gap:clamp(16px,2vw,28px)}
-.cab{display:flex;flex-direction:column;border:1px solid var(--ink);background:var(--concrete)}
-.cab-h{background:var(--ink);color:var(--chalk);padding:12px 14px}
-.cab-h h2{font-size:28px;line-height:1}
-.cab .pitch{padding:12px 14px 14px;font-size:15px;flex:1}
-.cab-f{padding:0 14px}
-.cab-f a{display:flex;justify-content:center;align-items:center;gap:10px;width:100%;background:var(--blue);color:var(--ink);text-decoration:none;font-family:var(--mono);font-weight:500;letter-spacing:.14em;text-transform:uppercase;font-size:16px;padding:14px;line-height:1;min-height:52px;border:1px solid var(--blue)}
-.cab-f a:hover{background:var(--ink);color:var(--chalk);border-color:var(--ink)}
-.cab-f .cab-wait{display:flex;justify-content:center;align-items:center;min-height:52px;border:1px dashed var(--ink);font-family:var(--mono);font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--label)}
-.top3{padding:12px 14px 14px;font-size:13px;line-height:1.5}
-.top3:empty{padding:0 0 14px}
-.top3 .wk{font-family:var(--inter);font-weight:300;font-size:13px;color:var(--label);margin-bottom:2px}
-.top3 .row{display:flex;justify-content:space-between;gap:12px}
-.top3 .row span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.top3 .row span:last-child{font-weight:500}
+.lbl{font:500 12px/1.4 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--grey)}
+.anton{font-family:var(--anton);font-weight:400;text-transform:uppercase;letter-spacing:-.01em}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:12px;min-height:48px;padding:12px 28px;border:2px solid var(--blue);background:var(--blue);color:var(--paper);
+  text-decoration:none;font:400 24px/1 var(--dot);cursor:pointer}
+.btn:hover{background:var(--paper);color:var(--blue)}
+.btn.dashed{background:transparent;color:var(--blue);border-style:dashed}
+.btn.dashed:hover{background:var(--blue);color:var(--paper)}
+section{padding:clamp(48px,7vw,104px) var(--padx)}
 
-/* to the builders page */
-.artists{padding:clamp(24px,3vw,40px) var(--padx);border-top:1px solid var(--ink)}
-.artists a{font-family:var(--inter);font-weight:300;font-size:17px;text-decoration:underline;text-underline-offset:4px}
-.artists a:hover{color:var(--blue)}
+/* 1. nav */
+nav{position:sticky;top:0;z-index:20;background:#FBF8ECf2;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border-bottom:2px solid var(--blue);
+  padding:0 var(--padx);height:64px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink)}
+.brand i{width:14px;height:14px;background:var(--blue);display:block}
+.brand span{font:600 12px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase}
+.links{display:flex;gap:clamp(12px,3vw,32px)}
+.links a{font:500 12px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--grey);text-decoration:none}
+.links a:hover{color:var(--blue)}
+.navr{display:flex;align-items:center;gap:10px}
+.navr .btn{font-size:18px;padding:10px 22px;min-height:44px}
+.info{width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:2px solid var(--blue);background:var(--paper);color:var(--blue);font:400 20px/1 var(--dot);cursor:pointer;padding:0}
+.info:hover{background:var(--blue);color:var(--paper)}
 
-/* footer */
-footer{border-top:1px solid var(--ink);padding:24px var(--padx) 32px}
-.foot-in{max-width:1280px;margin:0 auto;display:flex;justify-content:space-between;align-items:flex-end;gap:12px 20px;flex-wrap:wrap}
-footer .lbl a{text-decoration:none}
-footer .lbl a:hover{color:var(--ink)}
-footer .built{font-family:var(--inter);font-weight:300;font-size:13px;color:var(--label)}
+/* 2. hero */
+.hero{display:grid;grid-template-columns:1fr;gap:clamp(32px,5vw,72px);align-items:center;padding-top:clamp(40px,8vw,120px)}
+.hero .kicker{font:400 clamp(18px,2.2vw,26px)/1.2 var(--dot);color:var(--blue)}
+.hero h1{margin-top:18px;color:var(--blue);font-size:clamp(64px,11vw,156px);line-height:.88;text-wrap:balance}
+.hero .base{margin-top:22px;font-size:clamp(15px,1.4vw,18px);line-height:1.5;max-width:44ch}
+.hero .base span{display:block}
+.hero .act{display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin-top:28px}
+.hero .act .btn{font-size:28px;padding:16px 36px}
+.live{display:flex;align-items:center;gap:10px}
+.live i{width:8px;height:8px;background:var(--blue);display:inline-block;animation:blink 1.2s steps(1) infinite}
+.live b{color:var(--ink);font-weight:600}
+.frame{position:relative;border:2px solid var(--blue);padding:10px;background:var(--paper)}
+.frame video{display:block;width:100%;aspect-ratio:1;object-fit:cover;background:var(--ink)}
+.sound{position:absolute;right:20px;bottom:20px;min-height:40px;padding:8px 14px;border:2px solid var(--paper);background:var(--blue);color:var(--paper);font:400 16px/1 var(--dot);cursor:pointer}
+.sound:hover{background:var(--paper);color:var(--blue);border-color:var(--blue)}
 
-/* "How it works" panel */
-dialog{width:min(560px,calc(100% - 32px));max-height:calc(100dvh - 32px);padding:0;border:1px solid var(--ink);background:var(--concrete);color:var(--ink);overflow:auto}
-dialog::backdrop{background:rgba(11,11,11,.6)}
-.dlg-h{position:sticky;top:0;display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--ink);color:var(--chalk);padding:10px 8px 10px 18px}
-.dlg-h h2{font-size:30px;line-height:1}
-.dlg-h button{width:44px;height:44px;background:none;border:0;color:var(--chalk);font-family:var(--mono);font-size:24px;line-height:1;cursor:pointer}
-.dlg-b{padding:4px 18px 18px}
-.dlg-b dt{font-family:var(--anton);text-transform:uppercase;font-size:22px;line-height:1;margin-top:18px}
-.dlg-b dd{font-family:var(--inter);font-weight:300;font-size:15px;line-height:1.5;margin-top:6px}
-.dlg-b dd b{font-weight:500}
+/* 3. the games */
+.games{border-top:2px solid var(--blue)}
+.sec-h{display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap;margin-bottom:32px}
+.sec-h h2{font-size:clamp(40px,6vw,84px);line-height:.9}
+.row{display:grid;grid-template-columns:1fr;gap:clamp(16px,2.5vw,32px)}
+.game{display:flex;flex-direction:column;border:2px solid var(--blue);background:var(--paper)}
+.game .head{position:relative;background:var(--blue);color:var(--paper);padding:14px 16px 12px;display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.game .head h3{font:400 26px/1 var(--dot)}
+.game .head .n{font:500 12px/1 var(--mono);letter-spacing:.14em}
+.new{position:absolute;top:-14px;right:12px;background:var(--yellow);color:var(--ink);border:2px solid var(--ink);padding:4px 10px;font:400 16px/1 var(--dot)}
+.game .shot{display:block;margin:12px;border:2px solid var(--blue);aspect-ratio:4/3;width:calc(100% - 24px);object-fit:cover;object-position:center 22%;background:var(--ink)}
+.game .line{padding:4px 16px 8px;font-size:14px;line-height:1.5;color:var(--ink)}
+.game .by{padding:0 16px 8px}
+.game .foot{margin:auto 12px 12px;border-top:2px solid var(--blue);padding-top:12px}
+.game .foot .btn{display:flex;width:100%;font-size:22px}
+.game.yours{border-style:dashed;opacity:.9}
+.game.yours .head{background:transparent;color:var(--blue);border-bottom:2px dashed var(--blue)}
+.game.yours .here{margin:12px;aspect-ratio:4/3;border:2px dashed var(--blue);display:flex;align-items:center;justify-content:center;font:400 22px/1.2 var(--dot);color:var(--blue);text-align:center;padding:20px}
+.game.yours .foot{border-top-style:dashed}
+
+/* 4. this week's jackpot */
+.jackpot{background:var(--blue);color:var(--paper)}
+.jackpot .grid{display:grid;grid-template-columns:1fr;gap:clamp(32px,5vw,80px)}
+.jackpot .lbl{color:var(--paper);opacity:.85}
+.jackpot h2{margin-top:16px;font-size:clamp(52px,8vw,120px);line-height:.88}
+.amount{display:inline-block;margin-top:22px;background:var(--yellow);color:var(--ink);font:400 clamp(34px,4.4vw,60px)/1 var(--dot);padding:10px 18px}
+.jackpot p.rule{margin-top:18px;font-size:15px;line-height:1.55;max-width:44ch}
+.count{margin-top:24px;border-top:2px solid var(--paper);padding-top:18px}
+.count .t{margin-top:8px;font:400 clamp(40px,6vw,76px)/1 var(--dot);letter-spacing:.04em}
+.boards{display:grid;grid-template-columns:1fr;border:2px solid var(--paper);align-self:start}
+.board + .board{border-top:2px solid var(--paper)}
+.board .bh{padding:14px 18px;border-bottom:2px solid var(--paper);display:flex;justify-content:space-between;gap:12px;font:400 22px/1 var(--dot)}
+.board .bh span:last-child{font:500 12px/1.6 var(--mono);letter-spacing:.14em;text-transform:uppercase;opacity:.85}
+.board .r{display:grid;grid-template-columns:40px 1fr auto;align-items:center;gap:14px;padding:14px 18px;border-bottom:1px solid #FBF8EC66}
+.board .r:last-child{border-bottom:0}
+.board .r .k{font:400 22px/1 var(--dot);opacity:.7}
+.board .r .p{font:400 clamp(18px,2vw,24px)/1.15 var(--dot);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.board .r .s{font:600 18px/1 var(--mono);text-align:right;font-variant-numeric:tabular-nums}
+.board .empty{padding:16px 18px;font-size:14px;opacity:.85}
+
+/* 5. for artists */
+.artists{border-bottom:2px solid var(--blue)}
+.cols{display:grid;grid-template-columns:1fr;border-top:2px solid var(--blue);margin-top:20px}
+.col{padding:24px 24px 28px 0;border-bottom:2px dashed var(--blue);display:flex;flex-direction:column;gap:10px}
+.col h3{font-size:clamp(44px,5.5vw,80px);line-height:.9;color:var(--blue)}
+.col p{font-size:14px;line-height:1.5;color:var(--grey);max-width:36ch}
+.artists .act{display:flex;gap:20px;align-items:center;flex-wrap:wrap;margin-top:32px}
+.artists .act a.dm{font:500 12px/1.4 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink);text-decoration:underline;text-underline-offset:4px}
+
+/* 6. your superpower: a thin band on paper */
+.power{padding:22px var(--padx);border-bottom:2px solid var(--blue)}
+.power .wrap{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 24px}
+.power p{font-size:15px;line-height:1.5}
+.power a{font:500 12px/1.4 var(--mono);letter-spacing:.14em;text-transform:uppercase;white-space:nowrap}
+
+/* 7. the wall */
+.wall .frame{max-width:760px;margin-top:24px}
+#wallgrid{display:grid;grid-template-columns:repeat(25,1fr);gap:3px}
+#wallgrid div{aspect-ratio:1;border:1px dashed var(--blue);opacity:.55}
+#wallgrid div.m{background:var(--blue);border-style:solid;opacity:1}
+.wall .meta{margin-top:10px}
+.wall .dragon{position:absolute;right:-6px;bottom:-2px;width:clamp(90px,16vw,170px);pointer-events:none}
+footer{padding:28px var(--padx);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;font:500 12px/1.4 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--grey);max-width:1280px;margin:0 auto}
+footer a{text-decoration:none}
+footer .stamp{border:2px solid var(--blue);color:var(--blue);padding:6px 10px}
+
+/* the (i) */
+dialog{width:min(520px,calc(100% - 32px));padding:0;border:2px solid var(--blue);background:var(--paper);color:var(--ink)}
+dialog::backdrop{background:rgba(20,22,31,.6)}
+.dlg-h{display:flex;justify-content:space-between;align-items:center;background:var(--blue);color:var(--paper);padding:10px 8px 10px 18px}
+.dlg-h h2{font:400 22px/1 var(--dot)}
+.dlg-h button{width:44px;height:44px;background:none;border:0;color:var(--paper);font:400 24px/1 var(--mono);cursor:pointer}
+.dlg-b{padding:18px;display:flex;flex-direction:column;gap:12px;font-size:15px;line-height:1.55}
+
+@media (max-width:719px){
+  .links{display:none}
+  .brand span{font-size:12px}
+}
+@media (min-width:720px){
+  .row{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cols{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .boards{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .board + .board{border-top:0;border-left:2px solid var(--paper)}
+}
+@media (min-width:980px){
+  .hero{grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr)}
+  .jackpot .grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+}
+@media (min-width:1100px){ .row{grid-template-columns:repeat(4,minmax(0,1fr))} }
 </style>
 </head>
 <body>
 
-<div class="bar">
-  <span class="lbl">On The Wall presents</span>
-  <button class="info" id="infoBtn" type="button" aria-label="How it works" aria-haspopup="dialog"><span aria-hidden="true">i</span></button>
-</div>
-
-<section class="hero">
-  <h1 class="anton">The Wall<br>Arcade</h1>
-  <p class="jackpot anton">Jackpot <span id="potAmount">— ETH</span></p>
-  <p class="inter lead">Games built on the names of a real wall in Lisbon.</p>
-  <div class="visual">
-    <div class="wallbox">
-      <div id="wallgrid" aria-hidden="true"></div>
-      <div class="wallmeta lbl"><b id="mintedCount">0</b> / 550 names painted</div>
-    </div>
-    <img class="dragon" src="dragon.jpg" alt="">
-  </div>
-</section>
-
-<section class="games" aria-label="Games">
-  <div class="wrap"><div id="cabs"></div></div>
-</section>
-
-<div class="artists"><div class="wrap"><a href="./builders.html">Artists: make your own game →</a></div></div>
-
-<footer>
-  <div class="foot-in">
-    <div class="lbl"><a href="https://onthewall.nfcsummit.com">A Remix The Wall experiment · NFC Summit 2027 · Lisbon</a></div>
-    <div class="built">Built on <a href="https://studio.superrare.com" target="_blank" rel="noopener">SuperRare Studio</a></div>
-  </div>
-</footer>
-
 <dialog id="how" aria-labelledby="howTitle">
-  <div class="dlg-h"><h2 class="anton" id="howTitle">How it works</h2><button type="button" id="howClose" aria-label="Close">×</button></div>
-  <dl class="dlg-b">
-    <dt>Credits</dt>
-    <dd><b>50 plays for 0.005 ETH</b>, paid on Ethereum mainnet. Each run uses 1 credit. One balance covers all of NFC's games. Star Runner and Sky Hopper are SuperRare's own games and use their own credits.</dd>
-    <dt>Practice</dt>
-    <dd>Free, and not recorded.</dd>
-    <dt>Scores</dt>
-    <dd>The platform replays your inputs on its server and records the score. The browser never sends a score.</dd>
-    <dt>Weekly prizes</dt>
-    <dd>One leaderboard per game for the week: Friday 15:00 to Friday 15:00, Lisbon time. The first week runs from Thursday Oct 22, 00:00 to Friday Oct 30, 15:00. Prizes are handled by the organizer.</dd>
-    <dt>Paid but no credits?</dt>
-    <dd>Open the game's wallet menu, then "purchase help".</dd>
-  </dl>
+  <div class="dlg-h"><h2 id="howTitle">How it works</h2><button type="button" id="howClose" aria-label="Close">×</button></div>
+  <div class="dlg-b">
+    <p>Every paid play goes straight into the jackpot. Every Friday it's split: half to the best scores, 40% to the artists, 10% to the wall.</p>
+    <p>50 plays for 0.005 ETH. Practice is free.</p>
+  </div>
 </dialog>
 
+<!-- 1. nav -->
+<nav>
+  <a class="brand" href="#top"><i></i><span>The Wall Arcade</span></a>
+  <div class="links"><a href="#games">Games</a><a href="#jackpot">Jackpot</a><a href="#artists">Artists</a></div>
+  <div class="navr">
+    <a class="btn" href="#games">PLAY</a>
+    <button class="info" id="infoBtn" type="button" aria-label="How it works" aria-haspopup="dialog">i</button>
+  </div>
+</nav>
+
+<!-- 2. hero -->
+<section class="hero wrap" id="top">
+  <div>
+    <p class="kicker">on the wall presents</p>
+    <h1 class="anton">The Wall Arcade</h1>
+    <p class="base"><span>Play arcade games built on the names of a real wall in Lisbon.</span><span>Every paid play feeds the jackpot.</span><span>Every Friday, the best score on each game wins.</span></p>
+    <div class="act">
+      <a class="btn" href="#games">PLAY <span>→</span></a>
+      <p class="lbl live"><i></i><span><b class="painted">—</b> names painted · <span class="mode">snapshot data</span></span></p>
+    </div>
+  </div>
+  <div class="frame">
+    <video id="teaser" src="teaser-1x1.mp4" poster="teaser-poster.png" autoplay muted loop playsinline preload="metadata" aria-label="THE WALL ARCADE teaser"></video>
+    <button class="sound" id="sound" type="button" aria-pressed="false">SOUND OFF</button>
+  </div>
+</section>
+
+<!-- 3. the games -->
+<section class="games" id="games">
+  <div class="wrap">
+    <div class="sec-h"><h2 class="anton">The games</h2></div>
+    <div class="row">
+      <article class="game">
+        <div class="head"><h3>UNBREAKABLE</h3><span class="n">#01</span></div>
+        <img class="shot" src="shots/unbreakable.jpg" alt="UNBREAKABLE, in play" loading="lazy">
+        <p class="line">Aim, fire, break the bricks. Every brick is a name of the wall.</p>
+        <p class="by lbl">By On The Wall</p>
+        <div class="foot"><a class="btn" href="https://7x2phv5j.srstudio.dev/" target="_blank" rel="noopener">PLAY <span>→</span></a></div>
+      </article>
+      <article class="game">
+        <div class="head"><h3>FULL ROW</h3><span class="n">#02</span><span class="new">NEW</span></div>
+        <img class="shot" src="shots/full-row.jpg" alt="FULL ROW, in play" loading="lazy">
+        <p class="line">Place the pieces, fill a row. The names on it get painted together.</p>
+        <p class="by lbl">By On The Wall</p>
+        <div class="foot"><a class="btn" href="https://yfq52eu3.srstudio.dev/" target="_blank" rel="noopener">PLAY <span>→</span></a></div>
+      </article>
+      <article class="game yours">
+        <div class="head"><h3>YOUR GAME HERE</h3><span class="n">#03</span></div>
+        <div class="here">YOUR GAME HERE</div>
+        <div class="foot"><a class="btn dashed" href="./builders.html">MAKE IT <span>→</span></a></div>
+      </article>
+      <article class="game yours">
+        <div class="head"><h3>YOUR GAME HERE</h3><span class="n">#04</span></div>
+        <div class="here">YOUR GAME HERE</div>
+        <div class="foot"><a class="btn dashed" href="./builders.html">MAKE IT <span>→</span></a></div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- 4. this week's jackpot -->
+<section class="jackpot" id="jackpot">
+  <div class="wrap grid">
+    <div>
+      <p class="lbl" id="weekNo">Week 1</p>
+      <h2 class="anton">This week's<br>jackpot</h2>
+      <p class="amount" id="potAmount" aria-live="polite">— ETH</p>
+      <p class="rule">Every paid play goes straight into it. Every Friday it's split: half to the best scores, 40% to the artists, 10% to the wall.</p>
+      <div class="count"><p class="lbl">Reveal · Friday live</p><p class="t" id="countdown">—</p></div>
+    </div>
+    <div class="boards">
+      <div class="board" data-game="full-row"><div class="bh"><span>FULL ROW</span><span>Top 3</span></div><p class="empty">Loading…</p></div>
+      <div class="board" data-game="unbreakable"><div class="bh"><span>UNBREAKABLE</span><span>Top 3</span></div><p class="empty">Loading…</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 5. for artists -->
+<section class="artists" id="artists">
+  <div class="wrap">
+    <p class="lbl">For artists</p>
+    <div class="cols">
+      <div class="col"><h3 class="anton">Your game</h3><p>Make your own game from the Studio template. It joins the arcade, your name on it.</p></div>
+      <div class="col"><h3 class="anton">40% yours</h3><p>40% of every play on your game is yours. Half feeds the jackpot, 10% goes to the wall.</p></div>
+      <div class="col"><h3 class="anton">First weeks</h3><p>The first games in get the featured spot in the first weeks.</p></div>
+    </div>
+    <div class="act">
+      <a class="btn" href="./builders.html">MAKE YOUR GAME <span>→</span></a>
+      <a class="dm" href="https://x.com/messages/compose?recipient_id=1478091830235471879" target="_blank" rel="noopener">Want in the first batch? DM @NFCsummit</a>
+    </div>
+  </div>
+</section>
+
+<!-- 6. your superpower -->
+<div class="power">
+  <div class="wrap">
+    <p class="lbl">Your superpower</p>
+    <p>Own a name on the wall: 3 free plays in your wallet, every week. Sign in with the wallet that holds your name.</p>
+    <a href="https://onthewall.nfcsummit.com" target="_blank" rel="noopener">Get on the wall →</a>
+  </div>
+</div>
+
+<!-- 7. the wall -->
+<section class="wall">
+  <div class="wrap">
+    <div class="sec-h"><h2 class="anton">The wall</h2><p class="lbl live"><i></i><span><b class="painted">—</b> painted · <span class="mode">snapshot</span></span></p></div>
+    <div class="frame">
+      <div id="wallgrid" aria-hidden="true"></div>
+      <img class="dragon" src="dragon.png" alt="">
+    </div>
+  </div>
+</section>
+
+<footer>
+  <span>A Remix The Wall experiment · NFC Summit 2027 · Lisbon</span>
+  <a href="https://onthewall.nfcsummit.com" target="_blank" rel="noopener">onthewall.nfcsummit.com</a>
+  <a class="stamp" href="https://studio.superrare.com" target="_blank" rel="noopener">Built on SuperRare Studio</a>
+</footer>
+
 <script>
-/* ---- Games: add a game = add an entry.
-   Scores are read, read-only and public, from each game's own origin: GET <url>/api/v1/games/<appId>/scoring/leaderboard.
-   The two Studio games are SuperRare's own template examples (their credits live in SuperRare's group, not ours). ---- */
 var GAMES = [
-  { id: 'unbreakable', title: 'UNBREAKABLE',
-    pitch: 'Aim and fire: every brick you break is a name of the wall, and it gets painted.',
-    url: 'https://7x2phv5j.srstudio.dev/', appId: 'c5285ae3-512e-464a-aceb-17571e1fe3e9' },
-  { id: 'full-row', title: 'FULL ROW',
-    pitch: 'Place the names of the wall: full rows get painted.',
-    url: 'https://yfq52eu3.srstudio.dev/', appId: '5932be45-7ccb-483a-916d-0dcebff40ca2' },
-  { id: 'star-runner', title: 'STAR RUNNER',
-    pitch: 'Collect stars, avoid spikes and reach the beacon in all three levels.',
-    url: 'https://q77e66pg.srstudio.dev/', appId: '7d0a34a0-ca86-413a-871c-7b731adf4511' },
-  { id: 'sky-hopper', title: 'SKY HOPPER',
-    pitch: 'Tap, press Space or the up arrow to flap between the pipes.',
-    url: 'https://tu9zzywe.srstudio.dev/', appId: 'f89bd492-1479-46ff-b455-1ec479e45684' }
+  { id: 'full-row', url: 'https://yfq52eu3.srstudio.dev/', appId: '5932be45-7ccb-483a-916d-0dcebff40ca2' },
+  { id: 'unbreakable', url: 'https://7x2phv5j.srstudio.dev/', appId: 'c5285ae3-512e-464a-aceb-17571e1fe3e9' }
 ];
-var API = 'https://otw-arcade.netlify.app';        // the wall's public data only
-
-/* ---- data ---- */
-/* Snapshot of /positions (names + PFPs, in wall order), inlined by scripts/build-hub.ts: 0 = waiting, 1 = minted, "NAME" = minted. */
-var SNAPSHOT = /*SNAPSHOT:START*/["MONOKAI"]/*SNAPSHOT:END*/;
-function snapshot() {
-  return SNAPSHOT.map(function (v, i) { return v ? { minted: true, idx: i, name: typeof v === 'string' ? v : undefined } : { minted: false, idx: i }; });
-}
-var grid = snapshot();
-
 function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 
-function paintWall() {
-  var g = grid.slice(0, 550), html = '', minted = 0, i, c;
-  for (i = 0; i < g.length; i++) {
-    c = g[i];
-    if (c.minted) minted++;
-    html += '<div class="' + (c.minted ? 'm' : '') + '" title="' + esc(c.minted ? (c.name || 'minted') : 'waiting') + '"></div>';
-  }
+/* ---- the wall: the snapshot inlined by scripts/build-hub.ts (0 = waiting, 1 or "NAME" = painted), then the live /positions ---- */
+var SNAPSHOT = /*SNAPSHOT:START*/[]/*SNAPSHOT:END*/;
+var grid = SNAPSHOT.map(function (v) { return { minted: Boolean(v), name: typeof v === 'string' ? v : '' }; });
+function paintWall(live) {
+  var html = '', painted = 0;
+  grid.forEach(function (c) { if (c.minted) painted++; html += '<div class="' + (c.minted ? 'm' : '') + '" title="' + esc(c.minted ? (c.name || 'painted') : 'waiting') + '"></div>'; });
   document.getElementById('wallgrid').innerHTML = html;
-  document.getElementById('mintedCount').textContent = minted;
+  Array.prototype.forEach.call(document.querySelectorAll('.painted'), function (b) { b.textContent = painted; });
+  Array.prototype.forEach.call(document.querySelectorAll('.mode'), function (m, i) { m.textContent = live ? (i === 0 ? 'live data' : 'live') : (i === 0 ? 'snapshot data' : 'snapshot'); });
 }
+paintWall(false);
+try {
+  fetch('https://otw-arcade.netlify.app/positions').then(function (r) { return r.json(); }).then(function (d) {
+    if (!Array.isArray(d) || !d.length) return;
+    grid = d.filter(function (x) { return x.tier === 'name' || x.tier === 'pfp'; }).sort(function (a, b) { return a.position - b.position; })
+      .map(function (x) { return { minted: Boolean(x.minted), name: x.name || '' }; });
+    paintWall(true);
+  }).catch(function () {});
+} catch (e) {}
 
-function paintGames() {
-  var html = '', i;
-  for (i = 0; i < GAMES.length; i++) {
-    var g = GAMES[i];
-    html += '<article class="cab" hidden data-game="' + esc(g.id) + '"><div class="cab-h"><h2 class="anton">' + esc(g.title) + '</h2></div>' +
-      '<p class="pitch inter">' + esc(g.pitch) + '</p>' +
-      '<div class="cab-f" data-slot="foot"><span class="cab-wait">Checking…</span></div>' +
-      '<div class="top3" data-slot="top3"></div></article>';
-  }
-  document.getElementById('cabs').innerHTML = html;
-  loadGameData();
-}
+/* ---- the teaser: autoplay, muted, looping; one button for the sound ---- */
+var teaser = document.getElementById('teaser'), sound = document.getElementById('sound');
+sound.onclick = function () {
+  teaser.muted = !teaser.muted;
+  if (!teaser.muted) { var p = teaser.play(); if (p && p.catch) p.catch(function () {}); }
+  sound.textContent = teaser.muted ? 'SOUND OFF' : 'SOUND ON';
+  sound.setAttribute('aria-pressed', String(!teaser.muted));
+};
 
-/* Per-game top 3 of the week, as recorded by the platform, read from each game's own origin (public, read-only, no key).
-   Best effort: a slow or unreachable game leaves the slot empty. */
-function shortPlayer(p) { if (p && p.ensName) return String(p.ensName).slice(0, 24); var n = (p && p.displayName) || ''; return /^0x[0-9a-f]{40}$/i.test(n) ? n.slice(0, 6) + '…' + n.slice(-4) : n.slice(0, 18); }
-/* A game is shown only while its deployment has an active scoring event (public, CORS-enabled read on the game's
-   own origin). 404 = no event (redeployed without one, or not live yet): the game does not appear at all. It comes
-   back by itself once the event exists. An unreachable or slow game is shown with PLAY (we cannot tell). */
-function setGameState(g, art, playable) {
-  if (!playable) { art.remove(); return; }
-  art.querySelector('[data-slot="foot"]').innerHTML = '<a href="' + esc(g.url) + '" target="_blank" rel="noopener">PLAY →</a>';
-  art.hidden = false;
-}
 /* week:start  THIS WEEK = Friday 15:00 Lisbon -> next Friday 15:00 Lisbon; week 1 runs from Thursday 22 October 2026
    00:00 to Friday 30 October 15:00 Lisbon (same as src/shell/week.ts, pinned by tests/week.test.ts which evaluates this
    block). Sent to each game as ?from=&to= (UTC instants, [from, to)). */
@@ -224,54 +341,43 @@ function lisbonWeek(now) {
   return { from: new Date(from).toISOString(), to: new Date(toUtc(next.getUTCFullYear(), next.getUTCMonth() + 1, next.getUTCDate(), 15)).toISOString() };
 }
 /* week:end */
-function loadGameData() {
-  var week = lisbonWeek(Date.now());
-  GAMES.forEach(function (g) {
-    var art = document.querySelector('[data-game="' + g.id + '"]'); if (!art) return;
-    if (g.updating) { setGameState(g, art, false); return; }   // manual override, if ever needed
-    var ctl = typeof AbortController === 'function' ? new AbortController() : null;
-    if (ctl) setTimeout(function () { ctl.abort(); }, 5000);
-    fetch(g.url.replace(/\/$/, '') + '/api/v1/games/' + g.appId + '/scoring/active-event', ctl ? { signal: ctl.signal } : {})
-      .then(function (r) { setGameState(g, art, r.status !== 404); })
-      .catch(function () { setGameState(g, art, true); });
-    var slot = art.querySelector('[data-slot="top3"]'); if (!slot) return;
-    fetch(g.url.replace(/\/$/, '') + '/api/v1/games/' + g.appId + '/scoring/leaderboard?from=' + encodeURIComponent(week.from) + '&to=' + encodeURIComponent(week.to)).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function (d) {
-      var entries = (d && d.entries) || [];
-      if (!entries.length) { slot.innerHTML = '<div class="wk">This week: no score yet.</div>'; return; }
-      var rows = entries.slice(0, 3).map(function (e) { return '<div class="row"><span>' + esc(e.rank) + '. ' + esc(shortPlayer(e.player)) + '</span><span>' + esc(e.score) + '</span></div>'; }).join('');
-      slot.innerHTML = '<div class="wk">This week</div>' + rows;
-    }).catch(function () { slot.innerHTML = ''; });
-  });
-}
 
-paintWall();
-paintGames();
-try {
-  fetch(API + '/positions').then(function (r) { return r.json(); }).then(function (d) {
-    if (Array.isArray(d) && d.length) {
-      grid = d.filter(function (x) { return x.tier === 'name' || x.tier === 'pfp'; })
-              .sort(function (a, b) { return a.position - b.position; });
-      paintWall();
-    }
-  }).catch(function () {});
-} catch (e) {}
-
-/* ---- the jackpot, live: the card service's /pot (the treasury's balance, cards/src/pot.ts); "— ETH" if unread ---- */
+/* ---- this week's jackpot: the card service's /pot (the treasury's balance, cards/src/pot.ts), "— ETH" if unread;
+   the week's number and the countdown to its end (Friday 15:00 Lisbon) ---- */
+var week = lisbonWeek(Date.now());
+var FIRST_FROM = '2026-10-21T23:00:00.000Z', FIRST_TO = Date.parse('2026-10-30T15:00:00.000Z');
+document.getElementById('weekNo').textContent = 'Week ' + (week.from === FIRST_FROM ? 1 : 2 + Math.round((Date.parse(week.from) - FIRST_TO) / 6048e5));
 try {
   fetch('https://wall-arcade-cards.netlify.app/pot').then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function (d) {
-    if (!d || typeof d.pot !== 'string' || !/^\d+\.\d{4}$/.test(d.pot)) return;
-    document.getElementById('potAmount').textContent = d.pot + ' ETH';
-    var el = document.querySelector('.hero .jackpot');                 // as big as the width allows, on one line
-    el.style.fontSize = '';
-    el.style.fontSize = Math.min(parseFloat(getComputedStyle(el).fontSize), el.parentElement.clientWidth / (el.textContent.length * 0.5)) + 'px';
+    if (d && typeof d.pot === 'string' && /^\d+\.\d{4}$/.test(d.pot)) document.getElementById('potAmount').textContent = d.pot + ' ETH';
   }).catch(function () {});
 } catch (e) {}
+function tick() {
+  var left = Math.max(0, Date.parse(week.to) - Date.now()), z = function (v) { return String(v).padStart(2, '0'); };
+  document.getElementById('countdown').textContent = Math.floor(left / 864e5) + 'D ' + z(Math.floor(left % 864e5 / 36e5)) + ':' + z(Math.floor(left % 36e5 / 6e4)) + ':' + z(Math.floor(left % 6e4 / 1e3));
+}
+tick(); setInterval(tick, 1000);
 
-/* ---- "How it works" panel ---- */
+/* ---- the week's top 3 of each game, read-only and public from each game's own origin (the same data as the games) ---- */
+function shortPlayer(p) { if (p && p.ensName) return String(p.ensName).slice(0, 28); var n = (p && p.displayName) || ''; return /^0x[0-9a-f]{40}$/i.test(n) ? n.slice(0, 6) + '…' + n.slice(-4) : n.slice(0, 18); }
+GAMES.forEach(function (g) {
+  var box = document.querySelector('.board[data-game="' + g.id + '"]');
+  var empty = function () { box.querySelector('.empty').textContent = 'No scores yet. Be the first.'; };
+  fetch(g.url.replace(/\/$/, '') + '/api/v1/games/' + g.appId + '/scoring/leaderboard?from=' + encodeURIComponent(week.from) + '&to=' + encodeURIComponent(week.to))
+    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function (d) {
+      var entries = (d && d.entries) || [];
+      if (!entries.length) { empty(); return; }
+      box.querySelector('.empty').outerHTML = entries.slice(0, 3).map(function (e) {
+        return '<div class="r"><span class="k">' + esc(String(e.rank).padStart(2, '0')) + '</span><span class="p">' + esc(shortPlayer(e.player)) + '</span><span class="s">' + esc(e.score) + '</span></div>';
+      }).join('');
+    }).catch(empty);
+});
+
+/* ---- the (i) ---- */
 var how = document.getElementById('how');
 document.getElementById('infoBtn').onclick = function () { if (how.showModal) how.showModal(); else how.setAttribute('open', ''); };
 document.getElementById('howClose').onclick = function () { if (how.close) how.close(); else how.removeAttribute('open'); };
-how.addEventListener('click', function (e) { if (e.target === how && how.close) how.close(); });   // tap on the backdrop
+how.addEventListener('click', function (e) { if (e.target === how && how.close) how.close(); });   // a tap on the backdrop
 </script>
 </body>
 </html>
