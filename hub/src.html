@@ -102,28 +102,27 @@ nav{position:sticky;top:0;z-index:20;background:#FBF8ECf2;backdrop-filter:blur(6
 .board .r .s{font:600 18px/1 var(--mono);text-align:right;font-variant-numeric:tabular-nums}
 .board .empty{padding:16px 18px;font-size:14px;opacity:.85}
 
-/* 5. for artists */
-.artists{border-bottom:2px solid var(--blue)}
-.cols{display:grid;grid-template-columns:1fr;border-top:2px solid var(--blue);margin-top:20px}
-.col{padding:24px 24px 28px 0;border-bottom:2px dashed var(--blue);display:flex;flex-direction:column;gap:10px}
-.col h3{font-size:clamp(44px,5.5vw,80px);line-height:.9;color:var(--blue)}
-.col p{font-size:14px;line-height:1.5;color:var(--grey);max-width:36ch}
-.artists .act{display:flex;gap:20px;align-items:center;flex-wrap:wrap;margin-top:32px}
-.artists .act a.dm{font:500 12px/1.4 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink);text-decoration:underline;text-underline-offset:4px}
+/* the holders' line under the games */
+.holders{margin-top:24px;font-size:14px;line-height:1.5;color:var(--ink)}
 
-/* 6. your superpower: a thin band on paper */
-.power{padding:22px var(--padx);border-bottom:2px solid var(--blue)}
-.power .wrap{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 24px}
-.power p{font-size:15px;line-height:1.5}
-.power a{font:500 12px/1.4 var(--mono);letter-spacing:.14em;text-transform:uppercase;white-space:nowrap}
+/* 5. artists of the wall: a one-line band on paper */
+.artband{padding:22px var(--padx);border-bottom:2px solid var(--blue)}
+.artband .wrap{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px 24px}
+.artband p{font-size:15px;line-height:1.5}
+.artband .lbl{margin-right:14px;color:var(--blue)}
 
-/* 7. the wall */
-.wall .frame{max-width:760px;margin-top:24px}
+/* 6. get on the wall: the live mosaic (320 px) and the words; on a phone the words first */
+.wall .two{display:flex;flex-direction:column-reverse;gap:clamp(28px,5vw,64px)}
+.wall .frame{width:min(320px,100%)}
+.wall .text{display:flex;flex-direction:column;gap:12px;align-items:flex-start}
+.wall h2{font-size:clamp(40px,6vw,84px);line-height:.9;margin-bottom:6px}
+.wall .text p{font-size:15px;line-height:1.5;max-width:44ch}
+.wall .text b{font-weight:600}
+.wall .text .btn{margin-top:12px}
 #wallgrid{display:grid;grid-template-columns:repeat(25,1fr);gap:3px}
 #wallgrid div{aspect-ratio:1;border:1px dashed var(--blue);opacity:.55}
 #wallgrid div.m{background:var(--blue);border-style:solid;opacity:1}
-.wall .meta{margin-top:10px}
-.wall .dragon{position:absolute;right:-6px;bottom:-2px;width:clamp(90px,16vw,170px);pointer-events:none}
+.wall .dragon{position:absolute;right:-18px;bottom:-2px;width:96px;pointer-events:none}
 footer{padding:28px var(--padx);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;font:500 12px/1.4 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--grey);max-width:1280px;margin:0 auto}
 footer a{text-decoration:none}
 footer .stamp{border:2px solid var(--blue);color:var(--blue);padding:6px 10px}
@@ -142,15 +141,15 @@ dialog::backdrop{background:rgba(20,22,31,.6)}
 }
 @media (min-width:720px){
   .row{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .cols{grid-template-columns:repeat(3,minmax(0,1fr))}
   .boards{grid-template-columns:repeat(2,minmax(0,1fr))}
   .board + .board{border-top:0;border-left:2px solid var(--paper)}
 }
+@media (min-width:720px){ .wall .two{flex-direction:row;align-items:center} }
 @media (min-width:980px){
   .hero{grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr)}
   .jackpot .grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
 }
-@media (min-width:1100px){ .row{grid-template-columns:repeat(4,minmax(0,1fr))} }
+@media (min-width:1100px){ .row{grid-template-columns:repeat(3,minmax(0,1fr))} }   /* two games and one open slot */
 </style>
 </head>
 <body>
@@ -181,7 +180,7 @@ dialog::backdrop{background:rgba(20,22,31,.6)}
     <p class="base"><span>Play arcade games built on the names of a real wall in Lisbon.</span><span>Every paid play feeds the jackpot.</span><span>Every Friday, the best score on each game wins.</span></p>
     <div class="act">
       <a class="btn" href="#games">PLAY <span>→</span></a>
-      <p class="lbl live"><i></i><span><b class="painted">—</b> names painted · <span class="mode">snapshot data</span></span></p>
+      <p class="lbl live"><i></i><span><b class="painted">—</b> names painted</span></p>
     </div>
   </div>
   <div class="frame">
@@ -214,12 +213,8 @@ dialog::backdrop{background:rgba(20,22,31,.6)}
         <div class="here">YOUR GAME HERE</div>
         <div class="foot"><a class="btn dashed" href="./builders.html">MAKE IT <span>→</span></a></div>
       </article>
-      <article class="game yours">
-        <div class="head"><h3>YOUR GAME HERE</h3><span class="n">#04</span></div>
-        <div class="here">YOUR GAME HERE</div>
-        <div class="foot"><a class="btn dashed" href="./builders.html">MAKE IT <span>→</span></a></div>
-      </article>
     </div>
+    <p class="holders">People of the wall: 3 free plays are in your wallet. Sign in with the wallet that holds your name.</p>
   </div>
 </section>
 
@@ -240,45 +235,33 @@ dialog::backdrop{background:rgba(20,22,31,.6)}
   </div>
 </section>
 
-<!-- 5. for artists -->
-<section class="artists" id="artists">
+<!-- 5. artists of the wall: one line -->
+<div class="artband" id="artists">
   <div class="wrap">
-    <p class="lbl">For artists</p>
-    <div class="cols">
-      <div class="col"><h3 class="anton">Your game</h3><p>Make your own game from the Studio template. It joins the arcade, your name on it.</p></div>
-      <div class="col"><h3 class="anton">40% yours</h3><p>40% of every play on your game is yours. Half feeds the jackpot, 10% goes to the wall.</p></div>
-      <div class="col"><h3 class="anton">First weeks</h3><p>The first games in get the featured spot in the first weeks.</p></div>
-    </div>
-    <div class="act">
-      <a class="btn" href="./builders.html">MAKE YOUR GAME <span>→</span></a>
-      <a class="dm" href="https://x.com/messages/compose?recipient_id=1478091830235471879" target="_blank" rel="noopener">Want in the first batch? DM @NFCsummit</a>
-    </div>
-  </div>
-</section>
-
-<!-- 6. your superpower -->
-<div class="power">
-  <div class="wrap">
-    <p class="lbl">Your superpower</p>
-    <p>Own a name on the wall: 3 free plays in your wallet, every week. Sign in with the wallet that holds your name.</p>
-    <a href="https://onthewall.nfcsummit.com" target="_blank" rel="noopener">Get on the wall →</a>
+    <p><span class="lbl">Artists of the wall</span> Make your own game. 40% of every play is yours.</p>
+    <a class="btn" href="./builders.html">MAKE YOUR GAME <span>→</span></a>
   </div>
 </div>
 
-<!-- 7. the wall -->
+<!-- 6. get on the wall -->
 <section class="wall">
-  <div class="wrap">
-    <div class="sec-h"><h2 class="anton">The wall</h2><p class="lbl live"><i></i><span><b class="painted">—</b> painted · <span class="mode">snapshot</span></span></p></div>
+  <div class="wrap two">
     <div class="frame">
       <div id="wallgrid" aria-hidden="true"></div>
       <img class="dragon" src="dragon.png" alt="">
+    </div>
+    <div class="text">
+      <h2 class="anton">Get on the wall</h2>
+      <p><b class="painted">—</b> names painted by hand in Lisbon.</p>
+      <p>Own a name: it's your ticket to NFC Summit 2027, and 3 free plays every week.</p>
+      <p>The wall closes Friday Oct 30.</p>
+      <a class="btn" href="https://onthewall.nfcsummit.com" target="_blank" rel="noopener">GET ON THE WALL <span>→</span></a>
     </div>
   </div>
 </section>
 
 <footer>
-  <span>A Remix The Wall experiment · NFC Summit 2027 · Lisbon</span>
-  <a href="https://onthewall.nfcsummit.com" target="_blank" rel="noopener">onthewall.nfcsummit.com</a>
+  <span>NFC Summit 2027 · Lisbon, May 27–29</span>
   <a class="stamp" href="https://studio.superrare.com" target="_blank" rel="noopener">Built on SuperRare Studio</a>
 </footer>
 
@@ -292,20 +275,19 @@ function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&
 /* ---- the wall: the snapshot inlined by scripts/build-hub.ts (0 = waiting, 1 or "NAME" = painted), then the live /positions ---- */
 var SNAPSHOT = /*SNAPSHOT:START*/[]/*SNAPSHOT:END*/;
 var grid = SNAPSHOT.map(function (v) { return { minted: Boolean(v), name: typeof v === 'string' ? v : '' }; });
-function paintWall(live) {
+function paintWall() {
   var html = '', painted = 0;
   grid.forEach(function (c) { if (c.minted) painted++; html += '<div class="' + (c.minted ? 'm' : '') + '" title="' + esc(c.minted ? (c.name || 'painted') : 'waiting') + '"></div>'; });
   document.getElementById('wallgrid').innerHTML = html;
   Array.prototype.forEach.call(document.querySelectorAll('.painted'), function (b) { b.textContent = painted; });
-  Array.prototype.forEach.call(document.querySelectorAll('.mode'), function (m, i) { m.textContent = live ? (i === 0 ? 'live data' : 'live') : (i === 0 ? 'snapshot data' : 'snapshot'); });
 }
-paintWall(false);
+paintWall();
 try {
   fetch('https://otw-arcade.netlify.app/positions').then(function (r) { return r.json(); }).then(function (d) {
     if (!Array.isArray(d) || !d.length) return;
     grid = d.filter(function (x) { return x.tier === 'name' || x.tier === 'pfp'; }).sort(function (a, b) { return a.position - b.position; })
       .map(function (x) { return { minted: Boolean(x.minted), name: x.name || '' }; });
-    paintWall(true);
+    paintWall();
   }).catch(function () {});
 } catch (e) {}
 
