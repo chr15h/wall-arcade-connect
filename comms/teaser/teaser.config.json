@@ -1,5 +1,5 @@
 {
-  "_": "THE WALL ARCADE teaser (scripts/teaser.ts). Texts (*stars* mark the words in blue), the clip after each card (scripts/teaser-capture.ts), the names on the plaques. 'line' is the scene's dialogue, used by the stills of the pixel scenes.",
+  "_": "THE WALL ARCADE teaser (scripts/teaser.ts). Texts (*stars* mark the words in blue); after each card a clip (scripts/teaser-capture.ts), a photo (a slow push-in) or nothing; the names on the plaques. 'line' is the pixel scene's dialogue, used by the stills of the pixel scenes.",
   "title": [
     "THE WALL",
     "ARCADE"
@@ -21,20 +21,20 @@
       "scene": "wall",
       "line": "A real wall in Lisbon. 500 names.",
       "card": "A real wall in Lisbon. *500 names*.",
-      "clip": "comms/teaser/clips/unbreakable.mp4"
+      "photo": "comms/teaser/assets/wall-photo.jpg",
+      "clipDuration": 3
     },
     {
       "scene": "row",
       "line": "We turned it into an arcade.",
       "card": "We turned it into an *arcade*.",
-      "clip": "comms/teaser/clips/full-row.mp4"
+      "clip": "comms/teaser/clips/unbreakable.mp4"
     },
     {
       "scene": "chest",
       "line": "You're a player? Play the artists' games. Best score of the week wins the pot.",
       "card": "Players: buy credits, play, *win the pot*.",
-      "clip": "comms/teaser/clips/jackpot.mp4",
-      "clipDuration": 3
+      "clip": "comms/teaser/clips/full-row-jackpot.mp4"
     },
     {
       "scene": "yourgame",
@@ -51,7 +51,8 @@
   "end": {
     "line": "Play the people of the wall.",
     "url": "https://6972mvu4.srstudio.dev/",
-    "credit": "Built with SuperRare Studio · NFC Summit 2027 · Lisbon"
+    "credit": "Built with SuperRare Studio · NFC Summit 2027 · Lisbon",
+    "duration": 4
   },
   "yourGame": "YOUR GAME HERE",
   "typing": {

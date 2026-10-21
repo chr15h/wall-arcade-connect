@@ -3,14 +3,12 @@
 //
 //   unbreakable   an aim, then the volley bouncing and breaking bricks of names         (the game stage)
 //   full-row      a piece dragged and placed, the row completes, ROW PAINTED            (the game stage)
-//   jackpot       FULL ROW's entry screen with this week's board, the band JACKPOT OF THE WEEK after 0.5 s (3 s)
+//   full-row-jackpot  the FULL ROW clip with the band JACKPOT OF THE WEEK (Anton, chalk on blue) from 0.5 s
 //
 // The game stages run on the test bench (src/dev/preview.ts: the shipped stage against an in-browser stand-in for the
-// coordinator) in Chromium on a virtual clock; the moves are planned with the very engines the verifier runs. The
-// entry screen runs with the fake Connect SDK of the dev flow (scripts/dev-flow.ts): its scores and ENS names are the
-// bench's, never anyone's.
+// coordinator) in Chromium on a virtual clock; the moves are planned with the very engines the verifier runs.
 //
-//   node --import tsx scripts/teaser-capture.ts [unbreakable,full-row,jackpot] [--out comms/teaser/clips]
+//   node --import tsx scripts/teaser-capture.ts [unbreakable,full-row,full-row-jackpot] [--out comms/teaser/clips]
 import { execFileSync } from 'node:child_process';
 import { createServer } from 'node:http';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
@@ -25,7 +23,7 @@ import { createEngine as createFr, N, PIECES, evaluatePlacement, fits, type FrSt
 const argv = process.argv.slice(2);
 const arg = (name: string, fallback: string): string => { const i = argv.indexOf(`--${name}`); return i >= 0 ? argv[i + 1] ?? fallback : fallback; };
 const OUT = arg('out', 'comms/teaser/clips');
-const WHICH = (argv[0] && !argv[0].startsWith('--') ? argv[0] : 'unbreakable,full-row,jackpot').split(',');
+const WHICH = (argv[0] && !argv[0].startsWith('--') ? argv[0] : 'unbreakable,full-row,full-row-jackpot').split(',');
 const CHROME = process.env.CHROME_PATH ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const LAUNCH_DAY = new Date('2026-10-22T14:00:00Z');       // FULL ROW's names move with the ISO week: the launch week's
 const FPS = 60, CLIP_FRAMES = 150;                          // a clip: 2.5 s at 60 fps
@@ -201,32 +199,20 @@ async function captureFullRow(): Promise<void> {
   await page.close();
 }
 
-/* ------------------------------------- phone screens ------------------------------------- */
-// A phone, 390 × 693 css px, at the device pixel ratio that makes it 1080 × 1920.
-const PHONE = { width: 390, height: 693 }, PHONE_DPR = CLIP_H / PHONE.height;
-async function openPhone(url: string): Promise<Page> {
-  const page = await browser.newPage({ viewport: PHONE, deviceScaleFactor: PHONE_DPR });
-  await page.goto(url);
-  await page.addStyleTag({ content: 'body > p[style*="position:fixed"]{display:none!important}' });   // the dev flow's own badge
-  await page.waitForFunction(() => document.fonts.status === 'loaded', undefined, { timeout: 15_000 }).catch(() => undefined);
-  await page.waitForTimeout(3000);
-  return page;
-}
-/** FULL ROW's entry screen with this week's board (the ENS names), and after 0.5 s a band at the bottom: the week's
- *  jackpot, Anton in chalk on blue. 3 s. */
-async function captureJackpot(): Promise<void> {
-  execFileSync(process.execPath, ['--import', 'tsx', 'scripts/dev-flow.ts', 'dist/teaser-game', 'full-row'], { stdio: 'inherit' });
-  const game = await serve('dist/teaser-game'), page = await openPhone(`${game}/?signed=1&credits=0`);
-  const entry = await loadImage(await page.screenshot()); await page.close();
+/* ------------------------------------- the jackpot band ------------------------------------- */
+/** The FULL ROW clip with the week's jackpot: a band at the bottom, Anton in chalk on blue, from 0.5 s on. */
+async function buildFullRowJackpot(): Promise<void> {
   GlobalFonts.register(await readFile('cards/assets/Anton-400.ttf'), 'WallCard Anton');
   const config = JSON.parse(await readFile('comms/teaser/teaser.config.json', 'utf8')) as { jackpot: string };
-  const W = entry.width, H = entry.height, dir = join(OUT, '.jackpot'), frames = 3 * FPS;
-  await rm(dir, { recursive: true, force: true }); await mkdir(dir, { recursive: true });
-  const band = Math.round(H * 0.11), m = Math.round(W * 0.05);
-  for (let f = 0; f < frames; f++) {
-    const cv = createCanvas(W, H), g = cv.getContext('2d');
-    g.drawImage(entry, 0, 0, W, H);
+  const src = join(OUT, 'full-row.mp4'), raw = join(OUT, '.jackpot-src'), dir = join(OUT, '.jackpot');
+  for (const d of [raw, dir]) { await rm(d, { recursive: true, force: true }); await mkdir(d, { recursive: true }); }
+  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', src, join(raw, '%04d.png')]);
+  for (let f = 0; f < CLIP_FRAMES; f++) {
+    const frame = await loadImage(await readFile(join(raw, `${String(f + 1).padStart(4, '0')}.png`)));
+    const W = frame.width, H = frame.height, cv = createCanvas(W, H), g = cv.getContext('2d');
+    g.drawImage(frame, 0, 0, W, H);
     if (f >= FPS / 2) {
+      const band = Math.round(H * 0.11), m = Math.round(W * 0.05);
       g.fillStyle = '#2E7FD6'; g.fillRect(0, H - band, W, band);
       g.font = '100px "WallCard Anton"'; const size = Math.min(band * 0.62, 100 * (W - 2 * m) / g.measureText(config.jackpot).width);
       g.font = `${size}px "WallCard Anton"`; g.fillStyle = '#F2F0EB'; g.textAlign = 'center'; g.textBaseline = 'middle';
@@ -234,11 +220,13 @@ async function captureJackpot(): Promise<void> {
     }
     await writeFile(shot(dir, f), cv.toBuffer('image/png'));
   }
-  encode(dir, 'jackpot'); await rm(dir, { recursive: true, force: true });
+  encode(dir, 'full-row-jackpot');
+  for (const d of [raw, dir]) await rm(d, { recursive: true, force: true });
 }
+
 await mkdir(OUT, { recursive: true });
 try {
   if (WHICH.includes('unbreakable')) await captureUnbreakable();
   if (WHICH.includes('full-row')) await captureFullRow();
-  if (WHICH.includes('jackpot')) await captureJackpot();
+  if (WHICH.includes('full-row-jackpot')) await buildFullRowJackpot();
 } finally { await browser.close(); for (const s of servers) s.close(); }

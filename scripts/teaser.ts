@@ -34,10 +34,10 @@ const RGB = NAMES.map((n) => {
   return [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)] as const;
 });
 /** A card is one text (cut in two lines by the script) or its lines as given; a sequence without a clip is its card alone. */
-type Sequence = { scene: 'wall' | 'row' | 'chest' | 'yourgame'; line: string; card: string | string[]; cardDuration?: number; lineGap?: number; clip?: string; clipDuration?: number };
+type Sequence = { scene: 'wall' | 'row' | 'chest' | 'yourgame'; line: string; card: string | string[]; cardDuration?: number; lineGap?: number; clip?: string; photo?: string; clipDuration?: number };
 type Config = {
   title: [string, string]; hudNames: number | null; plaques: { start: number; skip?: string[] }; row: { start: number };
-  sequences: Sequence[]; end: { line: string; url: string; credit: string }; yourGame: string;
+  sequences: Sequence[]; end: { line: string; url: string; credit: string; duration?: number }; yourGame: string;
   typing: { cps: number; readable: number; start: number }; card: { duration: number; lineGap: number }; clip: number; holders: string[];
   opening: { duration: number; logos: [string, string]; present: string }; jackpot: string;
 };
@@ -476,13 +476,13 @@ async function png(f: Frame, scale: number, name: string): Promise<void> {
   console.log(`${OUT}/${name}`);
 }
 /* ---------------------------------- timeline ---------------------------------- */
-// the opening (the two logos, "present") · the title (4 s) · for each sequence its card (3.5 s), then its clip (2.5 s,
-// or its own clipDuration) · the end card (3 s). Hard cuts only.
-const FPS = 30, OPEN_DUR = CFG.opening.duration, TITLE_DUR = 4, END_DUR = 3;
+// the opening (the two logos, "present") · the title (4 s) · for each sequence its card (3.5 s), then its clip or its
+// photo (2.5 s, or its own clipDuration), or nothing · the end card (4 s). Hard cuts only.
+const FPS = 30, OPEN_DUR = CFG.opening.duration, TITLE_DUR = 4, END_DUR = CFG.end.duration ?? 3;
 const seqAt = (i: number): Sequence => CFG.sequences[i] as Sequence;
 const cardDur = (i: number): number => seqAt(i).cardDuration ?? CFG.card.duration;
 const lineGapOf = (i: number): number => seqAt(i).lineGap ?? CFG.card.lineGap;
-const clipDur = (i: number): number => (seqAt(i).clip ? seqAt(i).clipDuration ?? CFG.clip : 0);
+const clipDur = (i: number): number => (seqAt(i).clip || seqAt(i).photo ? seqAt(i).clipDuration ?? CFG.clip : 0);
 const SEQ_STARTS = CFG.sequences.map((_, i) => OPEN_DUR + TITLE_DUR + CFG.sequences.slice(0, i).reduce((a, __, j) => a + cardDur(j) + clipDur(j), 0));
 const SEQS_END = OPEN_DUR + TITLE_DUR + CFG.sequences.reduce((a, _, j) => a + cardDur(j) + clipDur(j), 0);
 const TOTAL = SEQS_END + END_DUR;
@@ -559,6 +559,31 @@ function clipFrames(src: string, PW: number, PH: number, n: number): Uint8Clampe
   const size = PW * PH * 4, frames: Uint8ClampedArray[] = [];
   for (let o = 0; o + size <= raw.length; o += size) frames.push(new Uint8ClampedArray(raw.buffer, raw.byteOffset + o, size));
   return frames;
+}
+
+/* ------------------------------------- photos ------------------------------------- */
+// A photograph full frame, a slow push-in (8 % over its time, eased), nothing over it.
+const ALLOW_MISSING_PHOTO = argv.includes('--allow-missing-photo');
+async function loadPhoto(src: string): Promise<Image | null> {
+  const path = new URL(src, root);
+  if (existsSync(path)) return loadImage(await readFile(path));
+  if (!ALLOW_MISSING_PHOTO) throw new Error(`photo: ${src} missing (or render a preview with --allow-missing-photo)`);
+  console.log(`photo: ${src} missing, a marked placeholder instead`);
+  return null;
+}
+function photoFrame(img: Image | null, t: number, dur: number, PW: number, PH: number): Uint8ClampedArray {
+  const cv = createCanvas(PW, PH), g = cv.getContext('2d');
+  g.fillStyle = paletteJson.ink as string; g.fillRect(0, 0, PW, PH);
+  if (!img) {                                                     // a preview without the photo: say so on the frame
+    g.strokeStyle = paletteJson.midGrey as string; g.lineWidth = 4; g.setLineDash([16, 12]); g.strokeRect(PW * 0.1, PH * 0.1, PW * 0.8, PH * 0.8);
+    pixelText(g, 'PHOTO OF THE WALL', PW / 2, PH / 2 - 14, Math.max(2, Math.round(PW / 400)));
+    return g.getImageData(0, 0, PW, PH).data;
+  }
+  const u = Math.max(0, Math.min(1, t / dur)), k = u * u * (3 - 2 * u), zoom = 1 + 0.08 * k;
+  const cover = Math.max(PW / img.width, PH / img.height) * zoom, w = img.width * cover, h = img.height * cover;
+  g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+  g.drawImage(img, (PW - w) / 2, (PH - h) / 2, w, h);
+  return g.getImageData(0, 0, PW, PH).data;
 }
 
 /* ------------------------------------ sound ------------------------------------- */
@@ -688,6 +713,7 @@ async function renderVideo(format: Format): Promise<void> {
   const tmp = await mkdtemp(join(tmpdir(), 'teaser-'));
   try {
     const clips = CFG.sequences.map((seq, i) => (seq.clip ? clipFrames(seq.clip, PW, PH, Math.round(clipDur(i) * FPS)) : []));
+    const photos = await Promise.all(CFG.sequences.map((seq) => (seq.photo ? loadPhoto(seq.photo) : Promise.resolve(null))));
     const logos = await loadLogos();
     await writeFile(join(tmp, 'audio.wav'), wav(synth()));
     await mkdir(OUT, { recursive: true });
@@ -700,6 +726,7 @@ async function renderVideo(format: Format): Promise<void> {
       const time = k / FPS, s = shotAt(time);
       let buf: Uint8ClampedArray;
       if (s.kind === 'card') buf = cardFrame(seqAt(s.i).card, s.t, PW, PH, lineGapOf(s.i));
+      else if (s.kind === 'clip' && seqAt(s.i).photo) buf = photoFrame(photos[s.i] ?? null, s.t, clipDur(s.i), PW, PH);
       else if (s.kind === 'clip') { const frames = clips[s.i] as Uint8ClampedArray[]; buf = frames[Math.min(frames.length - 1, Math.round(s.t * FPS))] as Uint8ClampedArray; }
       else if (s.kind === 'open') buf = openingFrame(PW, PH, logos);
       else if (s.kind === 'end') buf = withEndLogos((pixelFrame(time, W, H) as Frame).rgba(scale), W, H, scale, logos);
@@ -730,12 +757,13 @@ async function pngRaw(data: Uint8ClampedArray, PW: number, PH: number, name: str
   await mkdir(OUT, { recursive: true }); await writeFile(join(OUT, name), cv.toBuffer('image/png')); console.log(join(OUT, name));
 }
 /** scene-N.png, 1080 × 1350: the card's line on top, the clip's telling frame under it. */
-const STILL_AT = [1.9, 1.2, 2.45, 2.45];
+const STILL_AT = [2.0, 1.9, 1.2, 0];                              // seconds into each sequence's clip or photo
 async function sceneStill(i: number): Promise<void> {
   const seq = seqAt(i), PW = 1080, PH = 1350, top = 400;
-  if (!seq.clip) { await pngRaw(cardFrame(seq.card, 4, PW, PH, lineGapOf(i)), PW, PH, `scene-${i + 1}.png`); return; }   // a card alone
-  const card = cardFrame(seq.card, 3, PW, top);
-  const n = Math.round((STILL_AT[i] ?? 2) * FPS) + 1, clip = clipFrames(seq.clip, PW, PH - top, n).at(-1) as Uint8ClampedArray;
+  if (!seq.clip && !seq.photo) { await pngRaw(cardFrame(seq.card, 4, PW, PH, lineGapOf(i)), PW, PH, `scene-${i + 1}.png`); return; }   // a card alone
+  const card = cardFrame(seq.card, 3, PW, top), at = STILL_AT[i] ?? 2;
+  const clip = seq.photo ? photoFrame(await loadPhoto(seq.photo), at, clipDur(i), PW, PH - top)
+    : clipFrames(seq.clip as string, PW, PH - top, Math.round(at * FPS) + 1).at(-1) as Uint8ClampedArray;
   const out = new Uint8ClampedArray(PW * PH * 4); out.set(card, 0); out.set(clip, PW * top * 4);
   await pngRaw(out, PW, PH, `scene-${i + 1}.png`);
 }
