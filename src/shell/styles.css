@@ -47,9 +47,9 @@ body.is-playing .stage-frame { top: env(safe-area-inset-top); }
 .corner-back:hover { opacity: 1; }
 .practice-tag { position: absolute; z-index: 3; top: 14px; left: 48px; margin: 0; font: 500 13px/1 var(--mono); letter-spacing: .18em; text-transform: uppercase; color: var(--blue); pointer-events: none; }
 
-.overlay { position: absolute; inset: 0; z-index: 2; display: flex; align-items: center; justify-content: center; padding: 14px; background: rgba(222, 219, 211, .72); overflow-y: auto; }
+.overlay { position: absolute; inset: 0; z-index: 2; display: flex; align-items: flex-start; justify-content: center; padding: 14px; background: rgba(222, 219, 211, .72); overflow-y: auto; }
 .overlay.is-busy .overlay-actions, .overlay.is-busy .overlay-links, .overlay.is-busy .overlay-board { display: none; }
-.overlay-card { width: 100%; max-width: 380px; padding: 20px 18px 14px; border: 1px solid var(--ink); background: var(--chalk); }
+.overlay-card { margin: auto 0; width: 100%; max-width: 380px; padding: 20px 18px 14px; border: 1px solid var(--ink); background: var(--chalk); }
 .overlay h1 { margin: 0; font: 400 clamp(44px, 13vw, 64px)/.92 var(--anton); text-transform: uppercase; }
 .overlay-line { margin: 10px 0 16px; font: 300 16px/1.45 var(--inter); }
 .overlay-score { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin: 0 0 14px; background: var(--rule); border: 1px solid var(--rule); }
@@ -169,7 +169,7 @@ body.is-playing .stage-frame { top: env(safe-area-inset-top); }
 /* FULL ROW and UNBREAKABLE: the end screen is the card itself, full width (src/share/end-screen.ts), POST ON X in blue
    under it; the page's card shrinks to a bar under that: PLAY AGAIN in ink and a text link. */
 .own-end .overlay.is-end { align-items: flex-end; background: none; pointer-events: none; padding: 0; }
-.own-end .overlay.is-end .overlay-card { pointer-events: auto; max-width: none; padding: 10px 14px 10px; border-width: 1px 0 0; }
+.own-end .overlay.is-end .overlay-card { margin: auto 0 0; pointer-events: auto; max-width: none; padding: 10px 14px 10px; border-width: 1px 0 0; }
 .own-end .overlay.is-end h1, .own-end .overlay.is-end .overlay-score, .own-end .overlay.is-end .overlay-line,
 .own-end .overlay.is-end .overlay-board { display: none; }
 .own-end .overlay.is-end .overlay-links { margin-top: 6px; }
@@ -178,4 +178,5 @@ body.is-playing .stage-frame { top: env(safe-area-inset-top); }
 .end-post { display: flex; align-items: center; justify-content: center; min-height: 56px; padding: 0 16px; background: var(--blue); color: var(--ink); text-decoration: none; font: 500 15px/1.2 var(--mono); letter-spacing: .14em; text-transform: uppercase; text-align: center; }
 @media (hover: hover) { .end-post:hover { background: var(--ink); color: var(--chalk); } }
 .end-post.is-preparing { opacity: .55; pointer-events: none; }
+.end-wall { align-self: flex-end; margin-top: -4px; font: 400 13px/1.4 var(--inter); color: var(--label); }
 body:not(.is-playing) .ub-sound { display: none; }   /* sound is a control of the run, not of the entry or end screens */

@@ -316,8 +316,8 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
       void copyText(text, ui.actions).then((ok) => { button.textContent = ok ? 'Log copied' : 'Select the text below and copy it'; });
     }, 'secondary');
   }
-  /** Under the card: real run, PLAY AGAIN in ink (the screen's blue is POST ON X) and "get on the wall"; practice,
-   *  PLAY FOR REAL in blue and "practice again". */
+  /** Under the card: real run, PLAY AGAIN in ink (the screen's blue is POST ON X); practice, PLAY FOR REAL in blue and
+   *  "practice again". */
   function endActions(): void {
     ui.actions.replaceChildren();
     ui.links.replaceChildren();
@@ -328,10 +328,7 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
     }
     const again = authenticated && credits?.balance && available() < 1 ? 'Buy credits' : 'Play again · 1 credit';
     actionButton(again, () => void play(again === 'Buy credits'), stage.endStats ? 'ink' : 'play');
-    const wall = node('a', 'get on the wall');
-    wall.href = 'https://onthewall.nfcsummit.com'; wall.target = '_blank'; wall.rel = 'noopener';
-    ui.links.append(wall);
-    copyLogButton();
+    copyLogButton();                                   // "get on the wall" is the end screen's own small link, under the card
   }
   function showEnd(score: number): void {
     diag.add('end', { score, board: board.slice(0, 3).map((e) => e.score) });
@@ -370,7 +367,7 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
   }
   /** The same figures, for a game that draws its own end screens (Stage.endStats). */
   function reportEnd(score: number, isPractice: boolean, rank: string, best: string, bestLabel: string, mine?: BoardEntry): void {
-    const ens = mine?.player.ensName ?? board.find((entry) => entry.player.displayName.toLowerCase() === address())?.player.ensName;
+    const ens = mine?.player.ensName ?? myEns();
     stage.endStats?.({ score, practice: isPractice, rank, best, bestLabel, ...(ens ? { player: ens } : {}) });
   }
   function showPracticeEnd(score: number): void {
@@ -389,7 +386,7 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
   /* ----------------------------- leaderboard ---------------------------- */
   // One board: THIS WEEK (Friday 15:00 Lisbon to Friday 15:00), read from Studio with explicit bounds (src/shell/week.ts).
   const boardTitle = ui.board.querySelector('.board-title');
-  if (boardTitle) boardTitle.textContent = WEEK_LABEL;
+  if (boardTitle) boardTitle.textContent = `Top 3 · ${WEEK_LABEL}`;
   const boardEnds = ui.board.querySelector('.board-ends');
   if (boardEnds) boardEnds.textContent = weekEnds(lisbonWeek());
   /* "post on X", a text link right of the label: a card made by the card service from the platform's own leaderboard
@@ -415,9 +412,21 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
     return entry.player.kind === 'wallet' ? shortAddress(entry.player.displayName) : entry.player.displayName;
   }
   /** The signed-in wallet's ENS, when this week's board knows it. */
+  /** The signed-in wallet's ENS, resolved by the platform: from this week's board, the all-time top ten, or the player
+   *  view of the last paid start; remembered per wallet on this device, so a card says johnkarp.eth, not 0x38f1…8b18. */
+  const ensKey = (wallet: string): string => `wall-arcade:ens:${wallet}`;
+  let allTime: BoardEntry[] = [];
   function myEns(): string | undefined {
     const wallet = address();
-    return wallet ? board.find((entry) => entry.player.displayName.toLowerCase() === wallet && entry.player.ensName)?.player.ensName ?? undefined : undefined;
+    if (!wallet) return undefined;
+    const fromBoards = [...board, ...allTime].find((entry) => entry.player.displayName.toLowerCase() === wallet && entry.player.ensName)?.player.ensName;
+    const sessionPlayer = (round as unknown as { sessionPlayer?: { displayName?: string; ensName?: string | null } | null } | undefined)?.sessionPlayer;
+    const fromSession = sessionPlayer?.ensName && (!sessionPlayer.displayName || sessionPlayer.displayName.toLowerCase() === wallet) ? sessionPlayer.ensName : undefined;
+    const found = fromBoards ?? fromSession ?? undefined;
+    try {
+      if (found) localStorage.setItem(ensKey(wallet), found);
+      return found ?? localStorage.getItem(ensKey(wallet)) ?? undefined;
+    } catch { return found; }
   }
   /** The wallet: the ENS when this week's board knows it, and the shortened address (a tap copies the full one). */
   function renderWalletLabel(): void {
@@ -448,7 +457,7 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
     boardPost.hidden = !top.length || adapter.id === 'tap-the-name';
     if (!boardPost.hidden) prepareBoardPost();
     if (!top.length) {
-      ui.boardList.replaceChildren(node('li', boardFailed ? 'Scores could not be loaded right now.' : boardLoaded ? 'No score yet this week. Be the first.' : 'Loading scores…', 'empty'));
+      ui.boardList.replaceChildren(node('li', boardFailed ? 'Scores could not be loaded right now.' : boardLoaded ? 'No scores yet this week. Be the first.' : 'Loading scores…', 'empty'));
       return;
     }
     ui.boardList.replaceChildren(...top.map((entry) => {
@@ -466,6 +475,7 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
     let fresh = false;
     try {
       board = await scoringGame.getServerLeaderboard(lisbonWeek()) as BoardEntry[];
+      if (!allTime.length) allTime = await scoringGame.getServerLeaderboard().catch(() => []) as BoardEntry[];   // ENS of past players
       boardLoaded = true;
       boardFailed = false;
       fresh = true;

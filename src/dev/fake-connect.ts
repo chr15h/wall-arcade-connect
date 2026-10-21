@@ -29,6 +29,7 @@ const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout
 const log = (...args: unknown[]): void => { (window as any).__fakeLog ??= []; (window as any).__fakeLog.push(args.map(String).join(' ')); console.info('[fake-connect]', ...args); };
 
 /** Fictitious ENS names, so the screens show how ENS replaces addresses (the real ones come from Studio). */
+const fakePlayer = () => ({ kind: 'wallet', id: null, handle: null, displayName: ADDRESS, avatarUrl: null, ensName: FAKE_ENS[ADDRESS] ?? null });
 const FAKE_ENS: Record<string, string> = { [ADDRESS]: 'player.eth', '0xaaaa00000000000000000000000000000000beef': 'wallhero.eth' };
 const store = {
   get session(): any { const raw = localStorage.getItem('fake:session'); return raw ? JSON.parse(raw) : undefined; },
@@ -124,12 +125,13 @@ export function createSuperRareClient(options: any = {}) {
         if (store.balance < 1) throw Object.assign(new Error('insufficient'), { code: 'CREDIT_GROUP_INSUFFICIENT_CREDITS' });
         store.balance -= 1;
         log('paid start: 1 credit spent, balance', store.balance);
-        return { session: { id: uuid(), token: 'fake-session', expiresAt: later(3_600_000) }, game: {} };
+        return { session: { id: uuid(), token: 'fake-session', expiresAt: later(3_600_000) }, game: {}, player: fakePlayer() };
       },
-      recoverStart: async () => ({ session: { id: uuid(), token: 'fake-session', expiresAt: later(3_600_000) }, game: {} }),
+      recoverStart: async () => ({ session: { id: uuid(), token: 'fake-session', expiresAt: later(3_600_000) }, game: {}, player: fakePlayer() }),
       complete: async () => { log('complete'); return {}; },
       getActiveScoringEvent: async () => ({ eventId: '11111111-1111-4111-8111-111111111111' }),
-      getServerLeaderboard: async () => [...store.board].sort((a, b) => b.score - a.score).slice(0, 10).map((entry, index) => ({
+      // ?empty=1: nobody on the board (the ENS of the player then comes from the paid start's player view)
+      getServerLeaderboard: async () => (params.get('empty') === '1' ? [] : [...store.board]).sort((a, b) => b.score - a.score).slice(0, 10).map((entry, index) => ({
         rank: index + 1, scoreId: `s${index}`, score: String(entry.score), secondaryValue: null, trustLevel: 'server_verified', achievedAt: new Date().toISOString(),
         player: { kind: 'wallet', id: null, handle: null, displayName: entry.name, ensName: FAKE_ENS[entry.name] ?? null, avatarUrl: null }, isCurrentPlayer: false })),
       startServerValidatedRun: async ({ idempotencyKey }: { idempotencyKey: string }) => {

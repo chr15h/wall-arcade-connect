@@ -148,8 +148,10 @@ export type BounceCardData = { people: number; names: string[]; score: number; r
  *  week's rank, the player. */
 export function unbreakableCard(env: CardEnv, base: CardBase, data: BounceCardData): HTMLCanvasElement {
   const { canvas, g } = frame(env, base, data.practice ? 'PRACTICE' : '');
-  const head = `I BOUNCED OFF ${data.people} ${data.people === 1 ? 'PERSON' : 'PEOPLE'}`;
-  anton(g, head, M - 3, 236, Math.min(antonFit(g, head, CARD - 2 * M, 104), 104), INK);
+  if (data.people > 0) {                                       // a run that touched no one shows its wall and score only
+    const head = `I BOUNCED OFF ${data.people} ${data.people === 1 ? 'PERSON' : 'PEOPLE'}`;
+    anton(g, head, M - 3, 236, Math.min(antonFit(g, head, CARD - 2 * M, 104), 104), INK);
+  }
   // the wall: staggered courses of solid bricks (the dragon stands behind it), the names painted in chalk on ink
   const bw = 232, bh = 64, gap = 8, top = 296, right = CARD - M;
   const courses = Math.max(2, Math.min(5, Math.ceil(data.names.length / 4) + 1));   // as high as the names need

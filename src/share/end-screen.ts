@@ -1,6 +1,7 @@
 // The end of a run, one screen, the same on both games: the card itself (the very image POST ON X shares, drawn here by
-// src/share/card-draw.ts), full width, and POST ON X in blue under it. PLAY AGAIN and the text links stay the page's own
-// bar under this screen. In practice the card says PRACTICE and there is nothing to post.
+// src/share/card-draw.ts), full width, POST ON X in blue under it (always, on a real run), and a small "get on the
+// wall" at the bottom right. PLAY AGAIN stays the page's own bar under this screen. In practice the card says PRACTICE
+// and there is nothing to post.
 import { fullRowCard, unbreakableCard, type BounceCardData, type CardBase, type CardEnv, type DragonImage, type RowCardData } from './card-draw.js';
 import { allNames } from '../shell/wall-data.js';
 import { wirePostLink, type CardRequest } from './post.js';
@@ -58,6 +59,9 @@ export function renderEndScreen(panel: HTMLElement, data: EndScreen, memo: EndMe
     wirePostLink(anchor, data.post, data.tweet, data.gameUrl, data.postLabel);
     memo.key = key; memo.anchor = anchor;
   }
-  panel.replaceChildren(...(anchor ? [canvas, anchor] : [canvas]));
+  const wall = document.createElement('a');
+  wall.className = 'end-wall'; wall.href = 'https://onthewall.nfcsummit.com'; wall.target = '_blank'; wall.rel = 'noopener';
+  wall.textContent = 'get on the wall';
+  panel.replaceChildren(...(anchor ? [canvas, anchor, wall] : [canvas, wall]));
   if (!dragon) void dragonLoaded.then(() => { if (dragon && panel.isConnected && !panel.hidden) renderEndScreen(panel, data, memo); });
 }

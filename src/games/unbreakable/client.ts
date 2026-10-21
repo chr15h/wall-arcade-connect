@@ -447,9 +447,11 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
     renderEndScreen(endPanel, {
       game: 'UNBREAKABLE', gameUrl: `${location.origin}/`,
       card: { kind: 'bounce', data: { people, names: list, score, practice, ...extra } },
-      post: people > 0 && list.length && !practice ? { kind: 'bounce', names: list, people, score, ...extra } : null,
-      tweet: (link) => fitTweet(order.map((pos) => tag(infoOf(pos).name || '', infoOf(pos).handle)).filter(Boolean),
-        (names, more) => `I bounced off ${people} people of the wall: ${names}${more ? ' …' : '.'} Beat me: ${link}`, link),
+      post: practice ? null : { kind: 'bounce', names: list, people, score, ...extra },   // always, on a real run
+      tweet: (link) => (people > 0 && list.length
+        ? fitTweet(order.map((pos) => tag(infoOf(pos).name || '', infoOf(pos).handle)).filter(Boolean),
+          (names, more) => `I bounced off ${people} people of the wall: ${names}${more ? ' …' : '.'} Beat me: ${link}`, link)
+        : `I scored ${score} on UNBREAKABLE. Beat me: ${link}`),
       postLabel: 'Post on X',
     }, postMemo);
     endPanel.hidden = false;

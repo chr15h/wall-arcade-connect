@@ -60,9 +60,19 @@ test('a bounce card and a board card render too', async () => {
   save('service-board.x.png', await (await get(`/r/${board.id}.x.png`)).arrayBuffer());
 });
 
+test('a run with no full row (or that touched no one) still has a card: the grid or the wall, and the score', async () => {
+  const row = await post({ kind: 'row', names: [], score: 43, grid: [1, 3, 7, 15, 0, 0, 0, 128], player: 'player.eth' });
+  assert.equal(row.status, 200);
+  const r = await row.json() as { id: string };
+  assert.ok((await (await get(`/r/${r.id}`)).text()).includes('43 points on FULL ROW by player.eth.'));
+  save('service-row-empty.png', await (await get(`/r/${r.id}.png`)).arrayBuffer());
+  const bounce = await post({ kind: 'bounce', names: [], people: 0, score: 0 }, 'https://7x2phv5j.srstudio.dev');
+  assert.equal(bounce.status, 200);
+});
+
 test('nothing else can appear on a card', async () => {
   const bad: unknown[] = [
-    { ...ROW, names: ['HELLO WORLD'] }, { ...ROW, names: [] }, { ...ROW, names: Array(9).fill('NORMIES') },
+    { ...ROW, names: ['HELLO WORLD'] }, { ...ROW, names: [] }, { kind: 'row', names: ['NORMIES'], score: 5 }, { ...ROW, names: Array(9).fill('NORMIES') },
     { ...ROW, score: '1460' }, { ...ROW, score: -1 }, { ...ROW, score: 1.5 }, { ...ROW, points: 10 ** 9 },
     { ...ROW, player: 'buy my token' }, { ...ROW, player: '<script>' }, { ...ROW, player: 'x'.repeat(50) + '.eth' },
     { ...ROW, line: 'ROW 9' }, { ...ROW, grid: [1, 2, 3] }, { ...ROW, grid: [0, 0, 0, 0, 0, 0, 0, 256] }, { ...ROW, rank: 0 }, { ...ROW, rank: '1' }, { ...ROW, extra: 1 }, { ...ROW, kind: 'tweet' },

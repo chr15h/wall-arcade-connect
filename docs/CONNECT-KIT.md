@@ -67,7 +67,8 @@ IDENTITY (use, remix or ignore): concrete #DEDBD3, ink #0B0B0B, chalk #F2F0EB, o
 THE RULE
 - The credit line, visible in the game, linked:
   A REMIX THE WALL EXPERIMENT · NFC SUMMIT 2027 · LISBON - https://onthewall.nfcsummit.com
-- If the game stars a name of the wall, the holder of that name gets an edition: tell me which names the game stars.
+- You send one edition of your game's artwork to the wallet that holds the name, on the platform of your choice, within a
+  month of your game going live; we give you the address.
 
 OPTIONAL: tell the weekly Survivor which minted name was hit (best effort, batched, never blocks play):
   POST https://otw-arcade.netlify.app/hits   {"game":"your-game-slug","hits":{"name-0":2,"pfp-3":1}}   keys: name-<idx>, pfp-<idx>

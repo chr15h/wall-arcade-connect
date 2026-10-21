@@ -587,9 +587,12 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
     renderEndScreen(endPanel, {
       game: 'FULL ROW', gameUrl,
       card: { kind: 'row', data: { names, ...(row ? { line: row.label } : {}), score, practice, ...extra } },
-      post: row && !practice ? { kind: 'row', names, line: row.label, score, ...extra } : null,
-      tweet: (link) => fitTweet(row ? row.draws.map((d) => tag(nameOfDraw(d), handleOfDraw(d))) : [],
-        (list, more) => `I painted ${list}${more ? ' …' : ''} together on THE WALL ARCADE. Beat my row: ${link}`, link),
+      // always something to post on a real run: the painted row when there is one, else the final grid and the score
+      post: practice ? null : { kind: 'row', names, ...(row ? { line: row.label } : {}), score, ...extra },
+      tweet: (link) => (row
+        ? fitTweet(row.draws.map((d) => tag(nameOfDraw(d), handleOfDraw(d))),
+          (list, more) => `I painted ${list}${more ? ' …' : ''} together on THE WALL ARCADE. Beat my row: ${link}`, link)
+        : `I scored ${score} on FULL ROW. Beat me: ${link}`),
       postLabel: 'Post on X',
     }, postMemo);
   }

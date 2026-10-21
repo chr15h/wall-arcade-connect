@@ -38,8 +38,9 @@ if (values.offline) {
 const marker = /\/\*SNAPSHOT:START\*\/.*?\/\*SNAPSHOT:END\*\//s;
 if (!marker.test(html)) throw new Error('Snapshot markers missing in hub/src.html');
 const page = html.replace(marker, () => `/*SNAPSHOT:START*/${JSON.stringify(rows)}/*SNAPSHOT:END*/`);
-// the player page links to the builders page with a relative link (the builders page has no secondary link)
+// the two pages link to each other with relative links only (the builders page: a discreet ← in its corner)
 if (!page.includes('href="./builders.html"')) throw new Error('hub/src.html must link to ./builders.html');
+if (!builders.includes('href="./"')) throw new Error('hub/builders.html must link back to ./');
 
 const output = resolve(values.output);
 let exists = false;

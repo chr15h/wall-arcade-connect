@@ -10,14 +10,14 @@
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@300;400&display=swap" rel="stylesheet">
 <style>
 /* Builders page: six full-width blocks, each one big sentence in Anton, one or two lines of Inter, at most one blue button.
-   No columns, no numbered list, no secondary link, no mono label. NFC system: concrete / ink / chalk, one blue. */
+   No columns, no numbered list, no secondary link (but a discreet ← to the hub), no mono label. NFC system: concrete / ink / chalk, one blue. */
 :root{--concrete:#DEDBD3;--ink:#0B0B0B;--chalk:#F2F0EB;--label:#6B685F;--blue:#2E7FD6;
   --anton:Anton,Impact,'Arial Narrow',sans-serif;--inter:Inter,system-ui,sans-serif}
 *{box-sizing:border-box}
 html,body{margin:0;padding:0;background:var(--concrete);color:var(--ink)}
 body{font-family:var(--inter);-webkit-font-smoothing:antialiased;overflow-x:hidden}
 .block{padding:clamp(48px,9vw,120px) 5%;border-top:1px solid var(--ink)}
-.block:first-child{border-top:0}
+.back+.block{border-top:0;padding-top:clamp(76px,9vw,120px)}   /* room for the ← */
 .block.ink{background:var(--ink);color:var(--chalk);border-top-color:var(--ink)}
 .block h1,.block h2{margin:0;max-width:16ch;font:400 clamp(56px,19vw,210px)/.88 var(--anton);text-transform:uppercase;letter-spacing:-.005em;overflow-wrap:break-word}
 .block p{margin:clamp(18px,2.6vw,30px) 0 0;max-width:40em;font:300 clamp(17px,2vw,22px)/1.5 var(--inter)}
@@ -25,12 +25,17 @@ body{font-family:var(--inter);-webkit-font-smoothing:antialiased;overflow-x:hidd
   background:var(--blue);color:var(--ink);font:400 clamp(20px,2.4vw,26px)/1 var(--anton);letter-spacing:.06em;text-transform:uppercase;text-decoration:none;cursor:pointer}
 .btn:hover{background:var(--chalk);color:var(--ink)}
 .block:not(.ink) .btn:hover{background:var(--ink);color:var(--chalk)}
+.back{position:absolute;top:10px;left:10px;z-index:1;display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;
+  color:var(--chalk);opacity:.6;text-decoration:none;font:400 24px/1 var(--inter)}
+.back:hover{opacity:1}
 footer{padding:28px 5% 36px;border-top:1px solid var(--ink);font:400 13px/1.5 var(--inter);color:var(--label)}
 footer a{color:var(--label)}
 @media (max-width:520px){.btn{width:100%}}
 </style>
 </head>
 <body>
+
+<a class="back" href="./" aria-label="Back to THE WALL ARCADE">←</a>
 
 <section class="block ink">
   <h1>Make a game on the wall.</h1>
@@ -56,7 +61,7 @@ footer a{color:var(--label)}
 <section class="block">
   <h2>You don't? Send us your work.</h2>
   <p>Images, sounds, an idea. We make the game, your name on it.</p>
-  <a class="btn" href="https://x.com/johnkarp" target="_blank" rel="noopener" aria-label="Contact John: DM @johnkarp on X">Contact John</a>
+  <a class="btn" href="https://x.com/messages/compose?recipient_id=7246192" target="_blank" rel="noopener" aria-label="Contact John: DM @johnkarp on X">Contact John</a>
 </section>
 
 <section class="block ink">

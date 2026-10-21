@@ -28,14 +28,15 @@ const esc = (s: string): string => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;',
 const fmt = (n: number): string => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 
 /** Bump when the drawing changes: a card's id (and so its cached image) then changes too. */
-export const RENDER_VERSION = 4;
+export const RENDER_VERSION = 5;
 export const cardId = (card: Card): string => createHash('sha256').update(`${RENDER_VERSION}:${JSON.stringify(card)}`).digest('base64url').slice(0, 16);
 
 /** The line under the preview in X, and the page's description. */
 export function describe(card: Card): string {
   const rank = card.kind !== 'board' && card.rank ? ` #${card.rank} this week.` : '';
-  if (card.kind === 'row') return `${card.names.join(' · ')}: painted together on FULL ROW${card.player ? ` by ${card.player}` : ''}. ${fmt(card.score)} points.${rank}`;
-  if (card.kind === 'bounce') return `Bounced off ${card.people} people of the wall on UNBREAKABLE. ${fmt(card.score)} points.${rank}`;
+  const by = card.kind !== 'board' && card.player ? ` by ${card.player}` : '';
+  if (card.kind === 'row') return card.names.length ? `${card.names.join(' · ')}: painted together on FULL ROW${by}. ${fmt(card.score)} points.${rank}` : `${fmt(card.score)} points on FULL ROW${by}.${rank}`;
+  if (card.kind === 'bounce') return card.people ? `Bounced off ${card.people} people of the wall on UNBREAKABLE. ${fmt(card.score)} points.${rank}` : `${fmt(card.score)} points on UNBREAKABLE${by}.${rank}`;
   const me = card.rows.find((r) => r.me);
   return me ? `#${me.rank} on ${GAMES[card.game].title} · ${fmt(me.score)} points.` : `The top 5 of ${GAMES[card.game].title}.`;
 }

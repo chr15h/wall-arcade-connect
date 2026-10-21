@@ -350,6 +350,8 @@ export class PaidRound {
   }
 
   acceptSession(session) {
+    // the platform's public view of the player (ENS when it resolved one): cosmetic, kept out of the saved state
+    this.sessionPlayer = session.player ?? null;
     this.state.session = session.session;
     this.state.game = session.game;
     this.state.phase = 'ready';
