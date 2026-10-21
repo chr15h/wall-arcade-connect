@@ -33,11 +33,12 @@ const RGB = NAMES.map((n) => {
   const hex = paletteJson[n]; if (!hex || !/^#[0-9a-fA-F]{6}$/.test(hex)) throw new Error(`palette: ${n} missing`);
   return [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)] as const;
 });
-type Sequence = { scene: 'wall' | 'row' | 'chest' | 'yourgame'; line: string; card: string; clip: string };
+type Sequence = { scene: 'wall' | 'row' | 'chest' | 'yourgame'; line: string; card: string; clip: string; clipDuration?: number };
 type Config = {
   title: [string, string]; hudNames: number | null; plaques: { start: number; skip?: string[] }; row: { start: number };
   sequences: Sequence[]; end: { line: string; url: string; credit: string }; yourGame: string;
   typing: { cps: number; readable: number; start: number }; card: { duration: number; lineGap: number }; clip: number; holders: string[];
+  opening: { duration: number; logos: [string, string]; present: string }; jackpot: string;
 };
 const CFG = JSON.parse(await readFile(new URL(arg('config', 'comms/teaser/teaser.config.json'), root), 'utf8')) as Config;
 
@@ -449,16 +450,19 @@ function sparkles(f: Frame, box: [number, number, number, number], t: number): v
     if (big) f.sprite(SPARK, x, y, SPARK_MAP); else f.sprite(SPARK_SMALL, x + 2, y + 2, SPARK_MAP);
   }
 }
+/** The end card's block: title (122) · line · link · the logos (END_LOGOS) · credit; centred. */
+const END_TOP = (H: number): number => Math.max(4, Math.round((H - 226) / 2) - 6);
+const END_LOGOS = { top: 170, height: 38 };
 function endCard(f: Frame, t: number): void {
-  sky(f, f.h, t + 4, 9); silhouette(f, f.h - 44);
-  const y0 = Math.round((f.h - 200) / 2) - 5;                  // the title and its three lines, centred (30 on 270)
+  sky(f, f.h, t + 4, 9); silhouette(f, f.h - 14);
+  const y0 = END_TOP(f.h);                                      // the title, its line, the link, the logos, the credit
   const { bricks, box } = titleBricks(f.w, y0, f.h);
   for (const b of bricks) { f.rect(b.x + 1, b.y + 4, 8, 1, 'darkGrey'); brickAt(f, b, b.x, b.y); }
   sparkles(f, box, t);
   const E = CFG.end, cx = (s: string, font: Font): number => Math.floor((f.w - textWidth(s, font)) / 2);
   f.text(E.line, cx(E.line, 'big'), y0 + 136, 'big', 'chalk');
   f.text(E.url, cx(E.url, 'big'), y0 + 156, 'big', 'chalk'); f.rect(cx(E.url, 'big'), y0 + 166, textWidth(E.url, 'big'), 1, 'midGrey');
-  f.text(E.credit, cx(E.credit, 'small'), y0 + 178, 'small', 'stone');
+  f.text(E.credit, cx(E.credit, 'small'), y0 + 214, 'small', 'stone');
 }
 
 /* -------------------------------------- run -------------------------------------- */
@@ -471,19 +475,23 @@ async function png(f: Frame, scale: number, name: string): Promise<void> {
   console.log(`${OUT}/${name}`);
 }
 /* ---------------------------------- timeline ---------------------------------- */
-// 0–4 s the title · for each sequence its card (3.5 s), then one clip (2.5 s) · the end card (3 s). Hard cuts only.
-const FPS = 30, TITLE_DUR = 4, END_DUR = 3, CARD_DUR = CFG.card.duration, CLIP_DUR = CFG.clip;
-const SEQ_DUR = CARD_DUR + CLIP_DUR;
-const TOTAL = TITLE_DUR + CFG.sequences.length * SEQ_DUR + END_DUR;
-type Shot = { kind: 'title' | 'end'; t: number } | { kind: 'card' | 'clip'; t: number; i: number };
+// the opening (the two logos, "present") · the title (4 s) · for each sequence its card (3.5 s), then its clip (2.5 s,
+// or its own clipDuration) · the end card (3 s). Hard cuts only.
+const FPS = 30, OPEN_DUR = CFG.opening.duration, TITLE_DUR = 4, END_DUR = 3, CARD_DUR = CFG.card.duration;
+const clipDur = (i: number): number => (CFG.sequences[i] as Sequence).clipDuration ?? CFG.clip;
+const SEQ_STARTS = CFG.sequences.map((_, i) => OPEN_DUR + TITLE_DUR + CFG.sequences.slice(0, i).reduce((a, __, j) => a + CARD_DUR + clipDur(j), 0));
+const SEQS_END = OPEN_DUR + TITLE_DUR + CFG.sequences.reduce((a, _, j) => a + CARD_DUR + clipDur(j), 0);
+const TOTAL = SEQS_END + END_DUR;
+type Shot = { kind: 'open' | 'title' | 'end'; t: number } | { kind: 'card' | 'clip'; t: number; i: number };
 function shotAt(time: number): Shot {
-  if (time < TITLE_DUR) return { kind: 'title', t: time };
-  const u = time - TITLE_DUR, i = Math.floor(u / SEQ_DUR);
-  if (i >= CFG.sequences.length) return { kind: 'end', t: u - CFG.sequences.length * SEQ_DUR };
-  const v = u - i * SEQ_DUR;
+  if (time < OPEN_DUR) return { kind: 'open', t: time };
+  if (time < OPEN_DUR + TITLE_DUR) return { kind: 'title', t: time - OPEN_DUR };
+  if (time >= SEQS_END) return { kind: 'end', t: time - SEQS_END };
+  let i = SEQ_STARTS.length - 1; while (i > 0 && (SEQ_STARTS[i] as number) > time) i--;
+  const v = time - (SEQ_STARTS[i] as number);
   return v < CARD_DUR ? { kind: 'card', t: v, i } : { kind: 'clip', t: v - CARD_DUR, i };
 }
-const seqStart = (i: number): number => TITLE_DUR + i * SEQ_DUR;
+const seqStart = (i: number): number => SEQ_STARTS[i] as number;
 
 /* ------------------------------------ cards ------------------------------------- */
 // Ink, the line in chalk in the pixel font, as large as it goes (a whole number of screen pixels per font pixel),
@@ -608,6 +616,55 @@ function wav(samples: Float32Array): Buffer {
   return Buffer.concat([head, data]);
 }
 
+/* ------------------------------------ the logos ------------------------------------ */
+// NFC SUMMIT (the design system's logo, chalk on transparency) × SUPERRARE STUDIO (its wordmark, turned chalk on
+// transparency), never distorted, a pixel × between them and "present" under them in the pixel font. Full size on the
+// opening card; small under the end card's link.
+type Logos = { nfc: Image; sr: Image };
+async function loadLogos(): Promise<Logos> {
+  const [a, b] = CFG.opening.logos;
+  return { nfc: await loadImage(await readFile(new URL(a, root))), sr: await loadImage(await readFile(new URL(b, root))) };
+}
+/** Sizes for an NFC block `h` high: the wordmark at 20 % of it, the ×, the gaps, "present" under them. */
+function logoLayout(logos: Logos, h: number): { nfcW: number; srH: number; srW: number; gap: number; p: number; pp: number; w: number; rowH: number; total: number } {
+  const nfcW = h * logos.nfc.width / logos.nfc.height, srH = h * 0.2, srW = srH * logos.sr.width / logos.sr.height, gap = h * 0.2;
+  const p = Math.max(2, Math.round(h * 0.15 / 7)), pp = Math.max(2, Math.round(h * 0.11 / 7));
+  const w = nfcW + gap + 7 * p + gap + srW, rowH = h, total = h + gap * 0.7 + 8 * pp;
+  return { nfcW, srH, srW, gap, p, pp, w, rowH, total };
+}
+/** Pixel-font text at `p` screen pixels per font pixel, chalk, centred on cx, its cap top at y. */
+function pixelText(g: ReturnType<ReturnType<typeof createCanvas>['getContext']>, text: string, cx: number, y: number, p: number): void {
+  const m = mask(text, 'big'), x0 = Math.round(cx - m.w * p / 2);
+  g.fillStyle = paletteJson.chalk as string;
+  for (let yy = 0; yy < Math.min(m.h, 9); yy++) for (let xx = 0; xx < m.w; xx++) if (m.bits[yy * m.w + xx]) g.fillRect(x0 + xx * p, Math.round(y) + yy * p, p, p);
+}
+/** Draws the logo block in the box (x, y, w, h), as large as fits, centred. */
+function drawLogos(g: ReturnType<ReturnType<typeof createCanvas>['getContext']>, logos: Logos, x: number, y: number, w: number, h: number): void {
+  const unit = logoLayout(logos, 100), nfcH = 100 * Math.min(w / unit.w, h / unit.total), L = logoLayout(logos, nfcH);
+  const left = x + (w - L.w) / 2, top = y + (h - L.total) / 2, mid = top + nfcH / 2;
+  g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+  g.drawImage(logos.nfc, Math.round(left), Math.round(top), Math.round(L.nfcW), Math.round(nfcH));
+  pixelText(g, '×', left + L.nfcW + L.gap + 3.5 * L.p, mid - 3.5 * L.p, L.p);
+  g.drawImage(logos.sr, Math.round(left + L.nfcW + L.gap + 7 * L.p + L.gap), Math.round(mid - L.srH / 2), Math.round(L.srW), Math.round(L.srH));
+  pixelText(g, CFG.opening.present, x + w / 2, top + nfcH + L.gap * 0.7, L.pp);
+}
+/** The opening card: ink and the logo block. */
+function openingFrame(PW: number, PH: number, logos: Logos): Uint8ClampedArray {
+  const cv = createCanvas(PW, PH), g = cv.getContext('2d');
+  g.fillStyle = paletteJson.ink as string; g.fillRect(0, 0, PW, PH);
+  const w = PW * 0.8, h = Math.min(PH * 0.42, w);
+  drawLogos(g, logos, (PW - w) / 2, (PH - h) / 2, w, h);
+  return g.getImageData(0, 0, PW, PH).data;
+}
+/** The end card with the logo block, small, in the room left for it under the link. */
+function withEndLogos(buf: Uint8ClampedArray, W: number, H: number, scale: number, logos: Logos): Uint8ClampedArray {
+  const PW = W * scale, PH = H * scale, cv = createCanvas(PW, PH), g = cv.getContext('2d'), img = g.createImageData(PW, PH);
+  img.data.set(buf); g.putImageData(img, 0, 0);
+  const top = (END_TOP(H) + END_LOGOS.top) * scale, h = END_LOGOS.height * scale, w = Math.min(PW * 0.6, 200 * scale);
+  drawLogos(g, logos, (PW - w) / 2, top, w, h);
+  return g.getImageData(0, 0, PW, PH).data;
+}
+
 /* ------------------------------------ video ------------------------------------- */
 // Three frames: 16:9 (the pixel world at 480 × 270, × 4), 9:16 and 1:1 (at 360 × 640 and 360 × 360, × 3).
 const FORMATS = { '16x9': { W: 480, H: 270, scale: 4 }, '9x16': { W: 360, H: 640, scale: 3 }, '1x1': { W: 360, H: 360, scale: 3 } } as const;
@@ -624,7 +681,8 @@ async function renderVideo(format: Format): Promise<void> {
   const { W, H, scale } = FORMATS[format], PW = W * scale, PH = H * scale, name = `teaser-${format}.mp4`;
   const tmp = await mkdtemp(join(tmpdir(), 'teaser-'));
   try {
-    const clips = CFG.sequences.map((seq) => clipFrames(seq.clip, PW, PH, Math.round(CLIP_DUR * FPS)));
+    const clips = CFG.sequences.map((seq, i) => clipFrames(seq.clip, PW, PH, Math.round(clipDur(i) * FPS)));
+    const logos = await loadLogos();
     await writeFile(join(tmp, 'audio.wav'), wav(synth()));
     await mkdir(OUT, { recursive: true });
     const out = join(OUT, name);
@@ -637,6 +695,8 @@ async function renderVideo(format: Format): Promise<void> {
       let buf: Uint8ClampedArray;
       if (s.kind === 'card') buf = cardFrame((CFG.sequences[s.i] as Sequence).card, s.t, PW, PH);
       else if (s.kind === 'clip') { const frames = clips[s.i] as Uint8ClampedArray[]; buf = frames[Math.min(frames.length - 1, Math.round(s.t * FPS))] as Uint8ClampedArray; }
+      else if (s.kind === 'open') buf = openingFrame(PW, PH, logos);
+      else if (s.kind === 'end') buf = withEndLogos((pixelFrame(time, W, H) as Frame).rgba(scale), W, H, scale, logos);
       else buf = (pixelFrame(time, W, H) as Frame).rgba(scale);
       if (!ff.stdin.write(Buffer.from(buf.buffer, buf.byteOffset, buf.byteLength))) await new Promise((r) => ff.stdin.once('drain', r));
     }
@@ -648,7 +708,7 @@ async function renderGif(name: string): Promise<void> {
   const tmp = await mkdtemp(join(tmpdir(), 'teaser-gif-'));
   try {
     for (let k = 0; k < TITLE_DUR * FPS; k++) {
-      const f = pixelFrame(k / FPS, 480, 270) as Frame, cv = createCanvas(960, 540), g = cv.getContext('2d'), img = g.createImageData(960, 540);
+      const f = pixelFrame(OPEN_DUR + k / FPS, 480, 270) as Frame, cv = createCanvas(960, 540), g = cv.getContext('2d'), img = g.createImageData(960, 540);
       img.data.set(f.rgba(2)); g.putImageData(img, 0, 0); await writeFile(join(tmp, `${String(k).padStart(4, '0')}.png`), cv.toBuffer('image/png'));
     }
     await mkdir(OUT, { recursive: true });
@@ -690,7 +750,7 @@ async function kit(): Promise<void> {
   const title = new Frame(480, 270, 'ink'); titleScreen(title, 3.4); await png(title, 4, 'title-16x9.png');
   const sq = new Frame(360, 360, 'ink'); titleScreen(sq, 3.4); await png(sq, 3, 'title-1x1.png');
   for (let i = 0; i < CFG.sequences.length; i++) await sceneStill(i);
-  const end = new Frame(480, 270, 'ink'); endCard(end, 1); await png(end, 4, 'end-card-16x9.png');
+  const end = new Frame(480, 270, 'ink'); endCard(end, 1); await pngRaw(withEndLogos(end.rgba(4), 480, 270, 4, await loadLogos()), 1920, 1080, 'end-card-16x9.png');
   await holders();
 }
 

@@ -3,15 +3,15 @@
 //
 //   unbreakable   an aim, then the volley bouncing and breaking bricks of names         (the game stage)
 //   full-row      a piece dragged and placed, the row completes, ROW PAINTED            (the game stage)
-//   this-week     FULL ROW's entry screen with this week's top 3, sliding to the card "#1 ON FULL ROW THIS WEEK"
+//   jackpot       FULL ROW's entry screen with this week's board, the band JACKPOT OF THE WEEK after 0.5 s (3 s)
 //   hub           the player page scrolling slowly through the games to "Artists: make your own game →"
 //
 // The game stages run on the test bench (src/dev/preview.ts: the shipped stage against an in-browser stand-in for the
 // coordinator) in Chromium on a virtual clock; the moves are planned with the very engines the verifier runs. The
 // entry screen runs with the fake Connect SDK of the dev flow (scripts/dev-flow.ts): its scores and ENS names are the
-// bench's, never anyone's; the card is drawn by the card service's own code from those same rows.
+// bench's, never anyone's.
 //
-//   node --import tsx scripts/teaser-capture.ts [unbreakable,full-row,this-week,hub] [--out comms/teaser/clips]
+//   node --import tsx scripts/teaser-capture.ts [unbreakable,full-row,jackpot,hub] [--out comms/teaser/clips]
 import { execFileSync } from 'node:child_process';
 import { createServer } from 'node:http';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
@@ -21,15 +21,13 @@ import { createCanvas, GlobalFonts, loadImage } from '@napi-rs/canvas';
 import wall from '../src/generated/wall.json' with { type: 'json' };
 import { ELIG } from '../src/generated/wall.js';
 import { scoringConfiguration } from '../src/shell/config.js';
-import { boardCard, type CardEnv, type DragonImage } from '../src/share/card-draw.js';
-import { lisbonWeek, weekEnds } from '../src/shell/week.js';
 import { createEngine as createUb, FLOOR, GT, CELL, MAX_ANGLE, MIN_ANGLE, R, type UbState } from '../src/games/unbreakable/engine.js';
 import { createEngine as createFr, N, PIECES, evaluatePlacement, fits, type FrState, type Piece } from '../src/games/full-row/engine.js';
 
 const argv = process.argv.slice(2);
 const arg = (name: string, fallback: string): string => { const i = argv.indexOf(`--${name}`); return i >= 0 ? argv[i + 1] ?? fallback : fallback; };
 const OUT = arg('out', 'comms/teaser/clips');
-const WHICH = (argv[0] && !argv[0].startsWith('--') ? argv[0] : 'unbreakable,full-row,this-week,hub').split(',');
+const WHICH = (argv[0] && !argv[0].startsWith('--') ? argv[0] : 'unbreakable,full-row,jackpot,hub').split(',');
 const CHROME = process.env.CHROME_PATH ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const LAUNCH_DAY = new Date('2026-10-22T14:00:00Z');       // FULL ROW's names move with the ISO week: the launch week's
 const FPS = 60, CLIP_FRAMES = 150;                          // a clip: 2.5 s at 60 fps
@@ -216,42 +214,29 @@ async function openPhone(url: string): Promise<Page> {
   await page.waitForTimeout(3000);
   return page;
 }
-const fakeRows = async (): Promise<{ name: string; score: number }[]> => {
-  const fake = await readFile('src/dev/fake-connect.ts', 'utf8');
-  const ens = new Map([...fake.matchAll(/'(0x[0-9a-f]{40})': '([a-z0-9.-]+\.eth)'/g)].map((m) => [m[1] as string, m[2] as string]));
-  return [...fake.matchAll(/\{ name: '(0x[0-9a-f]{40})', score: (\d+) \}/g)].map((m) => ({ name: ens.get(m[1] as string) ?? `${(m[1] as string).slice(0, 6)}…${(m[1] as string).slice(-4)}`, score: Number(m[2]) }))
-    .sort((a, b) => b.score - a.score);
-};
-/** The leaderboard card of FULL ROW, drawn by the card service's own code, from the bench's rows, its #1 as "me". */
-async function leaderboardCard(): Promise<Buffer> {
-  GlobalFonts.register(await readFile('cards/assets/Anton-400.ttf'), 'WallCard Anton');
-  GlobalFonts.register(await readFile('cards/assets/IBMPlexMono-400.ttf'), 'WallCard Mono');
-  GlobalFonts.register(await readFile('cards/assets/IBMPlexMono-500.ttf'), 'WallCard Mono');
-  const dragon = await loadImage(await readFile('cards/assets/dragon.jpg')) as unknown as DragonImage;
-  const env: CardEnv = { createCanvas: (w, h) => createCanvas(w, h) as unknown as HTMLCanvasElement };
-  const rows = (await fakeRows()).map((r, i) => ({ rank: i + 1, ...r, me: i === 0 }));
-  const card = boardCard(env, { game: 'FULL ROW', url: 'https://yfq52eu3.srstudio.dev/', wallNames: wall.positions.map((p) => p.n), dragon },
-    { rows, caption: `THIS WEEK · ${weekEnds(lisbonWeek(LAUNCH_DAY.getTime())).toUpperCase()}` });
-  return (card as unknown as { toBuffer(m: 'image/png'): Buffer }).toBuffer('image/png');
-}
-/** FULL ROW's entry screen (this week's top 3), then a slow slide up to the leaderboard card, centred on ink below it. */
-async function captureThisWeek(): Promise<void> {
+/** FULL ROW's entry screen with this week's board (the ENS names), and after 0.5 s a band at the bottom: the week's
+ *  jackpot, Anton in chalk on blue. 3 s. */
+async function captureJackpot(): Promise<void> {
   execFileSync(process.execPath, ['--import', 'tsx', 'scripts/dev-flow.ts', 'dist/teaser-game', 'full-row'], { stdio: 'inherit' });
   const game = await serve('dist/teaser-game'), page = await openPhone(`${game}/?signed=1&credits=0`);
   const entry = await loadImage(await page.screenshot()); await page.close();
-  const card = await loadImage(await leaderboardCard());
-  const W = entry.width, H = entry.height, dir = join(OUT, '.this-week');
+  GlobalFonts.register(await readFile('cards/assets/Anton-400.ttf'), 'WallCard Anton');
+  const config = JSON.parse(await readFile('comms/teaser/teaser.config.json', 'utf8')) as { jackpot: string };
+  const W = entry.width, H = entry.height, dir = join(OUT, '.jackpot'), frames = 3 * FPS;
   await rm(dir, { recursive: true, force: true }); await mkdir(dir, { recursive: true });
-  const cardSize = W, cardY = H + Math.round((H - cardSize) / 2);
-  for (let f = 0; f < CLIP_FRAMES; f++) {
-    // still for 0.8 s, then 1.1 s of a smooth slide, then the card
-    const u = Math.max(0, Math.min(1, (f / FPS - 0.8) / 1.1)), k = u * u * (3 - 2 * u), off = Math.round(k * H);
+  const band = Math.round(H * 0.11), m = Math.round(W * 0.05);
+  for (let f = 0; f < frames; f++) {
     const cv = createCanvas(W, H), g = cv.getContext('2d');
-    g.fillStyle = '#0B0B0B'; g.fillRect(0, 0, W, H);
-    g.drawImage(entry, 0, -off, W, H); g.drawImage(card, 0, cardY - off, cardSize, cardSize);
+    g.drawImage(entry, 0, 0, W, H);
+    if (f >= FPS / 2) {
+      g.fillStyle = '#2E7FD6'; g.fillRect(0, H - band, W, band);
+      g.font = '100px "WallCard Anton"'; const size = Math.min(band * 0.62, 100 * (W - 2 * m) / g.measureText(config.jackpot).width);
+      g.font = `${size}px "WallCard Anton"`; g.fillStyle = '#F2F0EB'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(config.jackpot, W / 2, H - band / 2 + size * 0.04);
+    }
     await writeFile(shot(dir, f), cv.toBuffer('image/png'));
   }
-  encode(dir, 'this-week'); await rm(dir, { recursive: true, force: true });
+  encode(dir, 'jackpot'); await rm(dir, { recursive: true, force: true });
 }
 /** The player page on a phone: a slow, even scroll from the games down to the artists' link. */
 async function captureHub(): Promise<void> {
@@ -282,6 +267,6 @@ await mkdir(OUT, { recursive: true });
 try {
   if (WHICH.includes('unbreakable')) await captureUnbreakable();
   if (WHICH.includes('full-row')) await captureFullRow();
-  if (WHICH.includes('this-week')) await captureThisWeek();
+  if (WHICH.includes('jackpot')) await captureJackpot();
   if (WHICH.includes('hub')) await captureHub();
 } finally { await browser.close(); for (const s of servers) s.close(); }

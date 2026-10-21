@@ -32,8 +32,9 @@
     {
       "scene": "chest",
       "line": "You're a player? Play the artists' games. Best score of the week wins the pot.",
-      "card": "You're a player? Play the artists' games. Best score of the week *wins the pot*.",
-      "clip": "comms/teaser/clips/this-week.mp4"
+      "card": "Players: buy credits, play, *win the pot*.",
+      "clip": "comms/teaser/clips/jackpot.mp4",
+      "clipDuration": 3
     },
     {
       "scene": "yourgame",
@@ -62,5 +63,14 @@
     "3 FREE PLAYS ARE IN YOUR WALLET.",
     "Sign in with the wallet",
     "that holds your name."
-  ]
+  ],
+  "opening": {
+    "duration": 2.5,
+    "logos": [
+      "comms/teaser/assets/nfc-summit-chalk.png",
+      "comms/teaser/assets/superrare-studio-chalk.png"
+    ],
+    "present": "present"
+  },
+  "jackpot": "JACKPOT OF THE WEEK · 0.0356 ETH"
 }
