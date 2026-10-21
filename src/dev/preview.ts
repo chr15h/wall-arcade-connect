@@ -24,7 +24,8 @@ let state = engine.createRun(seed, scoringConfiguration(game));
 let view = state as unknown;
 let inputs = 0;
 let done = false;
-(window as unknown as { __preview: unknown }).__preview = { get state() { return state; }, get inputs() { return inputs; } };
+// read by the teaser's capture (scripts/teaser-capture.ts), which also sends planned inputs through `send`
+(window as unknown as { __preview: unknown }).__preview = { get state() { return state; }, get inputs() { return inputs; }, send: (input: unknown) => io.sendInput(input as never) };
 
 const host = document.getElementById('arena') as HTMLElement;
 const status = document.getElementById('status') as HTMLElement;

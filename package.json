@@ -23,6 +23,7 @@
     "@types/node": "22.15.21",
     "esbuild": "0.25.5",
     "fflate": "0.8.2",
+    "playwright-core": "1.56.1",
     "tsx": "4.19.4",
     "typescript": "5.8.3"
   }

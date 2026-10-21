@@ -5,10 +5,16 @@
 // thresholded so every glyph pixel is a whole pixel. No generated imagery, nothing from an existing game.
 //
 //   node --import tsx scripts/teaser.ts stills [--out comms/teaser/out]     the board of six stills (title, 4 scenes, end)
+//   node --import tsx scripts/teaser.ts video  [--out comms/teaser/out]     teaser-16x9.mp4 (39 s, 30 fps, H.264 + AAC)
+//   node --import tsx scripts/teaser.ts gif    [--out comms/teaser/out]     title-assembly.gif (the first 4 s)
 //
 // Every movement is a whole number of pixels per frame (30 fps); the stills are frames of the same functions.
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { GlobalFonts, createCanvas } from '@napi-rs/canvas';
+import { execFileSync, spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { GlobalFonts, createCanvas, loadImage, type Image } from '@napi-rs/canvas';
 import snapshot from '../src/generated/wall.json' with { type: 'json' };
 
 const root = new URL('../', import.meta.url);
@@ -20,12 +26,14 @@ const OUT = arg('out', 'comms/teaser/out');
 const paletteJson = JSON.parse(await readFile(new URL(arg('palette', 'comms/teaser/palette.json'), root), 'utf8')) as Record<string, string>;
 const NAMES = ['ink', 'darkGrey', 'midGrey', 'stone', 'concrete', 'chalk', 'blue', 'blueLight'] as const;
 type Colour = typeof NAMES[number];
-const C = Object.fromEntries(NAMES.map((n, i) => [n, i])) as Record<Colour, number>;
+type Paint = Colour | 'clear';
+const C = { ...Object.fromEntries(NAMES.map((n, i) => [n, i])), clear: 255 } as Record<Paint, number>;   // clear: an overlay's transparent pixel
 const RGB = NAMES.map((n) => {
   const hex = paletteJson[n]; if (!hex || !/^#[0-9a-fA-F]{6}$/.test(hex)) throw new Error(`palette: ${n} missing`);
   return [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)] as const;
 });
-type Sequence = { scene: 'wall' | 'row' | 'chest' | 'yourgame'; line: string; gameplay: { label: string; source: string } };
+type Gameplay = { label: string; source: string; fallback?: { label: string; source: string } };
+type Sequence = { scene: 'wall' | 'row' | 'chest' | 'yourgame'; line: string; gameplay: Gameplay };
 type Config = {
   title: [string, string]; hudNames: number | null; plaques: { start: number; skip?: string[] }; row: { start: number };
   sequences: Sequence[]; end: { line: string; url: string; credit: string }; yourGame: string;
@@ -92,9 +100,9 @@ const textWidth = (text: string, font: Font): number => mask(text, font).w;
 /* --------------------------------- frame buffer -------------------------------- */
 class Frame {
   readonly px: Uint8Array;
-  constructor(readonly w: number, readonly h: number, bg: Colour) { this.px = new Uint8Array(w * h).fill(C[bg]); }
-  set(x: number, y: number, c: Colour): void { x |= 0; y |= 0; if (x >= 0 && y >= 0 && x < this.w && y < this.h) this.px[y * this.w + x] = C[c]; }
-  rect(x: number, y: number, w: number, h: number, c: Colour): void {
+  constructor(readonly w: number, readonly h: number, bg: Paint) { this.px = new Uint8Array(w * h).fill(C[bg]); }
+  set(x: number, y: number, c: Paint): void { x |= 0; y |= 0; if (x >= 0 && y >= 0 && x < this.w && y < this.h) this.px[y * this.w + x] = C[c]; }
+  rect(x: number, y: number, w: number, h: number, c: Paint): void {
     const x0 = Math.max(0, x | 0), y0 = Math.max(0, y | 0), x1 = Math.min(this.w, (x + w) | 0), y1 = Math.min(this.h, (y + h) | 0);
     for (let yy = y0; yy < y1; yy++) this.px.fill(C[c], yy * this.w + x0, yy * this.w + Math.max(x0, x1));
   }
@@ -133,8 +141,8 @@ class Frame {
     for (let y = 0; y < this.h; y++) {
       const line = new Uint8ClampedArray(W * 4);
       for (let x = 0; x < this.w; x++) {
-        const [r, g, b] = RGB[this.px[y * this.w + x] as number] as readonly [number, number, number];
-        for (let k = 0; k < scale; k++) { const o = (x * scale + k) * 4; line[o] = r; line[o + 1] = g; line[o + 2] = b; line[o + 3] = 255; }
+        const i = this.px[y * this.w + x] as number, [r, g, b] = (RGB[i] ?? [0, 0, 0]) as readonly [number, number, number], a = i === 255 ? 0 : 255;
+        for (let k = 0; k < scale; k++) { const o = (x * scale + k) * 4; line[o] = r; line[o + 1] = g; line[o + 2] = b; line[o + 3] = a; }
       }
       for (let k = 0; k < scale; k++) out.set(line, (y * scale + k) * W * 4);
     }
@@ -461,6 +469,171 @@ async function png(f: Frame, scale: number, name: string): Promise<void> {
   await mkdir(OUT, { recursive: true }); await writeFile(`${OUT}/${name}`, cv.toBuffer('image/png'));
   console.log(`${OUT}/${name}`);
 }
+/* ---------------------------------- timeline ---------------------------------- */
+// 0–4 title · four sequences of 8 s (4 s of scene with its line, 4 s of gameplay) · 36–39 end card. Hard cuts only.
+const FPS = 30, TITLE_DUR = 4, SEQ_DUR = 8, END_DUR = 3;
+const TOTAL = TITLE_DUR + CFG.sequences.length * SEQ_DUR + END_DUR;
+type Shot = { kind: 'title' | 'end'; t: number } | { kind: 'scene' | 'play'; t: number; i: number };
+function shotAt(time: number): Shot {
+  if (time < TITLE_DUR) return { kind: 'title', t: time };
+  const u = time - TITLE_DUR, i = Math.floor(u / SEQ_DUR);
+  if (i >= CFG.sequences.length) return { kind: 'end', t: u - CFG.sequences.length * SEQ_DUR };
+  const v = u - i * SEQ_DUR;
+  return v < SCENE_DUR ? { kind: 'scene', t: v, i } : { kind: 'play', t: v - SCENE_DUR, i };
+}
+const seqStart = (i: number): number => TITLE_DUR + i * SEQ_DUR;
+
+/* ------------------------------ gameplay inserts -------------------------------- */
+// Full frame, the real recording (never pixelated) in a 12 px stone frame (3 pixels of the pixel world), the five
+// hearts over it top left, the game's name bottom left in the pixel font.
+function resolveGameplay(g: Gameplay): { label: string; source: string } {
+  if (existsSync(new URL(g.source, root))) return g;
+  if (g.fallback && existsSync(new URL(g.fallback.source, root))) { console.log(`gameplay: ${g.source} missing, fallback ${g.fallback.source} (${g.fallback.label})`); return g.fallback; }
+  throw new Error(`gameplay: ${g.source} missing and no fallback`);
+}
+function hearts(f: Frame, x: number, y: number, on: boolean): void {
+  for (let i = 0; i < 5; i++) f.sprite(HEART, x + i * 13, y, { '#': 'ink', b: on ? 'blue' : 'chalk', w: on ? 'blueLight' : 'chalk' });
+}
+type Insert = { overlay: Uint8ClampedArray; frames: string[]; rect: [number, number, number, number] };
+async function prepareInsert(g: Gameplay, dir: string, W: number, H: number, scale: number): Promise<Insert> {
+  const { label, source } = resolveGameplay(g);
+  await mkdir(dir, { recursive: true });
+  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', new URL(source, root).pathname, '-vf', `fps=${FPS}`, join(dir, '%04d.png')]);
+  const frames = (await readdir(dir)).filter((n) => n.endsWith('.png')).sort().map((n) => join(dir, n));
+  const probe = await loadImage(await readFile(frames[0] as string));
+  // the game: as high as the frame allows, centred, its own stone border
+  const gh = H - 28, gw = Math.round(gh * probe.width / probe.height), gx = Math.floor((W - gw) / 2), gy = 14;
+  const f = new Frame(W, H, 'clear');
+  f.frameRect(0, 0, W, H, 3, 'stone'); f.frameRect(3, 3, W - 6, H - 6, 1, 'darkGrey');
+  f.frameRect(gx - 2, gy - 2, gw + 4, gh + 4, 2, 'stone');
+  hearts(f, 8, 8, true);
+  f.text(label, 9, H - 16, 'big', 'chalk', 'ink');
+  return { overlay: f.rgba(scale), frames, rect: [gx * scale, gy * scale, gw * scale, gh * scale] };
+}
+
+/* ------------------------------------ sound ------------------------------------- */
+// Original chiptune, synthesized here (square and triangle waves, a little noise): a bed in a loop from start to end,
+// lower under the gameplay; a five-note rising jingle as the title assembles; a blip per typed letter; small cues in the
+// scenes; a last chord on the end card. The teaser reads without it.
+const RATE = 48000;
+function synth(): Float32Array {
+  const n = Math.ceil(TOTAL * RATE), out = new Float32Array(n);
+  const tone = (wave: 'square' | 'triangle' | 'pulse', freq: number, t0: number, dur: number, vol: number, decay = 1): void => {
+    const i0 = Math.max(0, Math.floor(t0 * RATE)), i1 = Math.min(n, Math.floor((t0 + dur) * RATE));
+    for (let i = i0; i < i1; i++) {
+      const t = (i - i0) / RATE, ph = (t * freq) % 1;
+      const v = wave === 'triangle' ? 1 - 4 * Math.abs(ph - 0.5) : wave === 'pulse' ? (ph < 0.25 ? 1 : -1) : (ph < 0.5 ? 1 : -1);
+      const env = Math.min(1, t / 0.004) * Math.min(1, (dur - t) / 0.01) * Math.exp(-t * 3 * decay / dur);
+      out[i] = (out[i] as number) + v * vol * env;
+    }
+  };
+  const noise = (t0: number, dur: number, vol: number): void => {
+    let seed = 12345, last = 0; const i0 = Math.floor(t0 * RATE), i1 = Math.min(n, Math.floor((t0 + dur) * RATE));
+    for (let i = i0; i < i1; i++) { seed = (seed * 1103515245 + 12345) >>> 0; const w = seed / 2 ** 31 - 1; last = last * 0.85 + w * 0.15; out[i] = (out[i] as number) + last * vol * Math.exp(-((i - i0) / RATE) * 18); }
+  };
+  const hz = (midi: number): number => 440 * 2 ** ((midi - 69) / 12);
+  // the bed: C, A minor, F, G, two seconds each, bass on the beat, a soft arpeggio in eighths
+  const chords = [[48, 52, 55], [45, 48, 52], [41, 45, 48], [43, 47, 50]];
+  for (let bar = 0; bar * 2 < TOTAL - END_DUR; bar++) {
+    const chord = chords[bar % 4] as number[], t0 = bar * 2;
+    for (let b = 0; b < 4; b++) {
+      const t = t0 + b * 0.5, gain = bedGain(t);
+      tone('triangle', hz((chord[0] as number) - 12), t, 0.42, 0.16 * gain, 0.6);
+      for (const e of [0, 0.25]) { const k = b * 2 + (e ? 1 : 0), note = (chord[[0, 1, 2, 1][k % 4] as number] as number) + 24; tone('pulse', hz(note), t + e, 0.2, 0.035 * gain, 2); }
+    }
+  }
+  // the title: five notes rising, a dull hit on the flash
+  [72, 76, 79, 84, 88].forEach((m, k) => tone('square', hz(m), 1.0 + k * 0.4, k === 4 ? 0.9 : 0.36, 0.09, k === 4 ? 1.2 : 2));
+  noise(TITLE.assemble, 0.25, 0.35);
+  // the scenes: a blip per letter typed; the bricks landing, the row painted; the coins
+  CFG.sequences.forEach((seq, i) => {
+    const t0 = seqStart(i) + CFG.typing.start, cps = cpsFor(seq.line, SCENE_DUR);
+    [...seq.line].forEach((ch, k) => { if (ch !== ' ') tone('square', 1320 + (k % 3) * 110, t0 + (k + 1) / cps, 0.03, 0.035, 2); });
+    if (seq.scene === 'row') {
+      for (let b = 0; b < 8; b++) tone('triangle', 196, seqStart(i) + ROW_TIMES.leave(b) + ROW_TIMES.loose + ROW_TIMES.fall, 0.08, 0.14, 3);
+      const done = seqStart(i) + ROW_TIMES.leave(7) + ROW_TIMES.loose + ROW_TIMES.fall;
+      [76, 79, 84, 88].forEach((m, k) => tone('square', hz(m), done + k * 0.07, 0.25, 0.06, 2));
+    }
+    if (seq.scene === 'chest') for (let k = 0; k < 30; k++) { const t = seqStart(i) + 0.45 + k * 0.1; if (t < seqStart(i) + SCENE_DUR) { tone('square', hz(88 + (k % 2) * 5), t, 0.05, 0.03, 2); tone('square', hz(95 + (k % 2) * 5), t + 0.05, 0.08, 0.03, 2); } }
+  });
+  // the end card: a last chord
+  const e = TOTAL - END_DUR;
+  for (const m of [48, 60, 64, 67, 72]) tone(m === 48 ? 'triangle' : 'square', hz(m), e, END_DUR - 0.05, m === 48 ? 0.16 : 0.045, 1.5);
+  let peak = 0; for (const v of out) peak = Math.max(peak, Math.abs(v));
+  for (let i = 0; i < n; i++) out[i] = (out[i] as number) * 0.85 / peak;                // peak at -1.4 dB
+  return out;
+}
+/** The bed's level: lower under the title's jingle and under the gameplay. */
+function bedGain(t: number): number { const s = shotAt(t); return s.kind === 'title' ? 0.6 : s.kind === 'play' ? 0.55 : 1; }
+function wav(samples: Float32Array): Buffer {
+  const data = Buffer.alloc(samples.length * 4);
+  samples.forEach((v, i) => { const x = Math.max(-1, Math.min(1, v)) * 32767; data.writeInt16LE(x | 0, i * 4); data.writeInt16LE(x | 0, i * 4 + 2); });
+  const head = Buffer.alloc(44);
+  head.write('RIFF', 0); head.writeUInt32LE(36 + data.length, 4); head.write('WAVE', 8); head.write('fmt ', 12); head.writeUInt32LE(16, 16);
+  head.writeUInt16LE(1, 20); head.writeUInt16LE(2, 22); head.writeUInt32LE(RATE, 24); head.writeUInt32LE(RATE * 4, 28); head.writeUInt16LE(4, 32); head.writeUInt16LE(16, 34);
+  head.write('data', 36); head.writeUInt32LE(data.length, 40);
+  return Buffer.concat([head, data]);
+}
+
+/* ------------------------------------ video ------------------------------------- */
+/** One frame of the pixel world (title, scene, end) at time `time`. */
+function pixelFrame(time: number, W: number, H: number): Frame | null {
+  const s = shotAt(time), f = new Frame(W, H, 'ink');
+  if (s.kind === 'title') titleScreen(f, s.t);
+  else if (s.kind === 'end') endCard(f, s.t);
+  else if (s.kind === 'scene') { const seq = CFG.sequences[s.i] as Sequence; SCENES[seq.scene](f, s.t, seq.line); }
+  else return null;
+  return f;
+}
+async function renderVideo(name: string, W: number, H: number, scale: number): Promise<void> {
+  const tmp = await mkdtemp(join(tmpdir(), 'teaser-'));
+  try {
+    const inserts: Insert[] = [];
+    for (const [i, seq] of CFG.sequences.entries()) inserts.push(await prepareInsert(seq.gameplay, join(tmp, `play-${i}`), W, H, scale));
+    await writeFile(join(tmp, 'audio.wav'), wav(synth()));
+    await mkdir(OUT, { recursive: true });
+    const PW = W * scale, PH = H * scale, out = join(OUT, name);
+    const ff = spawn('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', `${PW}x${PH}`, '-r', String(FPS), '-i', '-',
+      '-i', join(tmp, 'audio.wav'), '-c:v', 'libx264', '-preset', 'slow', '-crf', '16', '-pix_fmt', 'yuv420p', '-r', String(FPS),
+      '-c:a', 'aac', '-b:a', '192k', '-shortest', '-movflags', '+faststart', out], { stdio: ['pipe', 'inherit', 'inherit'] });
+    const done = new Promise<void>((resolve, reject) => ff.on('close', (code) => (code === 0 ? resolve() : reject(new Error(`ffmpeg exited ${code}`)))));
+    const cv = createCanvas(PW, PH), g = cv.getContext('2d'); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+    const overlayCv = createCanvas(PW, PH), og = overlayCv.getContext('2d'), oimg = og.createImageData(PW, PH);
+    let overlayOf = -1;
+    for (let k = 0; k < TOTAL * FPS; k++) {
+      const time = k / FPS, f = pixelFrame(time, W, H);
+      let buf: Uint8ClampedArray;
+      if (f) buf = f.rgba(scale);
+      else {
+        const s = shotAt(time) as { t: number; i: number }, ins = inserts[s.i] as Insert;
+        if (overlayOf !== s.i) { oimg.data.set(ins.overlay); og.clearRect(0, 0, PW, PH); og.putImageData(oimg, 0, 0); overlayOf = s.i; }
+        g.fillStyle = paletteJson.ink as string; g.fillRect(0, 0, PW, PH);
+        const img: Image = await loadImage(await readFile(ins.frames[Math.min(ins.frames.length - 1, Math.round(s.t * FPS))] as string));
+        g.drawImage(img, ...ins.rect);
+        g.drawImage(overlayCv, 0, 0);
+        buf = g.getImageData(0, 0, PW, PH).data;
+      }
+      if (!ff.stdin.write(Buffer.from(buf.buffer, buf.byteOffset, buf.byteLength))) await new Promise((r) => ff.stdin.once('drain', r));
+      if (k % 150 === 0) console.log(`${name}: ${time.toFixed(0)} s`);
+    }
+    ff.stdin.end(); await done;
+    console.log(out);
+  } finally { await rm(tmp, { recursive: true, force: true }); }
+}
+async function renderGif(name: string): Promise<void> {
+  const tmp = await mkdtemp(join(tmpdir(), 'teaser-gif-'));
+  try {
+    for (let k = 0; k < TITLE_DUR * FPS; k++) {
+      const f = pixelFrame(k / FPS, 480, 270) as Frame, cv = createCanvas(960, 540), g = cv.getContext('2d'), img = g.createImageData(960, 540);
+      img.data.set(f.rgba(2)); g.putImageData(img, 0, 0); await writeFile(join(tmp, `${String(k).padStart(4, '0')}.png`), cv.toBuffer('image/png'));
+    }
+    await mkdir(OUT, { recursive: true });
+    execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-framerate', String(FPS), '-i', join(tmp, '%04d.png'),
+      '-vf', 'split[a][b];[a]palettegen=max_colors=16:reserve_transparent=0[p];[b][p]paletteuse=dither=none', '-loop', '0', join(OUT, name)]);
+    console.log(join(OUT, name));
+  } finally { await rm(tmp, { recursive: true, force: true }); }
+}
+
 const command = argv[0] ?? 'stills';
 if (command === 'stills') {
   for (const seq of CFG.sequences) { const len = seq.line.length, cps = cpsFor(seq.line, SCENE_DUR); console.log(`${seq.scene}: ${len} chars at ${cps.toFixed(1)} cps, written by ${(CFG.typing.start + len / cps).toFixed(2)} s`); }
@@ -469,4 +642,8 @@ if (command === 'stills') {
     const f = new Frame(480, 270, 'ink'); SCENES[seq.scene](f, STILL_T[seq.scene], seq.line); await png(f, 4, `board-${i + 1}-scene-${i + 1}.png`);
   }
   const end = new Frame(480, 270, 'ink'); endCard(end, 1); await png(end, 4, 'board-5-end.png');
+} else if (command === 'video') {
+  await renderVideo('teaser-16x9.mp4', 480, 270, 4);
+} else if (command === 'gif') {
+  await renderGif('title-assembly.gif');
 }
