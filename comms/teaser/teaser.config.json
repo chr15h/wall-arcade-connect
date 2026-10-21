@@ -1,7 +1,7 @@
 {
   "_": "THE WALL ARCADE teaser (scripts/teaser.ts). Every text, the gameplay order and sources, the names on the plaques.",
   "title": ["THE WALL", "ARCADE"],
-  "hudNames": null,
+  "hudNames": 258,
   "plaques": { "start": 1, "skip": ["RESERVED", "ASDF", "MY-NAME"] },
   "row": { "start": 2 },
   "sequences": [

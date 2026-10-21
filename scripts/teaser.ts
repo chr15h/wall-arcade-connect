@@ -1,4 +1,4 @@
-// THE WALL ARCADE teaser, 16 bits: a pixel world at 480 × 270, drawn in 16 colours (comms/teaser/palette.json) into an
+// THE WALL ARCADE teaser, 16 bits: a pixel world at 480 × 270, drawn in the 8 tones of NFC (comms/teaser/palette.json) into an
 // indexed frame buffer, scaled 4× nearest-neighbour (crisp pixels, never smoothed). Every text, the gameplay order and
 // sources, the names on the plaques come from comms/teaser/teaser.config.json; the names are the wall's snapshot
 // (src/generated/wall.json). Fonts: Press Start 2P and Silkscreen (SIL OFL, comms/teaser/assets), rendered then
@@ -18,7 +18,7 @@ const OUT = arg('out', 'comms/teaser/out');
 
 /* ------------------------------- palette, config ------------------------------ */
 const paletteJson = JSON.parse(await readFile(new URL(arg('palette', 'comms/teaser/palette.json'), root), 'utf8')) as Record<string, string>;
-const NAMES = ['black', 'white', 'blue', 'blueLight', 'night', 'nightLight', 'yellow', 'orange', 'grass', 'leaf', 'forest', 'path', 'trunk', 'stoneLight', 'stoneDark', 'stoneShadow'] as const;
+const NAMES = ['ink', 'darkGrey', 'midGrey', 'stone', 'concrete', 'chalk', 'blue', 'blueLight'] as const;
 type Colour = typeof NAMES[number];
 const C = Object.fromEntries(NAMES.map((n, i) => [n, i])) as Record<Colour, number>;
 const RGB = NAMES.map((n) => {
@@ -37,7 +37,20 @@ const CFG = JSON.parse(await readFile(new URL(arg('config', 'comms/teaser/teaser
 type Panel = { p: number; n: string };
 const PANELS = new Map<number, Panel>((snapshot.positions as Panel[]).map((panel) => [panel.p, panel]));
 const nameAt = (pos: number): string => PANELS.get(pos)?.n.toUpperCase() ?? '';
-const HUD_COUNT = CFG.hudNames ?? snapshot.count;
+/** The HUD's count of names: live from the wall's backend when it answers within 4 s, else the configured count, else the snapshot's. */
+async function liveCount(): Promise<number | null> {
+  try {
+    const res = await fetch('https://otw-arcade.netlify.app/positions', { signal: AbortSignal.timeout(4000) });
+    if (!res.ok) return null;
+    const raw = await res.json() as { minted?: boolean; name?: string }[] | { positions: { minted?: boolean; name?: string }[] };
+    const items = Array.isArray(raw) ? raw : raw.positions;
+    const n = items.filter((item) => item.minted && typeof item.name === 'string' && item.name.length > 0).length;
+    return n > 0 ? n : null;
+  } catch { return null; }
+}
+const LIVE = argv.includes('--offline') ? null : await liveCount();
+const HUD_COUNT = LIVE ?? CFG.hudNames ?? snapshot.count;
+console.log(`HUD: ${HUD_COUNT} NAMES (${LIVE !== null ? 'live' : CFG.hudNames !== null ? 'config' : 'snapshot'})`);
 /** The named panels in wall order: the plaques of the long wall carry them one after another (no blank plaque). */
 const SKIP = new Set((CFG.plaques.skip ?? []).map((n) => n.toUpperCase()));
 const NAMED = (snapshot.positions as Panel[]).map((panel) => panel.n.toUpperCase()).filter((n) => !SKIP.has(n));
@@ -133,65 +146,67 @@ const hash = (...n: number[]): number => { let h = 2166136261; for (const v of n
 
 /* ------------------------------------ sprites ----------------------------------- */
 const HEART = ['.###...###.', '#bbb#.#bbb#', '#bwbb#bbbb#', '#bwbbbbbbb#', '#bbbbbbbbb#', '.#bbbbbbb#.', '..#bbbbb#..', '...#bbb#...', '....#b#....', '.....#.....'];
-const SPARK = ['...y...', '...y...', '..ywy..', 'yywwwyy', '..ywy..', '...y...', '...y...'];
-const SPARK_SMALL = ['.y.', 'ywy', '.y.'];
-const COIN = ['.oyyo.', 'oyywyo', 'oyywyo', 'oyyyyo', 'oyyyyo', '.oooo.'];
-const COIN_EDGE = ['.oo.', 'oyyo', 'oyyo', 'oyyo', 'oyyo', '.oo.'];
+const SPARK = ['...b...', '...b...', '..blb..', 'bblllbb', '..blb..', '...b...', '...b...'];
+const SPARK_SMALL = ['.b.', 'blb', '.b.'];
+const SPARK_MAP: Record<string, Colour> = { b: 'blue', l: 'blueLight' };
+const COIN = ['.bllb.', 'bllclb', 'bllclb', 'bllllb', 'bllllb', '.bbbb.'];
+const COIN_EDGE = ['.bb.', 'blcb', 'blcb', 'bllb', 'bllb', '.bb.'];
+const COIN_MAP: Record<string, Colour> = { b: 'blue', l: 'blueLight', c: 'chalk' };
 
 function hud(f: Frame, heartsOn: boolean): void {
-  for (let i = 0; i < 5; i++) f.sprite(HEART, 6 + i * 13, 5, { '#': 'black', b: heartsOn ? 'blue' : 'white', w: heartsOn ? 'white' : 'blueLight' });
+  for (let i = 0; i < 5; i++) f.sprite(HEART, 6 + i * 13, 5, { '#': 'ink', b: heartsOn ? 'blue' : 'chalk', w: heartsOn ? 'blueLight' : 'chalk' });
   const s = `${HUD_COUNT} NAMES`;
-  f.text(s, f.w - 6 - textWidth(s, 'big'), 7, 'big', 'white', 'black');
+  f.text(s, f.w - 6 - textWidth(s, 'big'), 7, 'big', 'chalk', 'ink');
 }
 
 /* ------------------------------------ decor ------------------------------------- */
 function sky(f: Frame, bottom: number, t: number, seed = 1): void {
-  f.rect(0, 0, f.w, bottom, 'night');
+  f.rect(0, 0, f.w, bottom, 'ink');
   for (let i = 0; i < 26; i++) {
     const x = hash(seed, i, 1) % f.w, y = hash(seed, i, 2) % Math.max(1, bottom - 8);
     const on = ((Math.floor(t * 4) + i) % 7) !== 0;
-    f.set(x, y, i % 3 === 0 ? 'yellow' : on ? 'white' : 'nightLight');
+    f.set(x, y, on ? 'chalk' : 'darkGrey');
   }
 }
 /** The forest at the back: a row of round canopies, scrolled at half the camera. */
 function forest(f: Frame, top: number, bottom: number, cam: number): void {
-  f.rect(0, top + 10, f.w, bottom - top - 10, 'forest');
+  f.rect(0, top + 10, f.w, bottom - top - 10, 'darkGrey');
   const off = Math.floor(cam / 2);
   for (let k = Math.floor(off / 18) - 1; k * 18 - off < f.w + 18; k++) {
     const x = k * 18 - off + (hash(k, 3) % 6), r = 10 + (hash(k, 4) % 4);
-    f.disc(x, top + 12 - (hash(k, 5) % 5), r, 'forest', 'leaf', null, null);
+    f.disc(x, top + 12 - (hash(k, 5) % 5), r, 'darkGrey', 'midGrey', null, null);
   }
 }
 /** A round tree standing at (x, base). */
 function tree(f: Frame, x: number, base: number, r: number): void {
-  for (let dx = -r + 2; dx <= r - 2; dx++) f.set(x + dx, base, 'forest');          // its shadow
-  f.rect(x - r + 3, base - 1, 2 * r - 5, 2, 'forest');
-  f.rect(x - 2, base - 9, 4, 9, 'trunk'); f.rect(x + 1, base - 9, 1, 9, 'black');
-  f.disc(x, base - 8 - r + 2, r, 'leaf', 'grass', 'forest', 'black');
+  for (let dx = -r + 2; dx <= r - 2; dx++) f.set(x + dx, base, 'midGrey');          // its shadow
+  f.rect(x - r + 3, base - 1, 2 * r - 5, 2, 'midGrey');
+  f.rect(x - 2, base - 9, 4, 9, 'ink');
+  f.disc(x, base - 8 - r + 2, r, 'darkGrey', 'midGrey', null, 'ink');
 }
 /** Grass from `top` down, a dirt path, tufts; everything scrolls with the camera. */
 function ground(f: Frame, top: number, pathY: number, cam: number): void {
-  f.rect(0, top, f.w, f.h - top, 'grass');
-  f.rect(0, pathY, f.w, 12, 'path');
+  f.rect(0, top, f.w, f.h - top, 'concrete');
+  f.rect(0, pathY, f.w, 12, 'midGrey');
   for (let x = 0; x < f.w; x++) {
     const wx = x + cam;
-    if (hash(wx, 7) % 5 === 0) f.set(x, pathY - 1, 'path');
-    if (hash(wx, 8) % 6 === 0) f.set(x, pathY + 12, 'path');
-    if (hash(wx, 9) % 23 === 0) f.set(x, pathY + 4 + (hash(wx, 10) % 6), 'trunk');
+    if (hash(wx, 7) % 5 === 0) f.set(x, pathY - 1, 'midGrey');
+    if (hash(wx, 8) % 6 === 0) f.set(x, pathY + 12, 'midGrey');
+    if (hash(wx, 9) % 23 === 0) f.set(x, pathY + 4 + (hash(wx, 10) % 6), 'darkGrey');
   }
   for (let k = Math.floor(cam / 13) - 1; k * 13 - cam < f.w; k++) {
     const x = k * 13 - cam + (hash(k, 11) % 9), y = top + 4 + (hash(k, 12) % Math.max(1, f.h - top - 8));
     if (y >= pathY - 3 && y <= pathY + 14) continue;
-    f.set(x, y, 'leaf'); f.set(x + 2, y, 'leaf'); f.set(x + 1, y + 1, 'leaf'); f.set(x - 1, y - 1, 'leaf'); f.set(x + 3, y - 1, 'leaf');
+    f.set(x, y, 'midGrey'); f.set(x + 2, y, 'midGrey'); f.set(x + 1, y + 1, 'midGrey'); f.set(x - 1, y - 1, 'midGrey'); f.set(x + 3, y - 1, 'midGrey');
   }
 }
-/** A plaque of light stone with its name (truncated to the plaque). */
+/** A plaque of chalk with its name in ink (truncated to the plaque). */
 function plaque(f: Frame, x: number, y: number, w: number, h: number, name: string): void {
-  f.rect(x + 1, y + h, w, 1, 'black');
-  f.rect(x, y, w, h, 'stoneLight'); f.rect(x, y, w, 1, 'white');
-  f.frameRect(x - 1, y - 1, w + 2, h + 2, 1, 'stoneShadow');
+  f.rect(x + 1, y + h + 1, w, 1, 'ink');
+  f.rect(x, y, w, h, 'chalk'); f.rect(x, y + h - 1, w, 1, 'concrete');
+  f.frameRect(x - 1, y - 1, w + 2, h + 2, 1, 'darkGrey');
   let s = name; while (s.length > 1 && textWidth(s, 'small') > w - 4) s = s.slice(0, -1);
-  if (s) f.text(s, x + Math.floor((w - textWidth(s, 'small')) / 2), y + Math.floor((h - 5) / 2), 'small', 'stoneShadow');
+  if (s) f.text(s, x + Math.floor((w - textWidth(s, 'small')) / 2), y + Math.floor((h - 5) / 2), 'small', 'ink');
 }
 /** A row of plaques: either a real row of the wall (wallRow, its 25 panels in place) or the named panels one after another from `from`. */
 type PlaqueRow = { y: number; wallRow?: number; from?: number };
@@ -199,18 +214,18 @@ type WallSpec = { top: number; cap: number; face: number; cam: number; pitch: nu
 /** The long stone wall in three-quarter view: its top, its face in running bond, its plaques of real names. */
 function wall(f: Frame, s: WallSpec): void {
   const { top, cap, face, cam } = s, faceTop = top + cap, bottom = faceTop + face;
-  f.rect(0, top, f.w, cap, 'stoneLight'); f.rect(0, top, f.w, 1, 'white'); f.rect(0, faceTop - 1, f.w, 1, 'stoneDark');
-  for (let x = 0; x < f.w; x++) if (hash(x + cam, 13) % 9 === 0) f.set(x, top + 2 + (hash(x + cam, 14) % Math.max(1, cap - 3)), 'stoneDark');
-  f.rect(0, faceTop, f.w, face, 'stoneDark');
+  f.rect(0, top, f.w, cap, 'concrete'); f.rect(0, top, f.w, 1, 'chalk'); f.rect(0, faceTop - 1, f.w, 1, 'darkGrey');
+  for (let x = 0; x < f.w; x++) if (hash(x + cam, 13) % 9 === 0) f.set(x, top + 2 + (hash(x + cam, 14) % Math.max(1, cap - 3)), 'stone');
+  f.rect(0, faceTop, f.w, face, 'stone');
   for (let y = faceTop; y < bottom; y++) {
     const r = y - faceTop, course = Math.floor(r / 8);
     for (let x = 0; x < f.w; x++) {
       const wx = x + cam + (course % 2) * 8;
-      if (r % 8 === 7 || wx % 16 === 15) f.set(x, y, 'stoneShadow');
-      else if (r % 8 === 0 && hash(Math.floor(wx / 16), course, 15) % 3 === 0) f.set(x, y, 'stoneLight');
+      if (r % 8 === 7 || wx % 16 === 15) f.set(x, y, 'darkGrey');
+      else if (r % 8 === 0 && hash(Math.floor(wx / 16), course, 15) % 3 === 0) f.set(x, y, 'concrete');
     }
   }
-  f.rect(0, bottom, f.w, 2, 'stoneShadow'); f.rect(0, bottom + 2, f.w, 2, 'forest');
+  f.rect(0, bottom, f.w, 2, 'darkGrey'); f.rect(0, bottom + 2, f.w, 2, 'midGrey');
   for (const row of s.rows) {
     if (row.from !== undefined) {
       for (let c = Math.floor(cam / s.pitch) - 1; (c - s.firstCol) * s.pitch - cam < f.w; c++) {
@@ -223,7 +238,7 @@ function wall(f: Frame, s: WallSpec): void {
       const x = (c - s.firstCol) * s.pitch - cam + Math.floor((s.pitch - s.pw) / 2);
       if (x + s.pw < 0 || x > f.w) continue;
       const pos = (row.wallRow ?? 0) * 25 + c + 1;
-      if (s.skip?.has(pos)) { f.rect(x - 1, row.y - 1, s.pw + 2, s.ph + 2, 'stoneShadow'); f.rect(x + 1, row.y + 1, s.pw - 2, s.ph - 2, 'black'); continue; }
+      if (s.skip?.has(pos)) { f.rect(x - 1, row.y - 1, s.pw + 2, s.ph + 2, 'darkGrey'); f.rect(x + 1, row.y + 1, s.pw - 2, s.ph - 2, 'ink'); continue; }
       plaque(f, x, row.y, s.pw, s.ph, nameAt(pos));
     }
   }
@@ -242,11 +257,11 @@ function wrap(text: string, maxChars: number): string[] {
 const cpsFor = (text: string, dur: number): number => Math.max(CFG.typing.cps, text.length / (dur - CFG.typing.readable - CFG.typing.start));
 function dialogue(f: Frame, text: string, t: number, dur: number): void {
   const x = 6, y = f.h - BOX_H - 4, w = f.w - 12, h = BOX_H;
-  f.rect(x, y, w, h, 'night'); f.frameRect(x, y, w, h, 2, 'white');
+  f.rect(x, y, w, h, 'ink'); f.frameRect(x, y, w, h, 2, 'chalk');
   const lines = wrap(text, Math.floor((w - 24) / 8));
   let left = Math.max(0, Math.floor((t - CFG.typing.start) * cpsFor(text, dur)));
-  lines.forEach((line, i) => { const shown = line.slice(0, left); left -= line.length + 1; if (shown) f.text(shown, x + 12, y + 16 + i * 18, 'big', 'white'); });
-  if (left >= 0 && Math.floor(t * 3) % 2 === 0) f.sprite(['#######', '.#####.', '..###..', '...#...'], x + w - 18, y + h - 12, { '#': 'white' });
+  lines.forEach((line, i) => { const shown = line.slice(0, left); left -= line.length + 1; if (shown) f.text(shown, x + 12, y + 16 + i * 18, 'big', 'chalk'); });
+  if (left >= 0 && Math.floor(t * 3) % 2 === 0) f.sprite(['#######', '.#####.', '..###..', '...#...'], x + w - 18, y + h - 12, { '#': 'chalk' });
 }
 
 /* ------------------------------------ scenes ------------------------------------ */
@@ -256,7 +271,7 @@ const SCENE_DUR = 4;
  *  plaques, the grass and the dirt path at its foot. `cam` is the camera's x along the wall, in whole pixels. */
 function longWall(f: Frame, t: number, cam: number, seed: number, from: number): void {
   sky(f, 40, t, seed); forest(f, 26, 56, cam);
-  for (let k = Math.floor(cam * 0.8 / 97) - 1; k * 97 - Math.floor(cam * 0.8) < f.w + 20; k++) f.disc(k * 97 - Math.floor(cam * 0.8) + 30, 44, 13, 'leaf', 'grass', 'forest', 'black');
+  for (let k = Math.floor(cam * 0.8 / 97) - 1; k * 97 - Math.floor(cam * 0.8) < f.w + 20; k++) f.disc(k * 97 - Math.floor(cam * 0.8) + 30, 44, 13, 'darkGrey', 'midGrey', null, 'ink');
   wall(f, { top: 50, cap: 8, face: 56, cam, pitch: 58, pw: 52, ph: 15, firstCol: 0, rows: [{ y: 64, from }, { y: 86, from: from + 120 }] });
   ground(f, 110, 124, cam);
 }
@@ -282,9 +297,9 @@ function sceneRow(f: Frame, t: number, line: string): void {
   tree(f, 56, 196, 16); tree(f, 424, 196, 16);
   // the grid at the foot of the wall, in three-quarter
   const G = ROW_GRID, gw = 8 * G.cw, gh = 8 * G.ch;
-  f.rect(G.x - 3, G.y - 3, gw + 6, gh + 6, 'stoneShadow'); f.rect(G.x - 3, G.y - 3, gw + 6, 1, 'stoneLight');
-  f.rect(G.x, G.y, gw, gh, 'path');
-  for (let i = 0; i <= 8; i++) { f.rect(G.x + i * G.cw, G.y, 1, gh, 'trunk'); f.rect(G.x, G.y + i * G.ch, gw, 1, 'trunk'); }
+  f.rect(G.x - 3, G.y - 3, gw + 6, gh + 6, 'darkGrey'); f.rect(G.x - 3, G.y - 3, gw + 6, 1, 'chalk');
+  f.rect(G.x, G.y, gw, gh, 'stone');
+  for (let i = 0; i <= 8; i++) { f.rect(G.x + i * G.cw, G.y, 1, gh, 'darkGrey'); f.rect(G.x, G.y + i * G.ch, gw, 1, 'darkGrey'); }
   const allDown = T.leave(7) + T.loose + T.fall;
   const blue = t >= allDown && Math.floor((t - allDown) * 7.5) % 2 === 0;
   for (let i = 0; i < 8; i++) {
@@ -299,12 +314,12 @@ function sceneRow(f: Frame, t: number, line: string): void {
 }
 function brick(f: Frame, x: number, y: number, name: string, painted: boolean): void {
   const G = ROW_GRID;
-  f.rect(x, y, G.cw + 1, G.ch + 1, 'black');
-  f.rect(x + 1, y + 1, G.cw - 1, G.ch - 4, painted ? 'blue' : 'stoneLight');
-  f.rect(x + 1, y + G.ch - 3, G.cw - 1, 3, painted ? 'night' : 'stoneDark');
-  if (!painted) f.rect(x + 1, y + 1, G.cw - 1, 1, 'white');
+  f.rect(x, y, G.cw + 1, G.ch + 1, 'ink');
+  f.rect(x + 1, y + 1, G.cw - 1, G.ch - 4, painted ? 'blue' : 'ink');
+  f.rect(x + 1, y + G.ch - 3, G.cw - 1, 3, painted ? 'ink' : 'darkGrey');
+  f.rect(x + 1, y + 1, G.cw - 1, 1, painted ? 'blueLight' : 'darkGrey');
   let s = name.replace(/[^A-Z0-9]/g, '').slice(0, 4); while (s.length > 1 && textWidth(s, 'small') > G.cw - 3) s = s.slice(0, -1);
-  f.text(s, x + 1 + Math.floor((G.cw - 1 - textWidth(s, 'small')) / 2), y + 3, 'small', painted ? 'white' : 'stoneShadow');
+  f.text(s, x + 1 + Math.floor((G.cw - 1 - textWidth(s, 'small')) / 2), y + 3, 'small', 'chalk');
 }
 /** Sequence 3: before the wall, a chest opens; coins rise out of it; the hearts blink once. */
 function sceneChest(f: Frame, t: number, line: string): void {
@@ -317,20 +332,21 @@ function sceneChest(f: Frame, t: number, line: string): void {
   if (open) for (let k = 0; k < 40; k++) {
     const born = 0.45 + k * 0.1, age = t - born; if (age < 0 || age > 1.5) continue;
     const spread = (hash(k, 21) % 41) - 20, x = cx - 3 + Math.round(spread * Math.min(1, age * 2)) + (Math.floor(age * 6) % 2), y = base - 26 - Math.floor(age * 45);
-    f.sprite(Math.floor(age * 8) % 3 === 2 ? COIN_EDGE : COIN, x, y, { o: 'orange', y: 'yellow', w: 'white' });
-    if (k % 3 === 0 && Math.floor(age * 10) % 2 === 0) f.sprite(SPARK_SMALL, x + 7, y - 3, { y: 'yellow', w: 'white' });
+    f.sprite(Math.floor(age * 8) % 3 === 2 ? COIN_EDGE : COIN, x, y, COIN_MAP);
+    if (k % 3 === 0 && Math.floor(age * 10) % 2 === 0) f.sprite(SPARK_SMALL, x + 7, y - 3, SPARK_MAP);
   }
   hud(f, !(t >= 1.0 && t < 1.27 && Math.floor((t - 1.0) * 15) % 2 === 0)); dialogue(f, line, t, SCENE_DUR);
 }
 function chest(f: Frame, cx: number, base: number, open: boolean): void {
+  // ink and grey wood, stone bands, a chalk lock; open, the pot glows blue inside
   const w = 40, h = 20, x = cx - w / 2, y = base - h;
-  f.rect(x - 2, base, w + 4, 3, 'forest');
-  if (open) { f.rect(x, y - 13, w, 13, 'black'); f.rect(x + 1, y - 12, w - 2, 11, 'trunk'); f.rect(x + 1, y - 12, w - 2, 1, 'orange'); f.rect(x + 2, y - 3, w - 4, 3, 'yellow'); f.rect(x + 6, y - 12, 3, 11, 'yellow'); f.rect(x + w - 9, y - 12, 3, 11, 'yellow'); }
-  f.rect(x, y, w, h, 'black'); f.rect(x + 1, y + 1, w - 2, h - 2, 'trunk');
-  f.rect(x + 1, y + 1, w - 2, 1, 'orange'); f.rect(x + 1, y + h - 3, w - 2, 2, 'black');
-  for (const bx of [x + 6, x + w - 9]) f.rect(bx, y + 1, 3, h - 2, 'yellow');
-  if (!open) { f.rect(x, y - 9, w, 10, 'black'); f.rect(x + 1, y - 8, w - 2, 8, 'trunk'); f.rect(x + 1, y - 8, w - 2, 1, 'orange'); f.rect(x + 6, y - 8, 3, 8, 'yellow'); f.rect(x + w - 9, y - 8, 3, 8, 'yellow'); }
-  f.rect(cx - 3, y + 3, 6, 7, 'yellow'); f.rect(cx - 1, y + 5, 2, 3, 'black');
+  f.rect(x - 2, base, w + 4, 3, 'midGrey');
+  if (open) { f.rect(x, y - 13, w, 13, 'ink'); f.rect(x + 1, y - 12, w - 2, 11, 'darkGrey'); f.rect(x + 1, y - 12, w - 2, 1, 'midGrey'); f.rect(x + 2, y - 3, w - 4, 3, 'blue'); f.rect(x + 4, y - 3, w - 8, 1, 'blueLight'); f.rect(x + 6, y - 12, 3, 11, 'stone'); f.rect(x + w - 9, y - 12, 3, 11, 'stone'); }
+  f.rect(x, y, w, h, 'ink'); f.rect(x + 1, y + 1, w - 2, h - 2, 'darkGrey');
+  f.rect(x + 1, y + 1, w - 2, 1, 'midGrey'); f.rect(x + 1, y + h - 3, w - 2, 2, 'ink');
+  for (const bx of [x + 6, x + w - 9]) f.rect(bx, y + 1, 3, h - 2, 'stone');
+  if (!open) { f.rect(x, y - 9, w, 10, 'ink'); f.rect(x + 1, y - 8, w - 2, 8, 'darkGrey'); f.rect(x + 1, y - 8, w - 2, 1, 'midGrey'); f.rect(x + 6, y - 8, 3, 8, 'stone'); f.rect(x + w - 9, y - 8, 3, 8, 'stone'); }
+  f.rect(cx - 3, y + 3, 6, 7, 'chalk'); f.rect(cx - 1, y + 5, 2, 3, 'ink');
 }
 /** Sequence 4: at the foot of the wall, an empty game box with a dotted outline, YOUR GAME HERE, filling with bricks. */
 function sceneYourGame(f: Frame, t: number, line: string): void {
@@ -339,7 +355,7 @@ function sceneYourGame(f: Frame, t: number, line: string): void {
   tree(f, 52, 194, 16); tree(f, 428, 194, 16);
   // the box: a front face and, in three-quarter, its top and its side, dotted until bricks fill it
   const bw = 144, bh = 52, d = 8, bx = Math.floor((f.w - bw - d) / 2), by = 194 - bh;
-  f.rect(bx + 2, by + bh, bw, 2, 'forest');
+  f.rect(bx + 2, by + bh, bw, 2, 'midGrey');
   const cols = Math.ceil(bw / 8) + 1, rows = Math.floor((bh - 2) / 4), total = cols * rows;
   const laid = Math.min(total, Math.floor(total * Math.min(1, t / 3.6)));
   for (let k = 0; k < laid; k++) {
@@ -347,19 +363,19 @@ function sceneYourGame(f: Frame, t: number, line: string): void {
     const x = bx + 1 + c * 8 - off, y = by + bh - 1 - (rows - r) * 4;
     const x0 = Math.max(x, bx + 1), x1 = Math.min(x + 7, bx + bw - 1);
     if (x1 <= x0) continue;
-    f.rect(x0, y, x1 - x0, 3, hash(r, c, 31) % 3 ? 'stoneLight' : 'stoneDark'); f.rect(x0, y + 3, x1 - x0 + 1, 1, 'stoneShadow');
-    if (x + 7 < bx + bw - 1) f.rect(x + 7, y, 1, 3, 'stoneShadow');
+    f.rect(x0, y, x1 - x0, 3, hash(r, c, 31) % 3 ? 'stone' : 'midGrey'); f.rect(x0, y + 3, x1 - x0 + 1, 1, 'darkGrey');
+    if (x + 7 < bx + bw - 1) f.rect(x + 7, y, 1, 3, 'darkGrey');
   }
-  for (let i = 1; i < d; i++) if ((i >> 1) % 2 === 0) { f.set(bx + i, by - i, 'white'); f.set(bx + bw - 1 + i, by - i, 'white'); f.set(bx + bw - 1 + i, by + bh - 1 - i, 'white'); }
-  f.dotted(bx + d, by - d, bw, 1, 'white'); f.dotted(bx + bw - 1 + d, by - d, 1, bh, 'white');
-  f.dotted(bx, by, bw, bh, 'white');
+  for (let i = 1; i < d; i++) if ((i >> 1) % 2 === 0) { f.set(bx + i, by - i, 'chalk'); f.set(bx + bw - 1 + i, by - i, 'chalk'); f.set(bx + bw - 1 + i, by + bh - 1 - i, 'chalk'); }
+  f.dotted(bx + d, by - d, bw, 1, 'chalk'); f.dotted(bx + bw - 1 + d, by - d, 1, bh, 'chalk');
+  f.dotted(bx, by, bw, bh, 'chalk');
   const label = CFG.yourGame, lw = textWidth(label, 'big');
-  f.text(label, bx + Math.floor((bw - lw) / 2), by + 8, 'big', 'white', 'black');
+  f.text(label, bx + Math.floor((bw - lw) / 2), by + 8, 'big', 'chalk', 'ink');
   hud(f, true); dialogue(f, line, t, SCENE_DUR);
 }
 
 /* ------------------------------ title and end card ------------------------------- */
-// The title is lettered in bricks of 8 × 4 (two per cell of a 5 × 7 letter), in two stone tones.
+// The title is lettered in bricks of 8 × 4 (two per cell of a 5 × 7 letter), chalk and concrete, on ink.
 const LETTERS: Record<string, string[]> = {
   T: ['#####', '..#..', '..#..', '..#..', '..#..', '..#..', '..#..'],
   H: ['#...#', '#...#', '#...#', '#####', '#...#', '#...#', '#...#'],
@@ -387,7 +403,7 @@ function titleBricks(W: number, top: number): { bricks: Brick[]; box: [number, n
       for (let r = 0; r < 7; r++) for (let c = 0; c < 5; c++) if (g[r]?.[c] === '#') for (const half of [0, 1]) {
         const bx = x + c * cell, by = y0 + r * cell + half * 4, k = bricks.length, side = hash(k, 41) % 4;
         const from: [number, number] = side === 0 ? [bx, -8] : side === 1 ? [W + 8, by] : side === 2 ? [bx, 270 + 8] : [-16, by];
-        bricks.push({ x: bx, y: by, tone: (hash(r, c, half, ci, li) % 3) ? 'stoneLight' : 'stoneDark', from });
+        bricks.push({ x: bx, y: by, tone: (hash(r, c, half, ci, li) % 3) ? 'chalk' : 'concrete', from });
       }
       x += 5 * cell;
     });
@@ -396,11 +412,11 @@ function titleBricks(W: number, top: number): { bricks: Brick[]; box: [number, n
 }
 const TITLE = { assemble: 2.9, firstLand: 0.4, speed: 16 };     // bricks land in reading order from 0.4 s to 2.9 s, flying 16 px a frame
 function silhouette(f: Frame, top: number): void {
-  for (let k = 0; k < 12; k++) { const x = k * 44 + (hash(k, 51) % 16); f.disc(x, top + 4 - (hash(k, 52) % 6), 14 + (hash(k, 53) % 5), 'nightLight', null, null, null); }
-  f.rect(0, top + 12, f.w, f.h - top - 12, 'nightLight');
-  for (let x = 0; x < f.w; x += 16) f.rect(x, top + 8, 10, 4, 'nightLight');
+  for (let k = 0; k < 12; k++) { const x = k * 44 + (hash(k, 51) % 16); f.disc(x, top + 4 - (hash(k, 52) % 6), 14 + (hash(k, 53) % 5), 'darkGrey', null, null, null); }
+  f.rect(0, top + 12, f.w, f.h - top - 12, 'darkGrey');
+  for (let x = 0; x < f.w; x += 16) f.rect(x, top + 8, 10, 4, 'darkGrey');
 }
-function brickAt(f: Frame, b: Brick, x: number, y: number): void { f.rect(x, y, 7, 3, b.tone); f.rect(x, y + 3, 8, 1, 'stoneShadow'); f.rect(x + 7, y, 1, 3, 'stoneShadow'); }
+function brickAt(f: Frame, b: Brick, x: number, y: number): void { f.rect(x, y, 7, 3, b.tone); f.rect(x, y + 3, 8, 1, 'midGrey'); f.rect(x + 7, y, 1, 3, 'midGrey'); }
 function titleScreen(f: Frame, t: number): void {
   sky(f, f.h, t, 9); silhouette(f, 214);
   const { bricks, box } = titleBricks(f.w, 64);
@@ -411,29 +427,29 @@ function titleScreen(f: Frame, t: number): void {
     const dx = b.x - b.from[0], dy = b.y - b.from[1], dist = Math.hypot(dx, dy);
     const land = Math.round(first + (last - first) * k / Math.max(1, bricks.length - 1)), age = frame - (land - Math.ceil(dist / TITLE.speed));
     if (age < 0) return;
-    if (frame >= land) { landed++; f.rect(b.x + 1, b.y + 4, 8, 1, 'black'); brickAt(f, b, b.x, b.y); return; }
+    if (frame >= land) { landed++; f.rect(b.x + 1, b.y + 4, 8, 1, 'darkGrey'); brickAt(f, b, b.x, b.y); return; }
     const travelled = Math.min(dist, age * TITLE.speed);
     brickAt(f, b, Math.round(b.from[0] + dx * travelled / dist), Math.round(b.from[1] + dy * travelled / dist));
   });
   const done = landed === bricks.length;
-  if (done && frame === Math.ceil(TITLE.assemble * 30)) { f.rect(0, 0, f.w, f.h, 'white'); return; }   // one white frame
+  if (done && frame === Math.ceil(TITLE.assemble * 30)) { f.rect(0, 0, f.w, f.h, 'chalk'); return; }   // one white frame
   if (done) sparkles(f, box, t);
 }
 function sparkles(f: Frame, box: [number, number, number, number], t: number): void {
   const [x0, y0, x1, y1] = box, big = Math.floor(t * 6) % 2 === 0;
   for (const [x, y] of [[x0 - 10, y0 - 10], [x1 + 3, y0 - 10], [x0 - 10, y1 + 3], [x1 + 3, y1 + 3]] as [number, number][]) {
-    if (big) f.sprite(SPARK, x, y, { y: 'yellow', w: 'white' }); else f.sprite(SPARK_SMALL, x + 2, y + 2, { y: 'yellow', w: 'white' });
+    if (big) f.sprite(SPARK, x, y, SPARK_MAP); else f.sprite(SPARK_SMALL, x + 2, y + 2, SPARK_MAP);
   }
 }
 function endCard(f: Frame, t: number): void {
   sky(f, f.h, t + 4, 9); silhouette(f, 226);
   const { bricks, box } = titleBricks(f.w, 30);
-  for (const b of bricks) { f.rect(b.x + 1, b.y + 4, 8, 1, 'black'); brickAt(f, b, b.x, b.y); }
+  for (const b of bricks) { f.rect(b.x + 1, b.y + 4, 8, 1, 'darkGrey'); brickAt(f, b, b.x, b.y); }
   sparkles(f, box, t);
   const E = CFG.end, cx = (s: string, font: Font): number => Math.floor((f.w - textWidth(s, font)) / 2);
-  f.text(E.line, cx(E.line, 'big'), 166, 'big', 'white', 'black');
-  f.text(E.url, cx(E.url, 'big'), 186, 'big', 'yellow', 'black');
-  f.text(E.credit, cx(E.credit, 'small'), 206, 'small', 'stoneLight', 'black');
+  f.text(E.line, cx(E.line, 'big'), 166, 'big', 'chalk');
+  f.text(E.url, cx(E.url, 'big'), 186, 'big', 'chalk'); f.rect(cx(E.url, 'big'), 196, textWidth(E.url, 'big'), 1, 'midGrey');
+  f.text(E.credit, cx(E.credit, 'small'), 208, 'small', 'stone');
 }
 
 /* -------------------------------------- run -------------------------------------- */
@@ -448,9 +464,9 @@ async function png(f: Frame, scale: number, name: string): Promise<void> {
 const command = argv[0] ?? 'stills';
 if (command === 'stills') {
   for (const seq of CFG.sequences) { const len = seq.line.length, cps = cpsFor(seq.line, SCENE_DUR); console.log(`${seq.scene}: ${len} chars at ${cps.toFixed(1)} cps, written by ${(CFG.typing.start + len / cps).toFixed(2)} s`); }
-  const title = new Frame(480, 270, 'night'); titleScreen(title, 3.4); await png(title, 4, 'board-0-title.png');
+  const title = new Frame(480, 270, 'ink'); titleScreen(title, 3.4); await png(title, 4, 'board-0-title.png');
   for (const [i, seq] of CFG.sequences.entries()) {
-    const f = new Frame(480, 270, 'night'); SCENES[seq.scene](f, STILL_T[seq.scene], seq.line); await png(f, 4, `board-${i + 1}-scene-${i + 1}.png`);
+    const f = new Frame(480, 270, 'ink'); SCENES[seq.scene](f, STILL_T[seq.scene], seq.line); await png(f, 4, `board-${i + 1}-scene-${i + 1}.png`);
   }
-  const end = new Frame(480, 270, 'night'); endCard(end, 1); await png(end, 4, 'board-5-end.png');
+  const end = new Frame(480, 270, 'ink'); endCard(end, 1); await png(end, 4, 'board-5-end.png');
 }
