@@ -9,7 +9,7 @@ import { ELIG } from '../../generated/wall.js';
 import { scoringConfiguration } from '../../shell/config.js';
 import dragonUrl from '../../assets/dragon.jpg';
 import type { EndStats } from '../../shell/adapter.js';
-import { renderEndScreen } from '../../share/end-screen.js';
+import { rankOf, renderEndScreen, type EndMemo } from '../../share/end-screen.js';
 import { fitTweet, tag } from '../../share/post.js';
 import {
   COLS, CELL, END_ROW, FLOOR, GT, HDR, MAX_ANGLE, MIN_ANGLE, NOW_Y, R, RULES, TICK_MS, W,
@@ -216,7 +216,7 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
     paintedSet.add(pos);
     const info = infoOf(pos);
     painted.push({ pos, name: info.name, handle: info.handle }); stamp(info.name);
-    nowText = `PAINTED · PANEL #${pos} · ${info.name || '—'}${info.handle ? ` · @${info.handle}` : ''}`; nowT = 0.6;
+    nowText = `PAINTED · ${info.name || '—'}${info.handle ? ` · @${info.handle}` : ''}`; nowT = 1.6;
     SND.paint(); shake = Math.max(shake, 2.5); buzz(8);
     const x = (col + 0.5) * CELL, y = GT + (row + 0.5) * CELL;
     for (let i = 0; i < 8; i++) { const an = Math.random() * 6.283, sp = 60 + Math.random() * 190; particles.push({ x, y, vx: Math.cos(an) * sp, vy: Math.sin(an) * sp - 80, life: 0.5 + Math.random() * 0.4, sz: 2 + Math.random() * 4 }); }
@@ -252,11 +252,6 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
   }
 
   /* -------------------------------- drawing -------------------------------- */
-  function header(right: string): void {
-    mono('UNBREAKABLE', 16, 22, 11, INK, 'left', 0.2, 500);
-    if (right) mono(right, W - 16, 22, 11, INK, 'right', 0.2, 500);
-    ctx.fillStyle = INK; ctx.fillRect(0, HDR, W, 1);
-  }
   const brickTone = (c: Cell & { t: 1 }): [string, string] => { const f = c.hp / c.hp0; return f > 0.66 ? [INK, CHALK] : (f > 0.33 ? [LABEL, CHALK] : [LABEL_LT, INK]); };
   const flash = new WeakMap<object, number>();
   function drawBrick(cell: Cell & { t: 1 }, r: number, c: number, yOff: number, step: number): void {
@@ -268,20 +263,23 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
     ctx.fillStyle = fg;
     if (L.lines.length === 1) anton(L.lines[0] as string, cx, y + h / 2 + 5, L.size, fg, 'center');
     else { anton(L.lines[0] as string, cx, y + h / 2 + 5 - L.size * 0.46, L.size, fg, 'center'); anton(L.lines[1] as string, cx, y + h / 2 + 5 + L.size * 0.5, L.size, fg, 'center'); }
-    mono(String(cell.hp), x + w - 3, y + 7, 7.5, fg, 'right', 0.05, 500);
+    mono(String(cell.hp), x + w - 3, y + 8, 12, fg, 'right', 0.02, 500);
   }
   let stepNo = 0;
+  let hintSeen = false;
+  try { hintSeen = localStorage.getItem('wall-arcade:unbreakable:hint') === '1'; } catch { /* storage unavailable */ }
   const seenHp = new WeakMap<object, number>();
   function drawBoard(S: UbState, view: UbState): void {
     stepNo++;
     const sim = view.sim;
-    header(`ROW ${sim.turn} · BALLS ${sim.nBalls}`);
-    mono(`NAMES PAINTED ${sim.broken}`, 16, NOW_Y + 10, 8.5, LABEL, 'left', 0.2);
+    // the score, big, and the server clock; the painted name only on the moment it gets painted
+    anton(String(sim.score), W / 2, 36, Math.min(fitAnton(String(sim.score), W - 160, 46), 46), INK, 'center');
     const left = S.started && S.startTick !== null ? Math.max(0, S.rules.roundTicks - (tickNow - S.startTick)) : S.rules.roundTicks;
-    mono(`TIME ${fmtClock(left)} · SCORE ${sim.score}`, W - 16, NOW_Y + 10, 8.5, LABEL, 'right', 0.2);
-    let s = nowText || '—'; if (s.length > 44) s = `${s.slice(0, 43)}…`;
-    const w = mono(s, 16, NOW_Y + 26, 10.5, INK, 'left', 0.06, 500);
-    if (nowT > 0) { ctx.fillStyle = INK; ctx.fillRect(16, NOW_Y + 34, w, 2); }
+    mono(fmtClock(left), W - 16, 30, 16, INK, 'right', 0.08, 500);
+    if (nowT > 0 && nowText) {
+      let s = nowText; const fit = Math.floor((W - 24) / (14 * 0.66)); if (s.length > fit) s = `${s.slice(0, fit - 1)}…`;
+      mono(s, W / 2, 68, 14, INK, 'center', 0.06, 500);
+    }
     ctx.fillStyle = INK; ctx.fillRect(0, GT - 4, W, 1);
     ctx.save(); ctx.beginPath(); ctx.rect(0, GT, W, H - GT); ctx.clip();
     const yOff = -CELL * desc * desc;
@@ -297,22 +295,22 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
     }
     ctx.restore();
     const ey = GT + END_ROW * CELL;
-    ctx.fillStyle = INK; ctx.fillRect(0, ey, W, 1); mono('END LINE', 12, ey + 10, 7.5, LABEL, 'left', 0.2);
+    ctx.fillStyle = INK; ctx.fillRect(0, ey, W, 1);
     ctx.fillRect(0, FLOOR, W, 1);
     ctx.fillStyle = INK; for (const p of particles) ctx.fillRect(p.x, p.y, p.sz, p.sz);
     ctx.fillStyle = BLUE;
     for (const b of sim.balls) if (b.land) { ctx.beginPath(); ctx.arc(b.x, FLOOR - R, R, 0, 6.283); ctx.fill(); }
     const waiting = sim.phase === 1 ? sim.toFire : sim.nBalls;
     if (sim.phase !== 1 || sim.toFire > 0) { ctx.beginPath(); ctx.arc(sim.originX, FLOOR - R, R, 0, 6.283); ctx.fill(); }
-    if (waiting > 0) mono(`×${waiting}`, sim.originX + (sim.originX > W - 70 ? -14 : 14), FLOOR - 9, 9, INK, sim.originX > W - 70 ? 'right' : 'left', 0.1, 500);
+    if (waiting > 0) mono(`×${waiting}`, sim.originX + (sim.originX > W - 70 ? -14 : 14), FLOOR - 12, 15, INK, sim.originX > W - 70 ? 'right' : 'left', 0.06, 500);
     for (const b of sim.balls) if (!b.land) { ctx.beginPath(); ctx.arc(b.x, b.y, R, 0, 6.283); ctx.fill(); }
     if (canAim() && aiming) {
       const p = engine.probe(sim, aimA100), ox = sim.originX, oy = FLOOR - R;
       ctx.strokeStyle = BLUE; ctx.lineWidth = 2; ctx.setLineDash([2, 7]); ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(p[0], p[1]); ctx.stroke(); ctx.setLineDash([]);
-    } else if (canAim() && !aiming && sim.turn <= 2) {
-      mono(COARSE ? 'DRAG TO AIM · RELEASE TO FIRE' : 'MOVE TO AIM · CLICK TO FIRE', 16, FLOOR + 40, 8.5, LABEL, 'left', 0.18);
     }
-    if (sim.phase === 1) mono('THE SERVER RUNS THE BALLS: NO FAST-FORWARD', 16, FLOOR + 40, 8, LABEL, 'left', 0.14);
+    // the very first game on this device: how to aim, until the first shot; never again after
+    if (!hintSeen && sim.turn > 1) { hintSeen = true; try { localStorage.setItem('wall-arcade:unbreakable:hint', '1'); } catch { /* storage unavailable */ } }
+    if (!hintSeen && canAim() && !aiming) mono(COARSE ? 'DRAG, THEN RELEASE TO FIRE' : 'MOVE TO AIM · CLICK TO FIRE', 16, FLOOR + 40, 15, LABEL, 'left', 0.06, 500);   // left of the dragon
   }
   const dragon = new Image(); let dragonReady = false;
   dragon.onload = () => { dragonReady = true; dirty = true; }; dragon.src = dragonUrl;
@@ -321,17 +319,8 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
     ctx.save(); ctx.globalCompositeOperation = 'multiply'; ctx.drawImage(dragon, x, y, w, w * dragon.naturalHeight / dragon.naturalWidth); ctx.restore();
   }
   function drawIdle(): void {
-    // The page's overlay carries the words (title, PLAY, PRACTICE, top 5): the canvas shows the wall behind it.
-    header(wallIsLive() ? `LIVE · ${namedPanelCount()} NAMES` : 'SNAPSHOT');
-    const size = fitAnton('UNBREAKABLE', W - 32, 120);
-    anton('UNBREAKABLE', 16, 118, size, 'rgba(11,11,11,0.10)');
-    drawDragon(W - 205, H - 300, 300);
-  }
-  function drawEnd(view: UbState | null): void {
-    // the words are the end screen's (DOM, above): the canvas keeps the header and one big dragon cut by the edges
-    const score = final ? final.score : (view ? view.sim.score : 0);
-    header(`ROW ${view ? Math.max(1, view.sim.turn) : 1} · SCORE ${score}`);
-    drawDragon(W - 260, H - 330, 420);
+    // The page's overlay carries the words: the canvas shows the wall behind it, a small dragon cut by the right edge.
+    drawDragon(W - 150, H - 330, 270);
   }
   function draw(): void {
     const pw = Math.round(W * DPRc), ph = Math.round(H * DPRc);
@@ -342,8 +331,7 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
     ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
     if (shake > 0.3) ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
     if (mode === 'play' && local) { drawDragon(W - 130, H - 170, 190); drawBoard(local, local); }
-    else if (mode === 'end') drawEnd(local);
-    else drawIdle();
+    else if (mode !== 'end') drawIdle();                               // the end: the card covers the board
   }
 
   /* --------------------------------- input --------------------------------- */
@@ -436,27 +424,33 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
 
   /* -------------------------------- Stage API ------------------------------- */
   function resetRunMemory(): void {
-    painted = []; paintedSet = new Set(); bounced = new Set(); endStats = null; postMemo.key = ''; postMemo.anchor = null; endPanel.hidden = true; scoreHigh = 0; turnHigh = 1; brokenHigh = 0; firedHigh = 0; plusHigh = 0;
+    painted = []; paintedSet = new Set(); bounced = new Set(); endStats = null; postMemo.key = ''; postMemo.anchor = null; postMemo.drawn = ''; endPanel.hidden = true; scoreHigh = 0; turnHigh = 1; brokenHigh = 0; firedHigh = 0; plusHigh = 0;
     particles = []; nowText = ''; nowT = 0; desc = 0; aimA100 = 9000; aiming = false; newPaintCanvas(); final = null;
   }
   /* ------------------------------- end screen -------------------------------- */
   let endStats: EndStats | null = null;
-  const postMemo: { key: string; anchor: HTMLAnchorElement | null } = { key: '', anchor: null };
+  const postMemo: EndMemo = { key: '', anchor: null, drawn: '' };
+  /** The player on a card: their ENS (from the leaderboard) or their shortened address; nothing when signed out. */
+  function cardPlayer(): string | undefined {
+    if (endStats?.player) return endStats.player;
+    const address = io.playerAddress?.();
+    return address && /^0x[0-9a-f]{40}$/i.test(address) ? address : undefined;
+  }
   function renderEnd(): void {
     const score = final ? final.score : (local ? local.sim.score : 0);
     // painted (broken) names first, then the ones only hit
     const order = [...painted.map((p) => p.pos), ...[...bounced].filter((pos) => !paintedSet.has(pos))];
     const names = order.map((pos) => (infoOf(pos).name || '').toUpperCase()).filter(Boolean);
-    const people = bounced.size, shown = names.slice(0, 16);
+    const list = names.slice(0, 60), people = Math.max(bounced.size, new Set(list).size);
+    const player = cardPlayer(), rank = practice ? undefined : rankOf(endStats?.rank);
+    const extra = { ...(rank ? { rank } : {}), ...(player ? { player } : {}) };
     renderEndScreen(endPanel, {
-      practice, score, stats: endStats,
-      label: 'Your run',
-      headline: `I bounced off ${people} ${people === 1 ? 'person' : 'people'} of the wall`,
-      names: names.length > shown.length ? [...shown, `+ ${names.length - shown.length} more`] : shown,
-      card: people > 0 && names.length ? { kind: 'bounce', names: names.slice(0, 60), people: Math.max(people, new Set(names.slice(0, 60)).size), score, ...(practice ? { practice: true } : {}) } : null,
+      game: 'UNBREAKABLE', cabinet: `${location.origin}/`,
+      card: { kind: 'bounce', data: { people, names: list, score, practice, ...extra } },
+      post: people > 0 && list.length && !practice ? { kind: 'bounce', names: list, people, score, ...extra } : null,
       tweet: (link) => fitTweet(order.map((pos) => tag(infoOf(pos).name || '', infoOf(pos).handle)).filter(Boolean),
-        (list, more) => `I bounced off ${people} people of the wall: ${list}${more ? ' …' : '.'} Beat me: ${link}`, link),
-      postLabel: 'Post your run on X', cabinet: `${location.origin}/`,
+        (names, more) => `I bounced off ${people} people of the wall: ${names}${more ? ' …' : '.'} Beat me: ${link}`, link),
+      postLabel: 'Post on X',
     }, postMemo);
     endPanel.hidden = false;
   }
@@ -491,7 +485,7 @@ export const unbreakableAdapter: GameAdapter = {
   id: 'unbreakable',
   title: 'UNBREAKABLE',
   heading: 'Aim, fire, paint the names',
-  tagline: 'Every brick carries a name of the wall. Aim, fire, break it and the name gets painted. Three minutes on the server clock.',
+  tagline: 'Every brick carries a name of the wall: aim, fire, break it and the name gets painted.',
   lede: 'Every brick carries the name of a real panel of the wall. Aim and fire a burst of balls; when a brick reaches zero its name gets painted. Three minutes on the server clock, one credit per run. Your score is the hit points you remove.',
   stateSchema: stateSchema as never,
   snapshotSchema: snapshotSchema as never,

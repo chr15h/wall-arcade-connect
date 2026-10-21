@@ -46,7 +46,7 @@
         });
       })();
     </script>
-    <meta name="description" content="THE WALL ARCADE on SuperRare Connect: a server-verified game played on the names of a real wall in Lisbon.">
+    <meta name="description" content="THE WALL ARCADE: a game played on the names of a real wall in Lisbon.">
     <title>THE WALL ARCADE</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -55,38 +55,33 @@
   </head>
   <body>
     <header class="topbar">
-      <a id="hub-link" class="topbar-back" href="#" hidden>← Arcade</a>
-      <span id="game-title" class="topbar-title">The Wall Arcade</span>
-      <button id="balance-badge" class="topbar-balance" type="button" aria-label="Credits">— credits</button>
-      <button id="wallet-button" class="topbar-wallet" type="button" aria-label="Wallet menu" aria-haspopup="dialog">
-        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M3 6.5h15.5a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6.5Zm0 0V6a2 2 0 0 1 2-2h11.5v2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="14.5" y="11" width="6" height="4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
-        <span id="wallet-dot" class="wallet-dot" hidden></span>
-      </button>
+      <a id="hub-link" class="topbar-back" href="#" aria-label="Back to the arcade" hidden>←</a>
+      <span class="topbar-space"></span>
+      <button id="balance-badge" class="topbar-balance" type="button" aria-haspopup="dialog"><span id="balance-text">Sign in</span><span id="wallet-dot" class="wallet-dot" hidden></span></button>
+      <button id="info-button" class="topbar-info" type="button" aria-label="How it works" aria-haspopup="dialog">i</button>
     </header>
 
     <main id="stage-frame" class="stage-frame">
       <div id="arena" class="arena" aria-label="Game"></div>
       <section id="overlay" class="overlay" aria-live="polite">
         <div class="overlay-card">
-          <p class="overlay-eyebrow" id="overlay-eyebrow">A Remix The Wall experiment</p>
           <h1 id="overlay-title">Loading…</h1>
           <p class="overlay-line" id="overlay-line"></p>
           <div class="overlay-score" id="overlay-score" hidden></div>
           <div class="overlay-actions" id="overlay-actions"></div>
+          <p class="overlay-links" id="overlay-links"></p>
           <p class="overlay-status" id="overlay-status" role="status"></p>
           <div class="round-actions" id="round-actions"></div>
           <div class="overlay-board" id="overlay-board">
-            <p class="board-title">Top 5 · server-verified · all time</p>
+            <div class="board-head"><p class="board-title">This week</p></div>
             <ol id="board-list" class="board-list"><li class="empty">Loading scores…</li></ol>
+            <p class="board-ends"></p>
           </div>
-          <p class="overlay-fine" id="overlay-fine">Practice is free. Pay to compete. Ethereum mainnet · real USDC, one credit per run, shared by every cabinet of the arcade. Prizes are handled manually by the organizer.</p>
-          <p class="overlay-credit"><a href="https://onthewall.nfcsummit.com" target="_blank" rel="noopener">A Remix The Wall experiment · NFC Summit 2027 · Lisbon</a></p>
+          <p class="overlay-credit" id="overlay-credit"><a href="https://onthewall.nfcsummit.com" target="_blank" rel="noopener">A Remix The Wall experiment · NFC Summit 2027 · Lisbon</a></p>
         </div>
       </section>
-      <div id="practice-banner" class="practice-banner" hidden>
-        <span>Practice · scores don't count</span>
-        <button id="practice-real" type="button">Play for real</button>
-      </div>
+      <p id="practice-banner" class="practice-tag" hidden>Practice</p>
+      <a id="corner-back" class="corner-back" href="#" aria-label="Back to the arcade" hidden>←</a>
       <p id="round-status" class="sr-only" role="status"></p>
       <p id="round-score" class="sr-only"></p>
     </main>
@@ -94,48 +89,75 @@
     <dialog id="wallet-panel" class="panel" aria-labelledby="wallet-title">
       <header class="panel-header">
         <h2 id="wallet-title">Wallet</h2>
-        <button class="panel-close secondary" type="button" data-close>Close</button>
+        <button class="panel-x" type="button" data-close aria-label="Close">✕</button>
       </header>
       <div class="panel-body">
-        <p class="panel-label">Signed in as</p>
-        <p id="wallet-address" class="wallet-address">Not signed in</p>
+        <p id="wallet-credits" class="wallet-credits">Not signed in</p>
+        <button id="wallet-address" class="wallet-address" type="button" hidden></button>
         <p id="connect-status" class="panel-note" role="status" aria-live="polite"></p>
         <div class="panel-actions">
-          <button id="sign-in" type="button" hidden>Sign in to SuperRare</button>
+          <button id="sign-in" class="primary wide" type="button" hidden>Sign in to SuperRare</button>
+          <button id="wallet-buy" class="primary wide" type="button" hidden>Buy credits</button>
           <button id="connect" class="secondary" type="button" hidden>Retry game authorization</button>
         </div>
         <p id="connection-status" class="panel-note" role="status" aria-live="polite"></p>
-        <section id="credits" class="credits" aria-label="Credits, purchases and recovery"></section>
-        <div class="panel-actions panel-actions--end">
-          <button id="sign-out" class="secondary" type="button" hidden>Sign out / switch wallet</button>
-        </div>
+        <p class="panel-links">
+          <button id="sign-out" class="linklike" type="button" hidden>sign out</button>
+          <button id="purchase-help" class="linklike" type="button">purchase help</button>
+        </p>
+      </div>
+    </dialog>
+
+    <dialog id="help-panel" class="panel" aria-labelledby="help-title">
+      <header class="panel-header">
+        <h2 id="help-title">Purchase help</h2>
+        <button class="panel-x" type="button" data-close aria-label="Close">✕</button>
+      </header>
+      <div class="panel-body">
+        <section id="credits" class="credits credits--help" aria-label="Purchases and recovery"></section>
         <p class="panel-note">Signing in, buying credits and spending a credit are separate approvals. Reloading this page or visiting another cabinet never buys credits or starts a paid play.</p>
       </div>
     </dialog>
 
-    <dialog id="buy-panel" class="panel" aria-labelledby="buy-title">
-      <header class="panel-header">
-        <h2 id="buy-title">Buy credits</h2>
-        <button class="panel-close secondary" type="button" data-close>Cancel</button>
-      </header>
+    <dialog id="buy-panel" class="panel panel--buy" aria-labelledby="buy-offer">
+      <button class="panel-x panel-x--float" type="button" data-close aria-label="Close">✕</button>
       <div class="panel-body">
-        <p class="buy-offer" id="buy-offer">Credits</p>
-        <p class="buy-free">Practice is free. Pay to compete.</p>
-        <p class="buy-from">paid from <strong id="buy-wallet">—</strong></p>
-        <p class="buy-warning">Pay from this wallet only: another wallet cannot claim the credits.</p>
-        <p class="panel-note">Ethereum mainnet, USDC, plus network fee. SuperRare Connect opens to approve the payment; nothing is sent before your wallet asks you to confirm.</p>
-        <div class="panel-actions">
-          <button id="buy-pay" type="button">Pay with SuperRare Connect</button>
-        </div>
+        <h2 class="buy-offer" id="buy-offer">Credits</h2>
+        <p class="buy-from">Pay from <strong id="buy-wallet">—</strong> only</p>
+        <button id="buy-pay" class="primary wide" type="button">Pay</button>
         <p id="buy-status" class="panel-note" role="status" aria-live="polite"></p>
-        <button id="buy-recovery" class="linklike" type="button" hidden>Open purchase recovery</button>
+        <button id="buy-recovery" class="linklike" type="button" hidden>open purchase help</button>
+        <details class="buy-more">
+          <summary>what happens when I pay?</summary>
+          <p id="buy-explain"></p>
+        </details>
+      </div>
+    </dialog>
+
+    <dialog id="info-panel" class="panel" aria-labelledby="info-title">
+      <header class="panel-header">
+        <h2 id="info-title">How it works</h2>
+        <button class="panel-x" type="button" data-close aria-label="Close">✕</button>
+      </header>
+      <div class="panel-body info">
+        <h3>Credits and price</h3>
+        <p id="info-price"></p>
+        <h3>Practice</h3>
+        <p>Practice is free and runs in your browser: same rules, nothing recorded, no credit spent.</p>
+        <h3>Server verification</h3>
+        <p>A paid run is played on SuperRare's server: the server keeps the clock, replays every move with the game's own rules and records the score. The page never sends a score.</p>
+        <h3>Weekly prizes</h3>
+        <p>One leaderboard per game, for the week: Friday 15:00 to Friday 15:00, Lisbon time. The first week runs from Thursday Oct 22, 00:00 to Friday Oct 30, 15:00. Prizes are handled by the organizer.</p>
+        <h3>Purchase recovery</h3>
+        <p>If credits you paid for don't show up, open the wallet, then "purchase help": it continues or claims an unfinished purchase. Never pay a second time for it.</p>
+        <p class="info-credit"><a href="https://onthewall.nfcsummit.com" target="_blank" rel="noopener">A Remix The Wall experiment · NFC Summit 2027 · Lisbon</a></p>
       </div>
     </dialog>
 
     <dialog id="connect-modal" class="panel panel--connect" aria-labelledby="connect-modal-title" aria-describedby="connect-modal-status">
       <header class="panel-header">
         <h2 id="connect-modal-title">SuperRare Connect</h2>
-        <button id="connect-close" class="panel-close secondary" type="button">Close</button>
+        <button id="connect-close" class="panel-x" type="button" aria-label="Close">✕</button>
       </header>
       <p id="connect-modal-status" class="panel-note connect-note" role="status" aria-live="polite">Sign-in and payment approvals happen only after you choose an action.</p>
       <div id="connect-embed"></div>

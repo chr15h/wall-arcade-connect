@@ -6,8 +6,10 @@ export const GAMES = {
 } as const;
 export type GameKey = keyof typeof GAMES;
 
-export type RowCard = { kind: 'row'; names: string[]; line: string; points: number; score: number; player?: string; practice: boolean };
-export type BounceCard = { kind: 'bounce'; names: string[]; people: number; score: number; practice: boolean };
+/** `grid`: the final 8 × 8 grid as 8 row bytes; `rank`: the player's rank this week, as the page read it from the
+ *  platform's leaderboard. `points` (the best row's points) is accepted from older pages and no longer drawn. */
+export type RowCard = { kind: 'row'; names: string[]; line: string; score: number; grid?: number[]; rank?: number; player?: string; practice: boolean };
+export type BounceCard = { kind: 'bounce'; names: string[]; people: number; score: number; rank?: number; player?: string; practice: boolean };
 /** A leaderboard card as asked for: which game, and optionally which player to highlight. The rows themselves are read
  *  by the service from the platform's public leaderboard, never taken from the request. */
 export type BoardRequest = { kind: 'board'; game: GameKey; me?: string };
@@ -36,6 +38,14 @@ export function player(v: unknown): string {
   return fail('player must be an ENS name or a shortened address');
 }
 
+/** The optional rank (never on a practice card) and player of a row or bounce card. */
+function extras(body: Record<string, unknown>): { rank?: number; player?: string } {
+  return {
+    ...(body.rank !== undefined && body.practice !== true ? { rank: int(body.rank, 1, 100_000, 'rank') } : {}),
+    ...(body.player !== undefined ? { player: player(body.player) } : {}),
+  };
+}
+
 /** Checks a request body against the wall's names (uppercase). Returns the canonical card. */
 export function validate(body: unknown, wallNames: ReadonlySet<string>): RowCard | BounceCard | BoardRequest {
   if (!isObject(body)) return fail('a card is a JSON object');
@@ -49,19 +59,22 @@ export function validate(body: unknown, wallNames: ReadonlySet<string>): RowCard
   };
   switch (body.kind) {
     case 'row': {
-      keys(body, ['kind', 'names', 'line', 'points', 'score'], ['player', 'practice']);
+      keys(body, ['kind', 'names', 'line', 'score'], ['points', 'grid', 'rank', 'player', 'practice']);
       const line = typeof body.line === 'string' && /^(ROW|COL) [1-8]$/.test(body.line) ? body.line : fail('line: ROW n or COL n');
+      if (body.points !== undefined) int(body.points, 0, 100_000, 'points');
+      const grid = body.grid === undefined ? undefined
+        : Array.isArray(body.grid) && body.grid.length === 8 ? body.grid.map((row) => int(row, 0, 255, 'a grid row')) : fail('grid: 8 row bytes');
       return {
-        kind: 'row', names: names(body.names, 8), line, points: int(body.points, 0, 100_000, 'points'), score: int(body.score, 0, 1_000_000_000, 'score'),
-        ...(body.player !== undefined ? { player: player(body.player) } : {}), practice: body.practice === true,
+        kind: 'row', names: names(body.names, 8), line, score: int(body.score, 0, 1_000_000_000, 'score'),
+        ...(grid ? { grid } : {}), ...extras(body), practice: body.practice === true,
       };
     }
     case 'bounce': {
-      keys(body, ['kind', 'names', 'people', 'score'], ['practice']);
+      keys(body, ['kind', 'names', 'people', 'score'], ['rank', 'player', 'practice']);
       const list = names(body.names, 60);
       const people = int(body.people, 1, 10_000, 'people');
       if (people < new Set(list).size) fail('people is fewer than the names');
-      return { kind: 'bounce', names: list, people, score: int(body.score, 0, 1_000_000_000, 'score'), practice: body.practice === true };
+      return { kind: 'bounce', names: list, people, score: int(body.score, 0, 1_000_000_000, 'score'), ...extras(body), practice: body.practice === true };
     }
     case 'board': {
       keys(body, ['kind', 'game'], ['me']);

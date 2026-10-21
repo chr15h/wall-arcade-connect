@@ -1,66 +1,63 @@
-// The end of a run, one screen, the same on both games: RUN OVER (score, rank, record) · what the run painted (FULL ROW:
-// your best row; UNBREAKABLE: the people of the wall the balls bounced off) · a big blue POST … ON X · a small line to
-// the open panels. PLAY AGAIN stays the page's own button, in ink, in the bar under this screen.
-import type { EndStats } from '../shell/adapter.js';
+// The end of a run, one screen, the same on both games: the card itself (the very image POST ON X shares, drawn here by
+// src/share/card-draw.ts), full width, and POST ON X in blue under it. PLAY AGAIN and the text links stay the page's own
+// bar under this screen. In practice the card says PRACTICE and there is nothing to post.
+import { fullRowCard, unbreakableCard, type BounceCardData, type CardBase, type CardEnv, type DragonImage, type RowCardData } from './card-draw.js';
+import { allNames } from '../shell/wall-data.js';
 import { wirePostLink, type CardRequest } from './post.js';
+import dragonUrl from '../assets/dragon.jpg';
 
 export type EndScreen = {
-  practice: boolean;
-  score: number;
-  stats: EndStats | null;
-  /** e.g. "Your best row · ROW 4 · 120 pts" */
-  label: string;
-  /** UNBREAKABLE's "I bounced off 12 people of the wall"; absent for FULL ROW. */
-  headline?: string;
-  names: string[];
-  /** The card to post, or null (nothing to post: no full row this time). */
-  card: CardRequest | null;
+  /** Game title, as on the card. */
+  game: string;
+  /** What the card shows. */
+  card: { kind: 'row'; data: RowCardData } | { kind: 'bounce'; data: BounceCardData };
+  /** The card to post, or null (practice, or nothing to post). */
+  post: CardRequest | null;
   tweet: (link: string) => string;
   postLabel: string;
-  /** Where the tweet points if the card service cannot be reached: the cabinet. */
+  /** The cabinet's address: shown on the card, and where the tweet points if the card service cannot be reached. */
   cabinet: string;
 };
 
-const fmt = (n: number): string => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-const fmtStat = (s: string): string => (/^\d+$/.test(s) ? fmt(Number(s)) : s);
-function el<K extends keyof HTMLElementTagNameMap>(tag: K, text: string, className: string): HTMLElementTagNameMap[K] {
-  const node = document.createElement(tag); node.textContent = text; node.className = className; return node;
-}
+/** "#3" -> 3; "—" or "Not top 10" -> undefined. */
+export const rankOf = (rank: string | undefined): number | undefined => {
+  const m = rank ? /^#(\d+)$/.exec(rank) : null;
+  return m ? Number(m[1]) : undefined;
+};
 
-/** Draws the screen into `panel`. The card is only created once per run (`cardKey` remembers it across redraws). */
-export function renderEndScreen(panel: HTMLElement, data: EndScreen, memo: { key: string; anchor: HTMLAnchorElement | null }): void {
-  const stats = data.stats;
-  const grid = el('div', '', 'end-stats');
-  const cell = (label: string, value: string, main = false): HTMLElement => { const c = el('div', '', main ? 'main' : ''); c.append(el('span', label, ''), el('strong', value, '')); return c; };
-  grid.append(cell(data.practice ? 'Practice score' : 'Score', fmt(data.score), true), cell('Rank', stats?.rank ?? '…'),
-    cell(stats?.bestLabel === 'Best' ? 'Record' : (stats?.bestLabel ?? 'Record'), stats ? fmtStat(stats.best) : '…'));
-  const head = el('div', '', 'end-head');
-  head.append(el('p', data.practice ? "Practice · scores don't count" : 'Server-verified · recorded by SuperRare', 'end-eyebrow'),
-    el('h2', data.practice ? 'Practice over' : 'Run over', 'end-title'), grid);
+const env: CardEnv = { createCanvas: (w, h) => Object.assign(document.createElement('canvas'), { width: w, height: h }) };
+let dragon: DragonImage | null = null;
+const dragonLoaded = new Promise<void>((resolve) => {
+  const img = new Image();
+  img.onload = () => { dragon = img; resolve(); };
+  img.onerror = () => resolve();
+  img.src = dragonUrl;
+});
 
-  const run = el('div', '', 'end-run');
-  run.append(el('p', data.label, 'end-eyebrow'));
-  if (data.headline) run.append(el('p', data.headline, 'end-headline'));
-  if (data.names.length) {
-    const names = el('p', '', data.headline ? 'end-names' : 'end-bignames');
-    names.textContent = data.headline ? data.names.join(' · ') : '';
-    if (!data.headline) for (const n of data.names) names.append(el('span', n, 'end-bigname'));
-    run.append(names);
+export type EndMemo = { key: string; anchor: HTMLAnchorElement | null; drawn: string };
+
+/** Draws the screen into `panel`. The post link is made once per card (`memo` keeps it across redraws). */
+export function renderEndScreen(panel: HTMLElement, data: EndScreen, memo: EndMemo): void {
+  const base: CardBase = { game: data.game, url: data.cabinet, wallNames: allNames(), dragon };
+  const drawn = JSON.stringify([data.card, Boolean(dragon), base.wallNames.length]);
+  let canvas = panel.querySelector<HTMLCanvasElement>('canvas.end-card');
+  if (!canvas || memo.drawn !== drawn) {
+    const fresh = data.card.kind === 'row' ? fullRowCard(env, base, data.card.data) : unbreakableCard(env, base, data.card.data);
+    fresh.className = 'end-card';
+    fresh.setAttribute('role', 'img');
+    fresh.setAttribute('aria-label', `Your card: ${data.card.data.score} points${data.card.data.rank ? `, #${data.card.data.rank} this week` : ''}.`);
+    canvas = fresh;
+    memo.drawn = drawn;
   }
-  // the post link survives redraws (the rank arrives a moment later): the same card, the same link
-  const key = data.card ? JSON.stringify(data.card) : '';
+  // the post link survives redraws (the rank arrives a moment later): one link per card
+  const key = data.post ? JSON.stringify(data.post) : '';
   let anchor = memo.key === key ? memo.anchor : null;
-  if (data.card && !anchor) {
+  if (data.post && !anchor) {
     anchor = document.createElement('a');
     anchor.className = 'end-post';
-    wirePostLink(anchor, data.card, data.tweet, data.cabinet, data.postLabel);
+    wirePostLink(anchor, data.post, data.tweet, data.cabinet, data.postLabel);
     memo.key = key; memo.anchor = anchor;
   }
-  if (anchor) run.append(anchor);
-
-  const open = el('p', 'Open panels are waiting for a name ', 'end-open');
-  const link = document.createElement('a');
-  link.href = 'https://onthewall.nfcsummit.com'; link.target = '_blank'; link.rel = 'noopener'; link.textContent = '→ get on the wall';
-  open.append(link);
-  panel.replaceChildren(head, run, open);
+  panel.replaceChildren(...(anchor ? [canvas, anchor] : [canvas]));
+  if (!dragon) void dragonLoaded.then(() => { if (dragon && panel.isConnected && !panel.hidden) renderEndScreen(panel, data, memo); });
 }

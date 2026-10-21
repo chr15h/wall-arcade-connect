@@ -1,12 +1,12 @@
 # THE WALL ARCADE on SuperRare Connect
 
 Arcade cabinets played on the names of a real wall in Lisbon (550 panels, ON THE WALL by NFC Summit), running entirely
-on SuperRare's plumbing: Connect sign-in, a shared credit group paid in USDC, server-run games whose score is computed by a
+on SuperRare's plumbing: Connect sign-in, a shared credit group paid in ETH (50 plays for 0.005 ETH), server-run games whose score is computed by a
 verifier the platform runs, and the server leaderboard.
 
 | | URL |
 | --- | --- |
-| Hub (cabinets, how it works, the kit) | https://6972mvu4.srstudio.dev/ |
+| Hub (the cabinets; `builders.html`: how to make one, the kit) | https://6972mvu4.srstudio.dev/ |
 | UNBREAKABLE (the reference game of this repo) | https://7x2phv5j.srstudio.dev/ |
 | FULL ROW (cabinet #02: Block Blast rules, the names of the wall on the pieces) | https://yfq52eu3.srstudio.dev/ |
 
@@ -56,10 +56,15 @@ fits; 8-minute server cap, LAST MINUTE shown only in its last minute). One input
 skin over the pieces' draw index (`names.ts`), never seen by the engine. `scripts/calibrate-full-row.ts` plays a random and a
 greedy bot through the built verifier.
 
-Before a game, FULL ROW's entry says it in one sentence; the first full row of a run gets a one-second ROW PAINTED
-moment. After a run, both games show one screen (`src/share/end-screen.ts`): RUN OVER (score, rank, record), what the
-run painted, a blue POST … ON X, a line to the open panels; PLAY AGAIN stays the page's button (the page passes its end
-figures through the optional `Stage.endStats`).
+Screens follow one rule: one job, one sentence and one blue button per screen; every explanation sits behind the (i)
+of the bar ("How it works"). The entry is the title, one sentence, PLAY · 1 CREDIT, "Practice, free" and this week's
+top 3; the wallet is the balance, the shortened address and BUY; "purchase help" holds the history and the recovery.
+During a run the bar goes away (a discreet ← in a corner): the score, big, and the names only when something is
+painted; the first full row of a FULL ROW run gets a short ROW PAINTED moment. After a run, both games show the card
+itself (`src/share/end-screen.ts`, drawn in the page by the same `src/share/card-draw.ts` as the card service), POST ON
+X in blue under it, then PLAY AGAIN in ink (the page passes its end figures through the optional `Stage.endStats`).
+The leaderboard is THIS WEEK's everywhere (Friday 15:00 to Friday 15:00, Lisbon; `src/shell/week.ts`), names are ENS
+when the platform resolved one.
 
 **POST ON X** (`src/share/post.ts`): one link to `x.com/intent/post` with the tweet written (X handles of the names
 when known, the wall name otherwise, ≤ 280 characters) and a card link. The link is made by the **card service**
@@ -108,7 +113,7 @@ rare-profile app update <app-id> --zip dist/unbreakable.zip --max-attempts 10000
 ## The kit
 
 `docs/CONNECT-KIT.md` is what an artist hands to their AI to turn SuperRare's template into a new cabinet (the hub's
-COPY THE KIT button, `hub/src.html`). It states what not to touch (the paid plumbing), the three pieces, the data of the
+COPY THE KIT button, `hub/builders.html`). It states what not to touch (the paid plumbing), the three pieces, the data of the
 wall, the deployment steps and the required credit line.
 
 ## Required credit line

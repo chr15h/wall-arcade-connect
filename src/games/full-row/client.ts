@@ -7,9 +7,9 @@
 // "associates" the names of the pieces it is made of. COUPLE, REAL NEIGHBORS and YOUR NAME are flashes and sounds only.
 import type { EndStats, GameAdapter, Stage, StageIO } from '../../shell/adapter.js';
 import { createSavedRoundParser } from '../../shell/saved-round.js';
-import { allNames, infoOf, namedPanelCount, panelsOwnedBy, wallIsLive } from '../../shell/wall-data.js';
+import { allNames, infoOf, panelsOwnedBy, wallIsLive } from '../../shell/wall-data.js';
 import { scoringConfiguration } from '../../shell/config.js';
-import { renderEndScreen } from '../../share/end-screen.js';
+import { rankOf, renderEndScreen, type EndMemo } from '../../share/end-screen.js';
 import { fitTweet, tag } from '../../share/post.js';
 import dragonUrl from '../../assets/dragon.jpg';
 import { fmtClock, lastMinute, ticksLeft } from './clock.js';
@@ -20,7 +20,7 @@ import {
 } from './engine.js';
 
 const engine = createEngine();
-const W = 420, H = 800, HDR = 40;
+const W = 420, H = 800;
 const GX = 18, GY = 100, CELL = 48, GRID = CELL * N;                 // the grid: 384 × 384 logical px
 const TRAY_Y = 615, SLOT_W = W / 3, TC = 26;                         // the tray: three slots, pieces at 26 px a cell
 const INK = '#0B0B0B', CHALK = '#F2F0EB', CONCRETE = '#DEDBD3', LABEL = '#6B685F', LABEL_LT = '#B0ACA2', BLUE = '#2E7FD6';
@@ -66,7 +66,7 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
   let back: { slot: number; x: number; y: number; t: number } | null = null;   // a dropped piece flying back to the tray
   let touched: { draw: number; t: number } | null = null;   // a placed piece touched: its full name, outlined
   let painted: number[] = [];                 // draw indices placed this run, in order (effects only: not after a reload)
-  let moment: { until: number; label: string; draws: number[] } | null = null;   // the first full row of a run: a one-second pause (on the clock)
+  let moment: { until: number; label: string; draws: number[] } | null = null;   // the first full row of a run: a short pause (on the clock)
   const momentLeft = (): number => (moment ? Math.max(0, (moment.until - performance.now()) / 1000) : 0);
   let endStats: EndStats | null = null;
   let dirty = true, DPRc = 1;
@@ -147,9 +147,9 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
     offset = weekOffset(isoWeekKey(new Date()));
     const mine = panelsOwnedBy(io.playerAddress?.());
     holder = mine.length ? { draw: holderDrawOf(seed), pos: mine[0] as number } : null;
-    holderAnnounced = false; painted = []; moment = null; endStats = null; postMemo.key = ''; postMemo.anchor = null;
+    holderAnnounced = false; painted = []; moment = null; endStats = null; postMemo.key = ''; postMemo.anchor = null; postMemo.drawn = '';
   }
-  const say = (text: string): void => { rowText = text; rowT = 0.9; };
+  const say = (text: string): void => { rowText = text; rowT = 2.2; };   // the names line shows on an event only
   const flashRef = (text: string): void => { refText = text; refT = 1; SND.ref(); buzz(12); };
 
   /** The cells of a placement, as cell indices. */
@@ -202,7 +202,7 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
         for (const line of lines) if (!best || line.value > best.value) best = { ...line, draws: [...line.draws] };
         if (prev.play.lines === 0) {                // the run's first full row: a real moment
           const draws: number[] = []; for (const line of lines) for (const d of line.draws) if (!draws.includes(d)) draws.push(d);
-          moment = { until: performance.now() + 1000, label: lines.length > 1 ? `${lines.length} LINES PAINTED` : `${(lines[0] as LineInfo).label.startsWith('COL') ? 'COLUMN' : 'ROW'} PAINTED`, draws };
+          moment = { until: performance.now() + 700, label: lines.length > 1 ? `${lines.length} LINES PAINTED` : `${(lines[0] as LineInfo).label.startsWith('COL') ? 'COLUMN' : 'ROW'} PAINTED`, draws };
         }
         say(lines.map((line) => `${line.label} · ${line.draws.map(nameOfDraw).join(' · ')}`).join('  /  '));
         flashes.push({ cells: cleared, t: 0 });
@@ -305,14 +305,6 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
   }
 
   /* -------------------------------- drawing -------------------------------- */
-  function header(right: string, rightBlue = ''): void {
-    mono('FULL ROW', 16, 22, 11, INK, 'left', 0.2, 500);
-    if (rightBlue) {
-      const wb = mono(rightBlue, W - 16, 22, 11, BLUE, 'right', 0.2, 500);
-      mono(right, W - 16 - wb - 11 * 0.8, 22, 11, INK, 'right', 0.2, 500);
-    } else if (right) mono(right, W - 16, 22, 11, INK, 'right', 0.2, 500);
-    ctx.fillStyle = INK; ctx.fillRect(0, HDR, W, 1);
-  }
   /** A name written across a run of cells, chalk on ink; on a run of one or two cells, its first three letters. */
   function nameOnRun(name: string, x0: number, y0: number, len: number, vertical: boolean, cell: number, col: string, short: boolean, maxSize: number): void {
     const avail = len * cell - 8;
@@ -444,21 +436,25 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
     drawPiece(piece, left, top, cell, S.play.drawn - 3 + drag.slot, 'on', 15);
     ctx.globalAlpha = 1;
   }
+  /** The very first game on this device shows "drag a piece" until its first placement; never again after. */
+  let hintSeen = false;
+  try { hintSeen = localStorage.getItem('wall-arcade:full-row:hint') === '1'; } catch { /* storage unavailable */ }
   function drawPlay(S: FrState): void {
     drawDragon(W - 128, H - 178, 230);                                // one dragon, behind the tray, cut by two edges
-    const c = S.play.combo;
-    header(`SCORE ${fmtScore(S.play.score)}`, c >= 2 ? `COMBO ×${c}` : '');
+    // the score, big; the clock only in its last minute; COMBO only while it is on; the names only on an event
+    anton(fmtScore(S.play.score), W / 2, 46, Math.min(fitAnton(fmtScore(S.play.score), W - 140, 58), 58), INK, 'center');
     const left = ticksLeft(S, Math.max(S.tick, io.estimatedTick()));
-    mono(`LINES ${S.play.lines} · NAMES ${S.play.placed}`, 16, 54, 8.5, LABEL, 'left', 0.2);
-    // the server cap is invisible until its last minute: then LAST MINUTE and the seconds left, in ink
-    if (lastMinute(left)) mono(`LAST MINUTE · ${fmtClock(left)}`, W - 16, 54, 8.5, INK, 'right', 0.2, 500);
-    else mono(practice ? 'PRACTICE · NOT RECORDED' : 'SERVER-VERIFIED', W - 16, 54, 8.5, LABEL, 'right', 0.2);
-    let s = rowText || (S.play.placed === 0 ? 'PLACE THE NAMES. FULL ROWS GET PAINTED.' : '—');
-    const rowSize = Math.max(7.5, Math.min(10.5, (W - 32) / (s.length * 0.66)));
-    if (monoWidth(s.length, rowSize, 0.06) > W - 32) { const fit = Math.floor((W - 32) / (rowSize * 0.66)); s = `${s.slice(0, fit - 1)}…`; }
-    const w = mono(s, 16, 72, rowSize, INK, 'left', 0.06, 500);
-    if (rowT > 0) { ctx.fillStyle = INK; ctx.fillRect(16, 80, w, 2); }
-    ctx.fillStyle = INK; ctx.fillRect(0, 88, W, 1);
+    if (lastMinute(left)) mono(fmtClock(left), W - 16, 30, 16, INK, 'right', 0.08, 500);
+    let line = '', lineCol = INK;
+    if (rowT > 0 && rowText) line = rowText;
+    else if (S.play.combo >= 2) { line = `COMBO ×${S.play.combo}`; lineCol = BLUE; }
+    else if (lastMinute(left)) line = 'LAST MINUTE';
+    if (line) {
+      const size = 15;
+      let s = line; const fit = Math.floor((W - 32) / (size * 0.66));
+      if (s.length > fit) s = `${s.slice(0, fit - 1)}…`;
+      mono(s, W / 2, 86, size, lineCol, 'center', 0.06, 500);
+    }
     drawGrid(S);
     ctx.fillStyle = INK; for (const p of shards) ctx.fillRect(p.x, p.y, p.sz, p.sz);
     drawTray(S);
@@ -472,7 +468,7 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
     if (moment && momentLeft() > 0) {
       ctx.fillStyle = 'rgba(222,219,211,0.9)'; ctx.fillRect(GX - 6, GY - 6, GRID + 12, GRID + 12);
       ctx.fillStyle = INK; ctx.fillRect(GX - 6, GY - 6, GRID + 12, 2); ctx.fillRect(GX - 6, GY + GRID + 4, GRID + 12, 2);
-      const grow = 1 + 0.06 * (1 - momentLeft());
+      const grow = 1 + 0.06 * (1 - momentLeft() / 0.7);
       anton(moment.label, W / 2, GY + 62, fitAnton(moment.label, GRID - 30, 54) * grow, INK, 'center');
       const names = moment.draws.map(nameOfDraw).slice(0, 6), top = GY + 116, lh = Math.min(52, (GRID - 140) / Math.max(1, names.length));
       names.forEach((nm, i) => anton(nm, W / 2, top + lh * (i + 0.5), Math.min(fitAnton(nm, GRID - 40, lh * 0.95), lh * 0.95), INK, 'center'));
@@ -482,21 +478,14 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
       ctx.fillStyle = CHALK; ctx.fillRect(GX - 6, y - 18, GRID + 12, 36);
       ctx.fillStyle = INK; ctx.fillRect(GX - 6, y - 18, GRID + 12, 1); ctx.fillRect(GX - 6, y + 18, GRID + 12, 1);
       let t = refText; if (t.length > 40) t = `${t.slice(0, 39)}…`;
-      mono(t, W / 2, y, Math.min(13, (GRID - 10) / Math.max(1, t.length * 0.7)), INK, 'center', 0.1, 500);
+      mono(t, W / 2, y, Math.max(13, Math.min(15, (GRID - 10) / Math.max(1, t.length * 0.7))), INK, 'center', 0.06, 500);
     }
-    if (S.play.placed < 3 && canPlay() && !drag && selected < 0) mono(COARSE ? 'DRAG A PIECE ONTO THE GRID · OR TAP IT, THEN A CELL' : 'DRAG A PIECE · OR CLICK IT, THEN A CELL', 16, H - 50, 8, LABEL, 'left', 0.14);
-    else if (selected >= 0 && canPlay()) mono(COARSE ? 'NOW TAP A CELL' : 'NOW CLICK A CELL · OR ARROWS + ENTER', 16, H - 50, 8, BLUE, 'left', 0.16, 500);
-    else if (S.play.stuckTick !== null) mono('NO PIECE FITS · RUN OVER', 16, H - 50, 9, INK, 'left', 0.16, 500);
+    if (!hintSeen && S.play.placed > 0) { hintSeen = true; try { localStorage.setItem('wall-arcade:full-row:hint', '1'); } catch { /* storage unavailable */ } }
+    if (!hintSeen && canPlay() && !drag && selected < 0) mono(COARSE ? 'DRAG A PIECE ONTO THE GRID' : 'DRAG OR CLICK A PIECE', W / 2, H - 84, 15, LABEL, 'center', 0.1, 500);
+    else if (S.play.stuckTick !== null) mono('NO PIECE FITS · RUN OVER', W / 2, H - 84, 15, INK, 'center', 0.1, 500);
   }
   function drawIdle(): void {
-    header(wallIsLive() ? `LIVE · ${namedPanelCount()} NAMES` : 'SNAPSHOT');
-    const size = fitAnton('FULL ROW', W - 32, 150);
-    anton('FULL ROW', 16, 130, size, 'rgba(11,11,11,0.10)');
-    drawDragon(W - 250, H - 380, 420);
-  }
-  function drawEnd(): void {
-    header(`SCORE ${fmtScore(finalScore ?? view?.play.score ?? 0)}`);
-    drawDragon(W - 260, H - 330, 420);
+    drawDragon(W - 150, H - 330, 270);                                // smaller, cut by the right edge, behind the overlay
   }
   function draw(): void {
     const pw = Math.round(W * DPRc), ph = Math.round(H * DPRc);
@@ -505,8 +494,7 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
     ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
     if (shake > 0.3) ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
     if (mode === 'play' && view) drawPlay(view);
-    else if (mode === 'end') drawEnd();
-    else drawIdle();
+    else if (mode !== 'end') drawIdle();                               // the end: the card covers the board
   }
 
   /* --------------------------------- input --------------------------------- */
@@ -529,14 +517,23 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
       if (target) placeAt(selected, target.x, target.y); else SND.nope();
       return;
     }
-    if (cell >= 0 && (owner[cell] as number) >= 0) {
-      const d = owner[cell] as number, pos = panelOf(d), info = infoOf(pos);
-      touched = { draw: d, t: 1.6 };
-      say(`PANEL #${pos} · ${(info.name || '?').toUpperCase()}${info.handle ? ` · @${info.handle}` : ''}`);
+    if (cell >= 0 && (owner[cell] as number) >= 0) {                   // a long press on a placed piece: its panel
+      const d = owner[cell] as number;
+      window.clearTimeout(press.timer);
+      press = { id: e.pointerId, x, y, timer: window.setTimeout(() => {
+        const pos = panelOf(d), info = infoOf(pos);
+        touched = { draw: d, t: 1.6 };
+        say(`PANEL #${pos} · ${(info.name || '?').toUpperCase()}${info.handle ? ` · @${info.handle}` : ''}`);
+      }, 450) };
     }
   });
+  let press: { id: number; x: number; y: number; timer: number } = { id: -1, x: 0, y: 0, timer: 0 };
+  const cancelPress = (e: PointerEvent): void => { if (e.pointerId === press.id) { window.clearTimeout(press.timer); press.id = -1; } };
+  canvas.addEventListener('pointerup', cancelPress);
+  canvas.addEventListener('pointercancel', cancelPress);
   canvas.addEventListener('pointermove', (e) => {
     const [x, y] = point(e);
+    if (e.pointerId === press.id && Math.hypot(x - press.x, y - press.y) > 10) cancelPress(e);
     if (drag && e.pointerId === drag.pointerId) {
       drag.x = x; drag.y = y;
       if (!drag.moved && Math.hypot(x - drag.x0, y - drag.y0) > 8) { drag.moved = true; selected = -1; kb.on = false; SND.pick(); }
@@ -573,26 +570,27 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
   });
 
   /* ------------------------------- end screen -------------------------------- */
-  // One screen (src/share/end-screen.ts): RUN OVER · YOUR BEST ROW · POST YOUR ROW ON X · the open panels.
+  // One screen (src/share/end-screen.ts): the card (final grid, best row in blue, score, rank, names, player), POST ON X.
   /** The player on a card: their ENS (from the leaderboard) or their shortened address; nothing when signed out. */
   function cardPlayer(): string | undefined {
     if (endStats?.player) return endStats.player;
     const address = io.playerAddress?.();
     return address && /^0x[0-9a-f]{40}$/i.test(address) ? address : undefined;
   }
-  const postMemo: { key: string; anchor: HTMLAnchorElement | null } = { key: '', anchor: null };
+  const postMemo: EndMemo = { key: '', anchor: null, drawn: '' };
   function renderEnd(): void {
     const score = finalScore ?? view?.play.score ?? 0, cabinet = `${location.origin}/`;
     const row = best && best.draws.length ? best : null;
-    const player = cardPlayer();
+    const player = cardPlayer(), rank = practice ? undefined : rankOf(endStats?.rank);
+    const names = row ? row.draws.map(nameOfDraw) : [], grid = view ? [...view.play.rows] : undefined;
+    const extra = { ...(grid ? { grid } : {}), ...(rank ? { rank } : {}), ...(player ? { player } : {}) };
     renderEndScreen(endPanel, {
-      practice, score, stats: endStats,
-      label: row ? `Your best row · ${row.label} · ${fmtScore(row.value)} pts` : 'No full row this time',
-      names: row ? row.draws.map(nameOfDraw) : [],
-      card: row ? { kind: 'row', names: row.draws.map(nameOfDraw), line: row.label, points: row.value, score, ...(player ? { player } : {}), ...(practice ? { practice: true } : {}) } : null,
+      game: 'FULL ROW', cabinet,
+      card: { kind: 'row', data: { names, ...(row ? { line: row.label } : {}), score, practice, ...extra } },
+      post: row && !practice ? { kind: 'row', names, line: row.label, score, ...extra } : null,
       tweet: (link) => fitTweet(row ? row.draws.map((d) => tag(nameOfDraw(d), handleOfDraw(d))) : [],
-        (names, more) => `I painted ${names}${more ? ' …' : ''} together on THE WALL ARCADE. Beat my row: ${link}`, link),
-      postLabel: 'Post your row on X', cabinet,
+        (list, more) => `I painted ${list}${more ? ' …' : ''} together on THE WALL ARCADE. Beat my row: ${link}`, link),
+      postLabel: 'Post on X',
     }, postMemo);
   }
 
@@ -678,7 +676,7 @@ export const fullRowAdapter: GameAdapter = {
   id: 'full-row',
   title: 'FULL ROW',
   heading: 'Place the names, paint the rows',
-  tagline: 'Every piece carries a name of the wall. Fill a row and the names get painted together.',
+  tagline: 'Every piece carries a name of the wall: fill a row and the names get painted together.',
   lede: 'Three pieces at a time, each one carrying a name of the wall. Drop them on the 8 × 8 grid; a full row or column empties and paints the names it joined. Clear again and again for a combo. The run ends when no piece fits. One credit per run, scored by the server.',
   stateSchema: stateSchema as never,
   snapshotSchema: snapshotSchema as never,

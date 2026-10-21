@@ -4,6 +4,7 @@ import { GlobalFonts, createCanvas, loadImage } from '@napi-rs/canvas';
 import { boardCard, fullRowCard, unbreakableCard, xPreview, type CardEnv, type DragonImage } from '../../src/share/card-draw.js';
 import { ANTON_400, DRAGON_JPG, MONO_400, MONO_500 } from './assets.generated.js';
 import { GAMES, gameOf, type Card } from './validate.js';
+import { lisbonWeek, weekEnds } from './week.js';
 
 let ready: Promise<void> | null = null;
 let dragon: DragonImage | null = null;
@@ -18,16 +19,15 @@ function setup(): Promise<void> {
 }
 const env: CardEnv = { createCanvas: (w, h) => createCanvas(w, h) as unknown as HTMLCanvasElement };
 const encode = (canvas: HTMLCanvasElement): Buffer => (canvas as unknown as { toBuffer(mime: 'image/png'): Buffer }).toBuffer('image/png');
-const fmt = (n: number): string => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 
 function square(card: Card, wallNames: readonly string[]): HTMLCanvasElement {
   const game = GAMES[gameOf(card)];
   const base = { game: game.title, url: game.url, wallNames, dragon };
   if (card.kind === 'row') {
-    return fullRowCard(env, base, { label: `BEST ROW · ${card.line} · ${fmt(card.points)} PTS`, names: card.names, player: card.player ?? '', score: card.score, practice: card.practice });
+    return fullRowCard(env, base, { names: card.names, line: card.line, grid: card.grid, score: card.score, rank: card.rank, player: card.player, practice: card.practice });
   }
-  if (card.kind === 'bounce') return unbreakableCard(env, base, { people: card.people, names: card.names, score: card.score, practice: card.practice });
-  return boardCard(env, base, { rows: card.rows, caption: 'SERVER-VERIFIED · ALL TIME' });
+  if (card.kind === 'bounce') return unbreakableCard(env, base, { people: card.people, names: card.names, score: card.score, rank: card.rank, player: card.player, practice: card.practice });
+  return boardCard(env, base, { rows: card.rows, caption: `THIS WEEK · ${weekEnds(lisbonWeek()).toUpperCase()}` });
 }
 /** The card itself (1080 × 1080) and its X preview (1200 × 630, the whole card visible). */
 export async function renderCard(card: Card, wallNames: readonly string[]): Promise<{ square: Buffer; preview: Buffer }> {

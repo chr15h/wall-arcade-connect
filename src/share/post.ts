@@ -4,8 +4,8 @@
 // as soon as the card exists, so the tap itself opens X: no share sheet, no download, no copy.
 export const CARD_SERVICE = 'https://wall-arcade-cards.netlify.app';
 
-export type RowCardRequest = { kind: 'row'; names: string[]; line: string; points: number; score: number; player?: string; practice?: boolean };
-export type BounceCardRequest = { kind: 'bounce'; names: string[]; people: number; score: number; practice?: boolean };
+export type RowCardRequest = { kind: 'row'; names: string[]; line: string; score: number; grid?: number[]; rank?: number; player?: string; practice?: boolean };
+export type BounceCardRequest = { kind: 'bounce'; names: string[]; people: number; score: number; rank?: number; player?: string; practice?: boolean };
 export type BoardCardRequest = { kind: 'board'; game: 'full-row' | 'unbreakable'; me?: string };
 export type CardRequest = RowCardRequest | BounceCardRequest | BoardCardRequest;
 
