@@ -1,7 +1,7 @@
 // Builds the hub archive: index.html (the player page: the wall and the games), builders.html (artists: make a game on
-// the wall) and dragon.jpg. A plain static app: no Connect, no verifier, no config. The player page's wall grid is
-// embedded as a snapshot of the public /positions data; the builders page gets the Connect Kit (docs/CONNECT-KIT.md)
-// inlined behind its COPY THE KIT button, after the repository's link.
+// the wall) and dragon.jpg. A plain static app: no Connect, no verifier, no config. Both pages' wall grid is embedded as
+// a snapshot of the public /positions data; the builders page also gets the Connect Kit (docs/CONNECT-KIT.md) inlined
+// behind its COPY THE KIT buttons, after the repository's link.
 import { createHash } from 'node:crypto';
 import { access, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
@@ -22,7 +22,6 @@ const REPO = 'https://github.com/hs7j4yk4sz-boop/wall-arcade-connect';
 const kitText = `${REPO}\n\n${kitBlock[1]}\n`;
 if (!buildersSource.includes("/*KIT*/''")) throw new Error("hub/builders.html must hold the /*KIT*/'' placeholder");
 // JSON is a JavaScript string literal; </ is escaped so the kit can never close the <script>
-const builders = buildersSource.replace("/*KIT*/''", () => JSON.stringify(kitText).replace(/<\//g, '<\\/'));
 const dragon = await readFile(new URL('../hub/dragon.jpg', import.meta.url));
 let rows: (string | number)[];
 if (values.offline) {
@@ -38,6 +37,10 @@ if (values.offline) {
 const marker = /\/\*SNAPSHOT:START\*\/.*?\/\*SNAPSHOT:END\*\//s;
 if (!marker.test(html)) throw new Error('Snapshot markers missing in hub/src.html');
 const page = html.replace(marker, () => `/*SNAPSHOT:START*/${JSON.stringify(rows)}/*SNAPSHOT:END*/`);
+if (!marker.test(buildersSource)) throw new Error('Snapshot markers missing in hub/builders.html');
+const builders = buildersSource
+  .replace("/*KIT*/''", () => JSON.stringify(kitText).replace(/<\//g, '<\\/'))
+  .replace(marker, () => `/*SNAPSHOT:START*/${JSON.stringify(rows)}/*SNAPSHOT:END*/`);   // the same live wall as the hub
 // the two pages link to each other with relative links only (the builders page: a discreet ← in its corner)
 if (!page.includes('href="./builders.html"')) throw new Error('hub/src.html must link to ./builders.html');
 if (!builders.includes('href="./"')) throw new Error('hub/builders.html must link back to ./');

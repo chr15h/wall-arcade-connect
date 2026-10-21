@@ -7,71 +7,172 @@
 <meta name="description" content="Make a game on a real wall in Lisbon: 550 names, an arcade with real players. You keep what your game earns.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@300;400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Mono:wght@500&family=Inter:wght@300;400&display=swap" rel="stylesheet">
 <style>
-/* Builders page: six full-width blocks, each one big sentence in Anton, one or two lines of Inter, at most one blue button.
-   No columns, no numbered list, no secondary link (but a discreet ← to the hub), no mono label. NFC system: concrete / ink / chalk, one blue. */
-:root{--concrete:#DEDBD3;--ink:#0B0B0B;--chalk:#F2F0EB;--label:#6B685F;--blue:#2E7FD6;
-  --anton:Anton,Impact,'Arial Narrow',sans-serif;--inter:Inter,system-ui,sans-serif}
+/* Builders page: hero, THE DEAL, HOW IT WORKS, ONE RULE. Same rules as the games: nothing under 13px, one blue button per
+   section, mono capitals for labels only, Anton for titles, Inter for sentences. NFC system: concrete / ink / chalk, one blue. */
+:root{--concrete:#DEDBD3;--ink:#0B0B0B;--chalk:#F2F0EB;--label:#6B685F;--rule:#C4C0B6;--blue:#2E7FD6;
+  --anton:Anton,Impact,'Arial Narrow',sans-serif;--mono:'IBM Plex Mono',ui-monospace,monospace;--inter:Inter,system-ui,sans-serif;--padx:max(16px,5%)}
 *{box-sizing:border-box}
 html,body{margin:0;padding:0;background:var(--concrete);color:var(--ink)}
 body{font-family:var(--inter);-webkit-font-smoothing:antialiased;overflow-x:hidden}
-.block{padding:clamp(48px,9vw,120px) 5%;border-top:1px solid var(--ink)}
-.back+.block{border-top:0;padding-top:clamp(76px,9vw,120px)}   /* room for the ← */
-.block.ink{background:var(--ink);color:var(--chalk);border-top-color:var(--ink)}
-.block h1,.block h2{margin:0;max-width:16ch;font:400 clamp(56px,19vw,210px)/.88 var(--anton);text-transform:uppercase;letter-spacing:-.005em;overflow-wrap:break-word}
-.block p{margin:clamp(18px,2.6vw,30px) 0 0;max-width:40em;font:300 clamp(17px,2vw,22px)/1.5 var(--inter)}
-.btn{display:inline-flex;align-items:center;justify-content:center;margin-top:clamp(24px,3vw,36px);min-height:60px;padding:0 34px;border:0;
-  background:var(--blue);color:var(--ink);font:400 clamp(20px,2.4vw,26px)/1 var(--anton);letter-spacing:.06em;text-transform:uppercase;text-decoration:none;cursor:pointer}
-.btn:hover{background:var(--chalk);color:var(--ink)}
-.block:not(.ink) .btn:hover{background:var(--ink);color:var(--chalk)}
-.back{position:absolute;top:10px;left:10px;z-index:1;display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;
-  color:var(--chalk);opacity:.6;text-decoration:none;font:400 24px/1 var(--inter)}
-.back:hover{opacity:1}
-footer{padding:28px 5% 36px;border-top:1px solid var(--ink);font:400 13px/1.5 var(--inter);color:var(--label)}
+p,h1,h2,h3{margin:0}
+a{color:inherit}
+.lbl{font:500 13px/1.3 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--label)}
+.anton{font-family:var(--anton);font-weight:400;text-transform:uppercase;line-height:.9;letter-spacing:-.005em}
+.line{font:300 clamp(16px,1.5vw,19px)/1.5 var(--inter)}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:56px;padding:0 28px;border:0;cursor:pointer;text-decoration:none;
+  font:400 clamp(18px,1.8vw,22px)/1 var(--anton);letter-spacing:.06em;text-transform:uppercase;background:var(--ink);color:var(--chalk)}
+.btn.blue{background:var(--blue);color:var(--ink)}
+.btn:hover{background:var(--chalk);color:var(--ink);outline:1px solid var(--ink)}
+.small{font:400 14px/1.4 var(--inter)}
+section{padding:clamp(48px,7vw,96px) var(--padx);border-top:1px solid var(--ink)}
+
+/* 1. hero: one screen, the live wall beside (desktop) or under (phone) */
+.hero{min-height:100svh;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:clamp(24px,5vw,72px);align-items:center;border-top:0;padding-top:clamp(28px,4vw,56px)}
+.hero h1{font-size:clamp(56px,9vw,136px);margin-top:16px}
+.hero .line{max-width:34ch;margin-top:20px}
+.hero .actions{display:flex;flex-wrap:wrap;align-items:center;gap:14px 24px;margin-top:28px}
+#wallgrid{display:grid;grid-template-columns:repeat(25,1fr);gap:2px}
+#wallgrid div{aspect-ratio:1;border:1px dashed var(--ink);opacity:.45}
+#wallgrid div.m{background:var(--ink);border-style:solid;opacity:1}
+.wallmeta{margin-top:10px}
+.wallmeta b{color:var(--ink);font-weight:500}
+
+/* 2. the deal: three cards */
+.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(12px,2vw,24px);margin-top:clamp(24px,3vw,40px)}
+.card{border:1px solid var(--ink);background:var(--chalk);padding:clamp(20px,2.4vw,32px)}
+.card h3{font-size:clamp(34px,3.6vw,52px)}
+.card .line{margin-top:14px}
+
+/* 3. how it works: four steps, huge numbers */
+.steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:clamp(12px,2vw,24px);margin-top:clamp(24px,3vw,40px)}
+.step{display:flex;flex-direction:column;gap:12px;border-top:1px solid var(--ink);padding-top:12px}
+.step .n{font-size:clamp(96px,10vw,160px);line-height:.82}
+.step h3{font-size:clamp(28px,2.6vw,38px)}
+.step .btn{align-self:flex-start;margin-top:4px}
+.bubble{align-self:flex-start;margin-top:4px;padding:12px 16px;border-radius:16px 16px 16px 4px;background:var(--ink);color:var(--chalk);font:400 15px/1.45 var(--inter)}
+.step .small a{color:var(--label)}
+.notai{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 24px;margin-top:clamp(28px,3.5vw,48px);padding:20px 24px;border:1px dashed var(--ink)}
+.notai p{max-width:52ch}
+.notai a{font:400 20px/1 var(--anton);letter-spacing:.06em;text-transform:uppercase;text-underline-offset:5px}
+
+/* 4. one rule: a thin band */
+.rule{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 20px;padding:18px var(--padx);background:var(--ink);color:var(--chalk);border-top:0}
+.rule .lbl{color:var(--chalk);opacity:.7}
+
+footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px 24px;padding:24px var(--padx) 32px;font:400 13px/1.5 var(--inter);color:var(--label)}
 footer a{color:var(--label)}
-@media (max-width:520px){.btn{width:100%}}
+
+@media (max-width:860px){
+  .hero{grid-template-columns:1fr;min-height:auto;align-items:start}
+  .cards,.steps{grid-template-columns:1fr}
+  .step .n{font-size:96px}
+}
+@media (max-width:520px){
+  .hero .actions .btn{width:100%}
+  .wallbox{max-width:320px}
+}
 </style>
 </head>
 <body>
 
-<a class="back" href="./" aria-label="Back to THE WALL ARCADE">←</a>
-
-<section class="block ink">
-  <h1>Make a game on the wall.</h1>
-  <p>A real wall in Lisbon, 550 names, an arcade with real players. Your game, your name on it.</p>
+<!-- 1. hero -->
+<section class="hero">
+  <div>
+    <p class="lbl">The Wall Arcade · For artists</p>
+    <h1 class="anton">Make a game on the wall.</h1>
+    <p class="line">A real wall in Lisbon, 550 names, an arcade with real players. Your game, your name on it.</p>
+    <div class="actions">
+      <button class="btn blue copy" type="button">Copy the kit</button>
+      <a class="small" href="./">see the games →</a>
+    </div>
+  </div>
+  <div class="wallbox">
+    <div id="wallgrid" aria-hidden="true"></div>
+    <div class="wallmeta lbl"><b id="mintedCount">0</b> / 550 names painted</div>
+  </div>
 </section>
 
-<section class="block">
-  <h2>You keep what your game earns.</h2>
-  <p>Every play on your game is yours. We settle every week.</p>
+<!-- 2. the deal -->
+<section>
+  <p class="lbl">The deal</p>
+  <div class="cards">
+    <div class="card"><h3 class="anton">You keep what your game earns.</h3><p class="line">Every play on your game is yours. Settled weekly.</p></div>
+    <div class="card"><h3 class="anton">Every Friday, live.</h3><p class="line">New games open on People of the Wall; the week's best score wins the pot. You're on the show.</p></div>
+    <div class="card"><h3 class="anton">Your name on it.</h3><p class="line">Your game, your look. The best are shown next to the painted wall at NFC Summit in May.</p></div>
+  </div>
 </section>
 
-<section class="block">
-  <h2>Every Friday, live.</h2>
-  <p>New games open on People of the Wall, and the week's best score wins the pot. The best games are shown next to the painted wall at NFC Summit in May.</p>
+<!-- 3. how it works -->
+<section>
+  <p class="lbl">How it works</p>
+  <div class="steps">
+    <div class="step">
+      <div class="n anton">1</div>
+      <h3 class="anton">Copy the kit</h3>
+      <p class="line">One file. It tells your AI everything about the wall and the arcade's plumbing.</p>
+      <button class="btn blue copy" type="button">Copy the kit</button>
+    </div>
+    <div class="step">
+      <div class="n anton">2</div>
+      <h3 class="anton">Paste it into your AI</h3>
+      <p class="line">Claude, ChatGPT, whatever you use. Add one sentence: the game you have in mind.</p>
+      <p class="bubble">Make a memory game where I match the two halves of each name.</p>
+    </div>
+    <div class="step">
+      <div class="n anton">3</div>
+      <h3 class="anton">Put it online</h3>
+      <p class="line">Free SuperRare Studio account. Your AI runs the two commands in the kit, or pick THE WALL ARCADE template in Studio.</p>
+      <a class="btn" href="https://studio.superrare.com" target="_blank" rel="noopener">Open Studio</a>
+      <p class="small"><a href="https://github.com/superrare/studio-games-example/blob/main/docs/creator-handoff.md" target="_blank" rel="noopener">developer guide</a></p>
+    </div>
+    <div class="step">
+      <div class="n anton">4</div>
+      <h3 class="anton">Send us the link</h3>
+      <p class="line">Your name, your app ID, your game's address. In the arcade within 24 hours.</p>
+      <a class="btn" href="https://x.com/messages/compose?recipient_id=1478091830235471879" target="_blank" rel="noopener">DM @NFCsummit</a>
+    </div>
+  </div>
+  <div class="notai">
+    <p class="line">Not into AI? Send us your images, sounds or idea. We make the game, your name on it.</p>
+    <a href="https://x.com/messages/compose?recipient_id=7246192" target="_blank" rel="noopener" aria-label="Contact John: DM @johnkarp on X">Contact John</a>
+  </div>
 </section>
 
-<section class="block">
-  <h2>You build with AI? Paste the kit.</h2>
-  <p>Copy the kit into Claude or ChatGPT, describe your game, put it online on SuperRare Studio (or pick THE WALL ARCADE template there). Send us the link: your game is in the arcade within 24 hours.</p>
-  <button class="btn" id="copyBtn" type="button">Copy the kit</button>
+<!-- 4. one rule -->
+<section class="rule">
+  <p class="lbl">One rule</p>
+  <p class="line">Every game carries the wall's credit line, and the holder of a name your game stars gets an edition.</p>
 </section>
 
-<section class="block">
-  <h2>You don't? Send us your work.</h2>
-  <p>Images, sounds, an idea. We make the game, your name on it.</p>
-  <a class="btn" href="https://x.com/messages/compose?recipient_id=7246192" target="_blank" rel="noopener" aria-label="Contact John: DM @johnkarp on X">Contact John</a>
-</section>
-
-<section class="block ink">
-  <h2>One rule.</h2>
-  <p>Every game carries the wall's credit line, and the holder of a name your game stars gets an edition.</p>
-</section>
-
-<footer><a href="https://onthewall.nfcsummit.com" target="_blank" rel="noopener">A Remix The Wall experiment · NFC Summit 2027 · Lisbon</a></footer>
+<footer>
+  <a href="https://onthewall.nfcsummit.com" target="_blank" rel="noopener">A Remix The Wall experiment · NFC Summit 2027 · Lisbon</a>
+  <span>Built with <a href="https://studio.superrare.com" target="_blank" rel="noopener">SuperRare Studio</a></span>
+  <a href="./">← the arcade</a>
+</footer>
 
 <script>
+/* the live wall, as on the hub: the snapshot inlined by scripts/build-hub.ts, then the public /positions */
+var SNAPSHOT = /*SNAPSHOT:START*/[]/*SNAPSHOT:END*/;
+var grid = SNAPSHOT.map(function (v) { return { minted: Boolean(v), name: typeof v === 'string' ? v : '' }; });
+function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+function paintWall() {
+  var html = '', minted = 0;
+  grid.slice(0, 550).forEach(function (c) { if (c.minted) minted++; html += '<div class="' + (c.minted ? 'm' : '') + '" title="' + esc(c.minted ? (c.name || 'minted') : 'waiting') + '"></div>'; });
+  document.getElementById('wallgrid').innerHTML = html;
+  document.getElementById('mintedCount').textContent = minted;
+}
+paintWall();
+try {
+  fetch('https://otw-arcade.netlify.app/positions').then(function (r) { return r.json(); }).then(function (d) {
+    if (!Array.isArray(d) || !d.length) return;
+    grid = d.filter(function (x) { return x.tier === 'name' || x.tier === 'pfp'; }).sort(function (a, b) { return a.position - b.position; })
+      .map(function (x) { return { minted: Boolean(x.minted), name: x.name || '' }; });
+    paintWall();
+  }).catch(function () {});
+} catch (e) {}
+
 /* COPY THE KIT: the repository's link, then the kit itself (docs/CONNECT-KIT.md, inlined by scripts/build-hub.ts). */
 var KIT_TEXT = /*KIT*/'';
 function fallbackCopy(text) {
@@ -85,17 +186,19 @@ function fallbackCopy(text) {
   document.body.removeChild(ta);
   return ok;
 }
-var copyBtn = document.getElementById('copyBtn'), timer = 0;
-function flash(ok) {
-  copyBtn.textContent = ok ? 'Copied' : 'Copy failed, try again';
-  clearTimeout(timer);
-  timer = setTimeout(function () { copyBtn.textContent = 'Copy the kit'; }, 2200);
-}
-copyBtn.onclick = function () {
-  if (navigator.clipboard && window.isSecureContext) {
-    navigator.clipboard.writeText(KIT_TEXT).then(function () { flash(true); }, function () { flash(fallbackCopy(KIT_TEXT)); });
-  } else { flash(fallbackCopy(KIT_TEXT)); }
-};
+Array.prototype.forEach.call(document.querySelectorAll('.copy'), function (button) {
+  var timer = 0;
+  function flash(ok) {
+    button.textContent = ok ? 'Copied' : 'Copy failed, try again';
+    clearTimeout(timer);
+    timer = setTimeout(function () { button.textContent = 'Copy the kit'; }, 2200);
+  }
+  button.onclick = function () {
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(KIT_TEXT).then(function () { flash(true); }, function () { flash(fallbackCopy(KIT_TEXT)); });
+    } else { flash(fallbackCopy(KIT_TEXT)); }
+  };
+});
 </script>
 </body>
 </html>
