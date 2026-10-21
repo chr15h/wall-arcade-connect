@@ -133,13 +133,12 @@ because the API no longer returns `creditCost`: check the group afterwards befor
 
 ## The jackpot and the split
 
-Every paid play goes straight into the jackpot. Every Friday it's split: half to the best score on each game, 40% to the artists who made the games, 10% to the wall. It is stated once in each place a player or an artist reads it: the games' (i), the hub
-(jackpot block and (i)) and the kit. It replaces the original 50/35/15 split.
+Every paid play goes straight into the jackpot. Every Friday it's split: half to the best score on each game, 40% to the artists who made the games, 10% to the wall. It is stated once in each place a player or an artist reads it: the games' (i) and the kit. It replaces the original 50/35/15 split.
 
 The jackpot shown is the treasury wallet's balance (0xb6ede0158e1792ed25e1367edeec05a824d7c9ad), live: the card
 service's own `GET https://wall-arcade-cards.netlify.app/pot` (`cards/src/pot.ts`) reads it by a public RPC and answers
-`{ pot }` (ETH, 4 decimals), cached 60 s; if no RPC answers, the last amount served. The hub's jackpot block and the
-line "Jackpot … ETH" on the games' entry screen read it. The former arcade's `/pot` (otw-arcade) is not read any more.
+`{ pot }` (ETH, 4 decimals), cached 60 s; if no RPC answers, the last amount served. The hub's jackpot line (under its title) and
+the line "Jackpot … ETH" on the games' entry screen read it. The former arcade's `/pot` (otw-arcade) is not read any more.
 
 ## Required credit line
 
