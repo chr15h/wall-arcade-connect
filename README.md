@@ -131,6 +131,15 @@ active group gates unpaid starts at once. Then add it to the hub's `GAMES` list 
 soon as it has an active scoring event. (CLI 0.1.0 applies `add-game` but may report "Unexpected response shape"
 because the API no longer returns `creditCost`: check the group afterwards before retrying.)
 
+### The artists' games
+
+Attached to the shared group at 1 credit per play. The 40% of the jackpot that goes to the artists each Friday is paid
+to the wallet below.
+
+| Game | Artist (panel) | App ID | Origin | 40% paid to | Attached |
+|---|---|---|---|---|---|
+| Dirty Signals Radio | Bully Meow (BULLY-MEOW, panel 18) | `8617e311-f5d4-4e04-9010-19298f2ff9a0` | https://sy3mgnnh.srstudio.dev | `0x14076eFC88Ca7D53594500261AdA8185033e6D5B` | 27 Oct 2026 |
+
 ## The people of the wall: walking sprites
 
 Every person of the wall has a walking sprite. Use them.
@@ -156,7 +165,7 @@ the fonts, the dragon, and a 20-line example that walks a sprite on a canvas (`h
 
 ## The jackpot and the split
 
-Every paid play goes straight into the jackpot. Every Friday it's split: half to the best score on each game, 40% to the artists who made the games, 10% to the wall. It is stated once in each place a player or an artist reads it: the games' (i) and the kit. It replaces the original 50/35/15 split.
+Every paid play goes straight into the jackpot. Every Friday it's split: half to the best score on each game, 40% to the artists who made the games (their payout wallets: [The artists' games](#the-artists-games)), 10% to the wall. It is stated once in each place a player or an artist reads it: the games' (i) and the kit. It replaces the original 50/35/15 split.
 
 The jackpot shown is the treasury wallet's balance (0xb6ede0158e1792ed25e1367edeec05a824d7c9ad), live: the card
 service's own `GET https://wall-arcade-cards.netlify.app/pot` (`cards/src/pot.ts`) reads it by a public RPC and answers
