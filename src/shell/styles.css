@@ -43,6 +43,13 @@ button.linklike:hover:not(:disabled) { background: none; color: var(--blue); }
 /* a run: the game has the whole screen; a discreet ← in the corner */
 body.is-playing .topbar { display: none; }
 body.is-playing .stage-frame { top: env(safe-area-inset-top); }
+/* a holder of a name with no character yet: one band under the bar (not during a run) */
+.people-band { position: fixed; inset: calc(var(--bar) + env(safe-area-inset-top)) 0 auto; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 2px 12px; min-height: 40px; margin: 0; padding: 6px 12px; background: var(--blue); color: var(--ink); font: 400 14px/1.35 var(--inter); text-align: center; }
+.people-band b { font: 500 14px/1.35 var(--mono); letter-spacing: .04em; }
+.people-band a { color: var(--ink); font: 500 13px/1.35 var(--mono); letter-spacing: .1em; white-space: nowrap; }
+body.has-band .stage-frame { top: calc(var(--bar) + 40px + env(safe-area-inset-top)); }
+body.is-playing .people-band { display: none; }
+body.is-playing.has-band .stage-frame { top: env(safe-area-inset-top); }
 .corner-back { position: absolute; z-index: 3; top: 4px; left: 4px; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; color: var(--ink); text-decoration: none; font: 400 22px/1 var(--inter); opacity: .55; }
 .corner-back:hover { opacity: 1; }
 .practice-tag { position: absolute; z-index: 3; top: 14px; left: 48px; margin: 0; font: 500 13px/1 var(--mono); letter-spacing: .18em; text-transform: uppercase; color: var(--blue); pointer-events: none; }

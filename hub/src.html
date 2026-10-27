@@ -105,6 +105,24 @@ nav{position:sticky;top:0;z-index:20;background:#FBF8ECf2;backdrop-filter:blur(6
 /* the holders' line under the games */
 .holders{margin-top:24px;font-size:14px;line-height:1.5;color:var(--ink)}
 
+/* people of the wall */
+.people{border-top:2px solid var(--blue)}
+.people h2{font-size:clamp(40px,6vw,84px);line-height:.9;margin-bottom:24px}
+.scene{border:2px solid var(--blue);padding:10px;background:var(--paper)}
+.scene iframe{display:block;width:100%;aspect-ratio:16/9;border:0;background:var(--ink)}
+.people .add{display:flex;flex-wrap:wrap;align-items:center;gap:14px 24px;margin-top:24px}
+.people .add .btn{font-size:26px;padding:14px 32px}
+.people .count b{color:var(--ink);font-weight:600}
+.people .hint{flex-basis:100%;font-size:14px;line-height:1.5}
+.sprites{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px;margin-top:28px}
+.sprites:empty{display:none}
+.who{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 8px;border:2px solid var(--blue);text-align:center}
+.who .walk{width:96px;height:96px;background-repeat:no-repeat;background-size:384px 384px;background-position:0 -192px;image-rendering:pixelated;animation:walk .52s steps(4) infinite}
+@keyframes walk{from{background-position-x:0}to{background-position-x:-384px}}
+.who .nm{font:400 16px/1.1 var(--dot);color:var(--blue);overflow-wrap:anywhere}
+.who .pn{font:500 12px/1 var(--mono);letter-spacing:.14em;color:var(--grey)}
+@media (prefers-reduced-motion:reduce){.who .walk{animation:none}}
+
 /* 5. artists of the wall: a one-line band on paper */
 .artband{padding:22px var(--padx);border-bottom:2px solid var(--blue)}
 .artband .wrap{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px 24px}
@@ -166,7 +184,7 @@ dialog::backdrop{background:rgba(20,22,31,.6)}
 <!-- 1. nav -->
 <nav>
   <a class="brand" href="#top"><i></i><span>The Wall Arcade</span></a>
-  <div class="links"><a href="#games">Games</a><a href="#jackpot">Jackpot</a><a href="#artists">Artists</a></div>
+  <div class="links"><a href="#games">Games</a><a href="#jackpot">Jackpot</a><a href="#people">People</a><a href="#artists">Artists</a></div>
   <div class="navr">
     <a class="btn" href="#games">PLAY</a>
     <button class="info" id="infoBtn" type="button" aria-label="How it works" aria-haspopup="dialog">i</button>
@@ -238,6 +256,20 @@ dialog::backdrop{background:rgba(20,22,31,.6)}
       <div class="board" data-game="full-row"><div class="bh"><span>FULL ROW</span><span>Top 3</span></div><p class="empty">Loading…</p></div>
       <div class="board" data-game="unbreakable"><div class="bh"><span>UNBREAKABLE</span><span>Top 3</span></div><p class="empty">Loading…</p></div>
     </div>
+  </div>
+</section>
+
+<!-- people of the wall: the Sprite Party scene, the counter, ADD YOURSELF, the sprites of the wall (people.json) -->
+<section class="people" id="people">
+  <div class="wrap">
+    <h2 class="anton">People of the wall</h2>
+    <div class="scene"><iframe src="https://www.spriteparty.com/p/sp_Fr4EW5t7XNjm0E_q/composition" title="People of the wall, walking" loading="lazy" allow="fullscreen"></iframe></div>
+    <div class="add">
+      <p class="lbl count"><b id="peopleWith">—</b> <span id="peopleOf">of — names</span> <span id="peopleVerb">have</span> a character</p>
+      <a class="btn" href="https://www.spriteparty.com/p/sp_Fr4EW5t7XNjm0E_q/capture" target="_blank" rel="noopener">ADD YOURSELF <span>→</span></a>
+      <p class="hint">Player name: type your name exactly as it is painted on the wall.</p>
+    </div>
+    <div class="sprites" id="sprites"></div>
   </div>
 </section>
 
@@ -360,6 +392,22 @@ GAMES.forEach(function (g) {
       }).join('');
     }).catch(empty);
 });
+
+/* ---- the people of the wall: the card service's people.json (one object per named panel, its walking sprite or null);
+   a sprite sheet is 4 × 4 frames of 48 px, row 2 faces us, 4 steps of 130 ms ---- */
+try {
+  fetch('https://wall-arcade-cards.netlify.app/people.json').then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function (people) {
+    if (!Array.isArray(people)) return;
+    var withSprite = people.filter(function (p) { return p && p.sprite && /^https:\/\/wall-arcade-cards\.netlify\.app\/people\/sprites\/[0-9a-f-]{36}\.png$/.test(p.sprite.url); });
+    document.getElementById('peopleWith').textContent = withSprite.length;
+    document.getElementById('peopleOf').textContent = 'of ' + people.length + ' names';
+    document.getElementById('peopleVerb').textContent = withSprite.length === 1 ? 'has' : 'have';
+    document.getElementById('sprites').innerHTML = withSprite.map(function (p) {
+      return '<div class="who"><div class="walk" style="background-image:url(' + p.sprite.url + ')" role="img" aria-label="' + esc(p.name) + '"></div>' +
+        '<span class="nm">' + esc(p.name) + '</span><span class="pn">#' + esc(p.panel) + '</span></div>';
+    }).join('');
+  }).catch(function () {});
+} catch (e) {}
 
 /* ---- the (i) ---- */
 var how = document.getElementById('how');

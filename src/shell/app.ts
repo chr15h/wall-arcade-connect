@@ -501,7 +501,24 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
   }
 
   /* --------------------------- wallet panel ----------------------------- */
+  /* A holder of a name of the wall with no character yet (the card service's people.json): one band under the bar, with
+     the name to type as "Player name" at Sprite Party. Read once per signed-in wallet; nothing shown if it cannot be read. */
+  let peopleFor = '';
+  function renderPeopleBand(): void {
+    const wallet = address();
+    if (!wallet || wallet === peopleFor) return;
+    peopleFor = wallet;
+    void fetch(`${CARD_SERVICE}/people.json`).then((r) => (r.ok ? r.json() : [])).then((people: { name?: unknown; wallet?: unknown; sprite?: unknown }[]) => {
+      if (address() !== wallet || !Array.isArray(people)) return;
+      const mine = people.filter((p) => typeof p.wallet === 'string' && p.wallet === wallet && typeof p.name === 'string');
+      const show = mine.length > 0 && !mine.some((p) => p.sprite);
+      if (show) requiredElement('#people-band-name').textContent = mine[0]?.name as string;
+      requiredElement('#people-band').hidden = !show;
+      document.body.classList.toggle('has-band', show);
+    }).catch(() => undefined);
+  }
   function renderAuth(): void {
+    renderPeopleBand();
     const current = session();
     renderWalletLabel();
     ui.signIn.hidden = authenticated;
