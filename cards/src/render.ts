@@ -2,6 +2,7 @@
 // registered under the family names it asks for, the dragon decoded once.
 import { GlobalFonts, createCanvas, loadImage } from '@napi-rs/canvas';
 import { boardCard, fullRowCard, unbreakableCard, xPreview, type CardEnv, type DragonImage } from '../../src/share/card-draw.js';
+import type { SpriteSheet } from '../../src/share/sprite.js';
 import { ANTON_400, DRAGON_JPG, MONO_400, MONO_500 } from './assets.generated.js';
 import { GAMES, gameOf, type Card } from './validate.js';
 import { lisbonWeek, weekEnds } from './week.js';
@@ -20,18 +21,24 @@ function setup(): Promise<void> {
 const env: CardEnv = { createCanvas: (w, h) => createCanvas(w, h) as unknown as HTMLCanvasElement };
 const encode = (canvas: HTMLCanvasElement): Buffer => (canvas as unknown as { toBuffer(mime: 'image/png'): Buffer }).toBuffer('image/png');
 
-function square(card: Card, wallNames: readonly string[]): HTMLCanvasElement {
+function square(card: Card, wallNames: readonly string[], sprites: (SpriteSheet | null)[]): HTMLCanvasElement {
   const game = GAMES[gameOf(card)];
   const base = { game: game.title, url: game.url, wallNames, dragon };
   if (card.kind === 'row') {
-    return fullRowCard(env, base, { names: card.names, line: card.line, grid: card.grid, score: card.score, rank: card.rank, player: card.player, practice: card.practice });
+    return fullRowCard(env, base, { names: card.names, line: card.line, grid: card.grid, score: card.score, rank: card.rank, player: card.player, practice: card.practice, sprites });
   }
   if (card.kind === 'bounce') return unbreakableCard(env, base, { people: card.people, names: card.names, score: card.score, rank: card.rank, player: card.player, practice: card.practice });
   return boardCard(env, base, { rows: card.rows, caption: `THIS WEEK · ${weekEnds(lisbonWeek()).toUpperCase()}` });
 }
-/** The card itself (1080 × 1080) and its X preview (1200 × 630, the whole card visible). */
-export async function renderCard(card: Card, wallNames: readonly string[]): Promise<{ square: Buffer; preview: Buffer }> {
+/** A mirrored sprite sheet, decoded; null if it is not a picture. */
+async function decode(bytes: Uint8Array | null): Promise<SpriteSheet | null> {
+  if (!bytes) return null;
+  try { return await loadImage(Buffer.from(bytes)) as unknown as SpriteSheet; } catch { return null; }
+}
+/** The card itself (1080 × 1080) and its X preview (1200 × 630, the whole card visible); `sheets`: a row card's
+ *  sprite sheets, in the order of its names. */
+export async function renderCard(card: Card, wallNames: readonly string[], sheets: (Uint8Array | null)[] = []): Promise<{ square: Buffer; preview: Buffer }> {
   await setup();
-  const sq = square(card, wallNames);
+  const sq = square(card, wallNames, await Promise.all(sheets.map(decode)));
   return { square: encode(sq), preview: encode(xPreview(env, sq, wallNames)) };
 }

@@ -14,6 +14,7 @@
 :root{--concrete:#DEDBD3;--ink:#0B0B0B;--chalk:#F2F0EB;--label:#6B685F;--rule:#C4C0B6;--blue:#2E7FD6;
   --anton:Anton,Impact,'Arial Narrow',sans-serif;--mono:'IBM Plex Mono',ui-monospace,monospace;--inter:Inter,system-ui,sans-serif;--padx:max(16px,5%)}
 *{box-sizing:border-box}
+html{scroll-behavior:smooth}
 html,body{margin:0;padding:0;background:var(--concrete);color:var(--ink)}
 body{font-family:var(--inter);-webkit-font-smoothing:antialiased;overflow-x:hidden}
 p,h1,h2,h3{margin:0}
@@ -82,9 +83,9 @@ footer a{color:var(--label)}
   <div>
     <p class="lbl">The Wall Arcade · For artists</p>
     <h1 class="anton">Make a game on the wall.</h1>
-    <p class="line">A real wall in Lisbon, 500 names, an arcade with real players. Your game, your name on it.</p>
+    <p class="line">Copy one file, paste it into your AI, publish on SuperRare Studio. Four steps, one evening.</p>
     <div class="actions">
-      <button class="btn blue copy" type="button">Copy the kit</button>
+      <a class="btn blue" href="#how">Make my game →</a>
       <a class="small" href="./">see the games →</a>
     </div>
   </div>
@@ -105,7 +106,7 @@ footer a{color:var(--label)}
 </section>
 
 <!-- 3. how it works -->
-<section>
+<section id="how">
   <p class="lbl">How it works</p>
   <div class="steps">
     <div class="step">
@@ -113,10 +114,11 @@ footer a{color:var(--label)}
       <h3 class="anton">Copy the kit</h3>
       <p class="line">One file. It tells your AI everything about the wall and the arcade's plumbing.</p>
       <button class="btn blue copy" type="button">Copy the kit</button>
+      <p class="small"><a href="./assets.html">the wall's sprites, names, colours, fonts →</a></p>
     </div>
     <div class="step">
       <div class="n anton">2</div>
-      <h3 class="anton">Paste it into your AI</h3>
+      <h3 class="anton">Paste it into your AI (Claude, ChatGPT…)</h3>
       <p class="line">Claude, ChatGPT, whatever you use. Add one sentence: the game you have in mind.</p>
       <p class="bubble">Make a memory game where I match the two halves of each name.</p>
     </div>
@@ -149,6 +151,7 @@ footer a{color:var(--label)}
 <footer>
   <a href="https://onthewall.nfcsummit.com" target="_blank" rel="noopener">A Remix The Wall experiment · NFC Summit 2027 · Lisbon</a>
   <span>Built with <a href="https://studio.superrare.com" target="_blank" rel="noopener">SuperRare Studio</a></span>
+  <a href="./assets.html">The Wall Kit</a>
   <a href="./">← the arcade</a>
 </footer>
 
@@ -189,9 +192,9 @@ function fallbackCopy(text) {
 Array.prototype.forEach.call(document.querySelectorAll('.copy'), function (button) {
   var timer = 0;
   function flash(ok) {
-    button.textContent = ok ? 'Copied' : 'Copy failed, try again';
+    button.textContent = ok ? 'Copied. Now paste it into Claude or ChatGPT.' : 'Copy failed, try again';
     clearTimeout(timer);
-    timer = setTimeout(function () { button.textContent = 'Copy the kit'; }, 2200);
+    timer = setTimeout(function () { button.textContent = 'Copy the kit'; }, 4500);
   }
   button.onclick = function () {
     if (navigator.clipboard && window.isSecureContext) {

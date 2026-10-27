@@ -12,6 +12,8 @@ import { scoringConfiguration } from '../../shell/config.js';
 import { rankOf, renderEndScreen, type EndMemo } from '../../share/end-screen.js';
 import { fitTweet, tag } from '../../share/post.js';
 import dragonUrl from '../../assets/dragon.jpg';
+import { loadPeople, onPeople, sheetOfName } from '../../shell/people.js';
+import { drawSprite, stepAt } from '../../share/sprite.js';
 import { fmtClock, lastMinute, ticksLeft } from './clock.js';
 import { COUPLES, holderDrawOf, isoWeekKey, panelForDraw, wallNeighbors, weekOffset } from './names.js';
 import {
@@ -92,6 +94,10 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
   const nameOfDraw = (draw: number): string => (infoOf(panelOf(draw)).name || '?').toUpperCase();
   const handleOfDraw = (draw: number): string => infoOf(panelOf(draw)).handle;
   const isHolderDraw = (draw: number): boolean => holder !== null && draw === holder.draw;
+
+  // the people of the wall (people.json): the walking sprites of a painted row's names, on ROW PAINTED and on the card
+  void loadPeople();
+  onPeople(() => { dirty = true; if (mode === 'end') renderEnd(); });
 
   /* --------------------------------- audio --------------------------------- */
   let AC: AudioContext | null = null, noiseBuf: AudioBuffer | null = null, sndBudget = 0, muted = false;
@@ -228,6 +234,7 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
     if (seen && seen.seed === next.seed && next.play.placed === seen.play.placed + 1) applyMove(seen, next);
     else if (seen && next.play.placed > seen.play.placed + 1) effectsUpTo = Math.max(effectsUpTo, next.play.placed);   // a jump (reload): cells stay unnamed
     if (!seen && next.play.placed > 0) effectsUpTo = next.play.placed;
+    for (let s = 0; s < 3; s++) sheetOfName(nameOfDraw(next.play.drawn - 3 + s));   // the hand's sprites, loaded before a row is painted
     for (let i = 0; i < N * N; i++) {
       const filled = ((next.play.rows[Math.floor(i / N)] as number) >> (i % N)) & 1;
       if (!filled) owner[i] = -1;
@@ -470,8 +477,24 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
       ctx.fillStyle = INK; ctx.fillRect(GX - 6, GY - 6, GRID + 12, 2); ctx.fillRect(GX - 6, GY + GRID + 4, GRID + 12, 2);
       const grow = 1 + 0.06 * (1 - momentLeft() / 0.7);
       anton(moment.label, W / 2, GY + 62, fitAnton(moment.label, GRID - 30, 54) * grow, INK, 'center');
-      const names = moment.draws.map(nameOfDraw).slice(0, 6), top = GY + 116, lh = Math.min(52, (GRID - 140) / Math.max(1, names.length));
-      names.forEach((nm, i) => anton(nm, W / 2, top + lh * (i + 0.5), Math.min(fitAnton(nm, GRID - 40, lh * 0.95), lh * 0.95), INK, 'center'));
+      // the names that have a character walk under the title, their name under them; the others stay in text
+      const names = moment.draws.map(nameOfDraw).slice(0, 6), sheets = names.map(sheetOfName);
+      const walkers = sheets.filter(Boolean).length;
+      let top = GY + 116;
+      if (walkers) {
+        const gap = 14, size = Math.floor(Math.min(96, (GRID - 24 - (walkers - 1) * gap) / walkers)), y = GY + 92, step = stepAt(performance.now());
+        let x = W / 2 - (walkers * size + (walkers - 1) * gap) / 2;
+        names.forEach((nm, i) => {
+          const sheet = sheets[i]; if (!sheet) return;
+          drawSprite(ctx, sheet, x, y, size, step);
+          let t = nm; while (t.length > 3 && monoWidth(t.length, 11, 0.06) > size + gap - 4) t = `${t.slice(0, -2)}…`;
+          mono(t, x + size / 2, y + size + 8, 11, INK, 'center', 0.06, 500);
+          x += size + gap;
+        });
+        top = y + size + 24;
+      }
+      const rest = names.filter((_, i) => !sheets[i]), lh = Math.min(52, (GY + GRID - 24 - top) / Math.max(1, rest.length));
+      rest.forEach((nm, i) => anton(nm, W / 2, top + lh * (i + 0.5), Math.min(fitAnton(nm, GRID - 40, lh * 0.95), lh * 0.95), INK, 'center'));
     }
     if (refT > 0 && momentLeft() <= 0) {
       const y = GY + GRID / 2 - 26;
@@ -586,7 +609,7 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
     const extra = { ...(grid ? { grid } : {}), ...(rank ? { rank } : {}), ...(player ? { player } : {}) };
     renderEndScreen(endPanel, {
       game: 'FULL ROW', gameUrl,
-      card: { kind: 'row', data: { names, ...(row ? { line: row.label } : {}), score, practice, ...extra } },
+      card: { kind: 'row', data: { names, sprites: names.map(sheetOfName), ...(row ? { line: row.label } : {}), score, practice, ...extra } },
       // always something to post on a real run: the painted row when there is one, else the final grid and the score
       post: practice ? null : { kind: 'row', names, ...(row ? { line: row.label } : {}), score, ...extra },
       tweet: (link) => (row

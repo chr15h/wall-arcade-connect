@@ -24,6 +24,7 @@
     "src/**/*.ts",
     "src/**/*.js",
     "scripts/**/*.ts",
-    "tests/**/*.ts"
+    "tests/**/*.ts",
+    "hub/**/*.ts"
   ]
 }

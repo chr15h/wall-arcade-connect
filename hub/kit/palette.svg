@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="300" viewBox="0 0 960 300" font-family="IBM Plex Mono, ui-monospace, monospace" font-size="18" letter-spacing="2">
+  <title>THE WALL ARCADE palette: the games and the cards</title>
+  <rect x="0" y="0" width="240" height="220" fill="#DEDBD3"/><rect x="240" y="0" width="240" height="220" fill="#0B0B0B"/>
+  <rect x="480" y="0" width="240" height="220" fill="#F2F0EB"/><rect x="720" y="0" width="240" height="220" fill="#2E7FD6"/>
+  <rect x="0" y="220" width="960" height="80" fill="#F2F0EB"/>
+  <text x="20" y="252" fill="#0B0B0B">CONCRETE</text><text x="20" y="280" fill="#6B685F">#DEDBD3</text>
+  <text x="260" y="252" fill="#0B0B0B">INK</text><text x="260" y="280" fill="#6B685F">#0B0B0B</text>
+  <text x="500" y="252" fill="#0B0B0B">CHALK</text><text x="500" y="280" fill="#6B685F">#F2F0EB</text>
+  <text x="740" y="252" fill="#0B0B0B">BLUE</text><text x="740" y="280" fill="#6B685F">#2E7FD6</text>
+</svg>

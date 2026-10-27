@@ -2,6 +2,8 @@
 // blue, a small grey dragon cut by an edge, THE WALL ARCADE and the game's address at the bottom). Pure drawing on an injected
 // canvas: the card service (cards/) renders them server-side with @napi-rs/canvas and the fonts registered under the
 // family names below (Anton and IBM Plex Mono, SIL OFL).
+import { drawSprite, type SpriteSheet } from './sprite.js';
+
 export const CARD = 1080;
 const INK = '#0B0B0B', CONCRETE = '#DEDBD3', LABEL = '#6B685F', BLUE = '#2E7FD6';
 const ANTON = '"WallCard Anton"', MONO = '"WallCard Mono"';
@@ -99,13 +101,16 @@ function scoreBlock(g: CanvasRenderingContext2D, x: number, y: number, maxW: num
   }
 }
 
-/** Names, big, one per line, from `top` down to `bottom`, left of the dragon. */
-function bigNames(g: CanvasRenderingContext2D, names: string[], top: number, bottom: number, maxW: number): void {
+/** Names, big, one per line, from `top` down to `bottom`, left of the dragon; a name's walking sprite (facing us)
+ *  stands right after it when it has one. */
+function bigNames(g: CanvasRenderingContext2D, names: string[], top: number, bottom: number, maxW: number, sprites: readonly (SpriteSheet | null | undefined)[] = []): void {
   const list = names.length ? names.slice(0, 5) : ['—'];
   const lh = Math.min(96, (bottom - top) / list.length);
   list.forEach((name, i) => {
-    const size = Math.min(antonFit(g, name, maxW, lh * 1.02), lh * 1.02);
-    anton(g, name, M - 3, top + lh * (i + 1) - lh * 0.12, size, INK);
+    const sprite = names.length ? sprites[i] : null, room = sprite ? maxW - lh - 16 : maxW;
+    const size = Math.min(antonFit(g, name, room, lh * 1.02), lh * 1.02), base = top + lh * (i + 1) - lh * 0.12;
+    anton(g, name, M - 3, base, size, INK);
+    if (sprite) drawSprite(g, sprite, M - 3 + g.measureText(name).width + 16, base - lh * 0.96, lh);
   });
 }
 
@@ -117,6 +122,8 @@ export type RowCardData = {
   line?: string;
   /** The final 8 × 8 grid, 8 row bytes (bit x of rows[y] = cell (x, y)), when known. */
   grid?: number[];
+  /** The names' walking sprites (people.json), in the same order; null for a name without one. */
+  sprites?: readonly (SpriteSheet | null | undefined)[];
   score: number;
   rank?: number;
   player?: string;
@@ -139,7 +146,7 @@ export function fullRowCard(env: CardEnv, base: CardBase, data: RowCardData): HT
   g.fillStyle = INK;
   for (let i = 0; i <= 8; i++) { g.fillRect(gx + i * cell, gy, 2, size + 2); g.fillRect(gx, gy + i * cell, size + 2, 2); }
   scoreBlock(g, gx + size + 48, gy + 120, CARD - (gx + size + 48) - M, data);
-  if (data.names.length) bigNames(g, data.names, gy + size + 24, CARD - 110, 640);
+  if (data.names.length) bigNames(g, data.names, gy + size + 24, CARD - 110, 640, data.sprites);
   return canvas;
 }
 

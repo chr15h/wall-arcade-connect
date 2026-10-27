@@ -8,6 +8,8 @@ import { allNames, infoOf, namedPanelCount, wallIsLive } from '../../shell/wall-
 import { ELIG } from '../../generated/wall.js';
 import { scoringConfiguration } from '../../shell/config.js';
 import dragonUrl from '../../assets/dragon.jpg';
+import { loadPeople, onPeople, sheetOfWallet } from '../../shell/people.js';
+import { drawSprite, stepAt } from '../../share/sprite.js';
 import type { EndStats } from '../../shell/adapter.js';
 import { rankOf, renderEndScreen, type EndMemo } from '../../share/end-screen.js';
 import { fitTweet, tag } from '../../share/post.js';
@@ -318,9 +320,18 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
     if (!dragonReady || !dragon.naturalWidth) return;
     ctx.save(); ctx.globalCompositeOperation = 'multiply'; ctx.drawImage(dragon, x, y, w, w * dragon.naturalHeight / dragon.naturalWidth); ctx.restore();
   }
+  // the signed-in player's walking sprite (people.json), when they have one, stands where the dragon was
+  void loadPeople();
+  onPeople(() => { dirty = true; });
+  function drawMine(x: number, y: number, size: number): boolean {
+    const sheet = sheetOfWallet(io.playerAddress?.());
+    if (!sheet) return false;
+    drawSprite(ctx, sheet, x, y, size, stepAt(performance.now()));
+    return true;
+  }
   function drawIdle(): void {
     // The page's overlay carries the words: the canvas shows the wall behind it, a small dragon cut by the right edge.
-    drawDragon(W - 150, H - 330, 270);
+    if (!drawMine(W - 140, H - 156, 120)) drawDragon(W - 150, H - 330, 270);
   }
   function draw(): void {
     const pw = Math.round(W * DPRc), ph = Math.round(H * DPRc);
@@ -330,7 +341,7 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(bg as HTMLCanvasElement, 0, 0, canvas.width, canvas.height);
     ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
     if (shake > 0.3) ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
-    if (mode === 'play' && local) { drawDragon(W - 130, H - 170, 190); drawBoard(local, local); }
+    if (mode === 'play' && local) { if (!drawMine(W - 88, FLOOR - 2, 72)) drawDragon(W - 130, H - 170, 190); drawBoard(local, local); }
     else if (mode !== 'end') drawIdle();                               // the end: the card covers the board
   }
 
@@ -417,8 +428,12 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
       tickNow = Math.max(local.tick, io.estimatedTick());
       if (tickNow > local.tick && !local.gameOver) engine.advanceInPlace(local, tickNow, sink);
       draw();
-    } else if (dirty || particles.length || shake > 0) { draw(); dirty = false; }
+    } else {
+      if (mode === 'idle' && stepAt(t) !== idleStep && sheetOfWallet(io.playerAddress?.())) { idleStep = stepAt(t); dirty = true; }   // the sprite walks
+      if (dirty || particles.length || shake > 0) { draw(); dirty = false; }
+    }
   }
+  let idleStep = -1;
   requestAnimationFrame(frame);
   addEventListener('pagehide', () => { if (!practice) hits.flush(); });
 

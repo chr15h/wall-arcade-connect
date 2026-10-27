@@ -14,7 +14,9 @@ export interface CardStore {
   set(key: string, value: string | ArrayBuffer | Blob): Promise<unknown>;
 }
 export type LeaderEntry = { rank: number; score: string | number; player?: { kind?: string; displayName?: string; ensName?: string | null } };
-export type Deps = { store: CardStore; wallNames(): Promise<string[]>; leaderboard(game: GameKey): Promise<LeaderEntry[]> };
+/** The people of the wall (the PEOPLE store of this site): a name's sprite id, and a mirrored sheet's bytes. */
+export type PeopleSprites = { idsOf(names: string[]): Promise<(string | null)[]>; sheet(id: string): Promise<Uint8Array | null> };
+export type Deps = { store: CardStore; wallNames(): Promise<string[]>; leaderboard(game: GameKey): Promise<LeaderEntry[]>; people?: PeopleSprites };
 
 const ALLOWED_ORIGINS = new Set(['https://yfq52eu3.srstudio.dev', 'https://7x2phv5j.srstudio.dev', 'https://6972mvu4.srstudio.dev']);
 const isAllowed = (origin: string | null): boolean => origin !== null && (ALLOWED_ORIGINS.has(origin) || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin));
@@ -90,6 +92,21 @@ async function boardFromPlatform(asked: BoardRequest, deps: Deps): Promise<Board
   return { kind: 'board', game: asked.game, rows: [...rows.filter((r) => r.rank <= 5), ...(me && me.rank > 5 ? [me] : [])].slice(0, 6) };
 }
 
+/** A row card carries the sprites of its names (when any has one): resolved here, so a card made after a person got
+ *  their character is another card. Nothing if PEOPLE cannot be read. */
+async function withSprites(card: Card, deps: Deps): Promise<Card> {
+  if (card.kind !== 'row' || !card.names.length || !deps.people) return card;
+  try {
+    const ids = await deps.people.idsOf(card.names);
+    return ids.some(Boolean) ? { ...card, sprites: ids } : card;
+  } catch { return card; }
+}
+async function sheetsOf(card: Card, deps: Deps): Promise<(Uint8Array | null)[]> {
+  if (card.kind !== 'row' || !card.sprites || !deps.people) return [];
+  const people = deps.people;
+  return Promise.all(card.sprites.map((id) => (id ? people.sheet(id).catch(() => null) : null)));
+}
+
 async function stored(deps: Deps, id: string): Promise<Card | null> {
   const value = await deps.store.get(`${id}.json`, 'json');
   return value && typeof value === 'object' ? value as Card : null;
@@ -106,14 +123,14 @@ export async function handle(request: Request, deps: Deps): Promise<Response> {
     try {
       const wall = new Set((await deps.wallNames()).map((n) => n.trim().toUpperCase()));
       const asked = validate(JSON.parse(raw) as unknown, wall);
-      card = asked.kind === 'board' ? await boardFromPlatform(asked, deps) : asked;
+      card = asked.kind === 'board' ? await boardFromPlatform(asked, deps) : await withSprites(asked, deps);
     } catch (error) {
       if (error instanceof BoardUnavailable) return json(request, 502, { error: error.message });
       return json(request, 400, { error: error instanceof CardError ? error.message : 'invalid JSON' });
     }
     const id = cardId(card);
     if (!(await stored(deps, id))) {
-      const { square, preview } = await renderCard(card, await deps.wallNames());
+      const { square, preview } = await renderCard(card, await deps.wallNames(), await sheetsOf(card, deps));
       await deps.store.set(`${id}.png`, square.buffer.slice(square.byteOffset, square.byteOffset + square.byteLength) as ArrayBuffer);
       await deps.store.set(`${id}.x.png`, preview.buffer.slice(preview.byteOffset, preview.byteOffset + preview.byteLength) as ArrayBuffer);
       await deps.store.set(`${id}.json`, JSON.stringify(card));
@@ -128,7 +145,7 @@ export async function handle(request: Request, deps: Deps): Promise<Response> {
     if (!ext) return new Response(page(origin, id, card), { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=300' } });
     let png = await deps.store.get(`${id}${ext}`, 'arrayBuffer');
     if (!png) {                                                    // rendered on demand if the stored image is missing
-      const { square, preview } = await renderCard(card, await deps.wallNames());
+      const { square, preview } = await renderCard(card, await deps.wallNames(), await sheetsOf(card, deps));
       const buf = ext === '.png' ? square : preview;
       png = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer;
       await deps.store.set(`${id}${ext}`, png);

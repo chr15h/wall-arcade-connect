@@ -62,6 +62,15 @@ THE WALL (public data, free, no key)
   The verifier has NO network: embed the names it needs as a snapshot at build time. In the browser, fetch the live data at
   load and fall back to the snapshot if it fails.
 
+PEOPLE OF THE WALL: every person of the wall has a walking sprite. Use them.
+  GET https://wall-arcade-cards.netlify.app/people.json   (public, no key, CORS *, refreshed every 5 minutes)
+  Array of { panel, name, handle, wallet?, sprite: { id, url, cols: 4, rows: 4, frame: 48 } | null, updatedAt },
+  one per name painted on the wall; "sprite" is null until that person makes a character.
+  A sheet is a PNG 192 x 192, transparent, 4 x 4 frames of 48 px. Row = direction: 0 up, 1 right, 2 down (facing you),
+  3 left. Column = step: 4 steps, 130 ms each. Draw ctx.drawImage(img, step*48, row*48, 48, 48, x, y, w, h) with
+  img.crossOrigin = "anonymous" and ctx.imageSmoothingEnabled = false. Display only: never part of a score, never in the
+  verifier. Every sheet, the names, the palette, the fonts and the dragon: https://6972mvu4.srstudio.dev/assets.html
+
 IDENTITY (use, remix or ignore): concrete #DEDBD3, ink #0B0B0B, chalk #F2F0EB, one blue #2E7FD6; Anton for titles.
 
 THE DEAL: Every paid play goes straight into the jackpot. Every Friday it's split: half to the best score on each game, 40% to the artists who made the games, 10% to the wall.

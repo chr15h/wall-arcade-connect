@@ -8,7 +8,9 @@ export type GameKey = keyof typeof GAMES;
 
 /** `grid`: the final 8 × 8 grid as 8 row bytes; `rank`: the player's rank this week, as the page read it from the
  *  platform's leaderboard. `points` (the best row's points) is accepted from older pages and no longer drawn. */
-export type RowCard = { kind: 'row'; names: string[]; line?: string; score: number; grid?: number[]; rank?: number; player?: string; practice: boolean };
+export type RowCard = { kind: 'row'; names: string[]; line?: string; score: number; grid?: number[]; rank?: number; player?: string; practice: boolean;
+  /** The names' sprite ids (people.json), added by the service, never taken from a request. */
+  sprites?: (string | null)[] };
 export type BounceCard = { kind: 'bounce'; names: string[]; people: number; score: number; rank?: number; player?: string; practice: boolean };
 /** A leaderboard card as asked for: which game, and optionally which player to highlight. The rows themselves are read
  *  by the service from the platform's public leaderboard, never taken from the request. */

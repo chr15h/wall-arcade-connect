@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>THE WALL KIT · THE WALL ARCADE</title>
+<meta name="description" content="Everything of the wall to make a game: the people and their walking sprites, the names, the palette, the fonts, the dragon.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=DotGothic16&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* THE WALL KIT: the assets of the wall for artists, in the hub's look (paper, ink, one blue, the yellow highlight;
+   Anton, DotGothic16, IBM Plex Mono). One asset per block: a title, one line, one Download button. Mobile first. */
+:root{--paper:#FBF8EC;--ink:#14161F;--blue:#3F4BA2;--yellow:#FFF8A7;--grey:#464A5E;
+  --anton:Anton,Impact,sans-serif;--dot:'DotGothic16',monospace;--mono:'IBM Plex Mono',ui-monospace,monospace;--padx:clamp(16px,4vw,48px)}
+*{box-sizing:border-box;border-radius:0}
+[hidden]{display:none!important}
+html,body{margin:0;padding:0;background:var(--paper);color:var(--ink)}
+body{font-family:var(--mono);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:var(--blue)}a:hover{color:var(--ink)}
+p,h1,h2,h3,pre{margin:0}
+.wrap{max-width:1280px;margin:0 auto}
+.lbl{font:500 12px/1.4 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--grey)}
+.anton{font-family:var(--anton);font-weight:400;text-transform:uppercase;letter-spacing:-.01em}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:12px;min-height:48px;padding:12px 24px;border:2px solid var(--blue);background:var(--blue);color:var(--paper);
+  text-decoration:none;font:400 22px/1 var(--dot);cursor:pointer}
+.btn:hover{background:var(--paper);color:var(--blue)}
+nav{position:sticky;top:0;z-index:20;background:#FBF8ECf2;border-bottom:2px solid var(--blue);padding:0 var(--padx);height:64px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink)}
+.brand i{width:14px;height:14px;background:var(--blue);display:block}
+.brand span{font:600 12px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase}
+nav .lbl a{text-decoration:none;color:var(--grey)}
+header{padding:clamp(40px,7vw,96px) var(--padx) clamp(28px,4vw,48px)}
+header h1{color:var(--blue);font-size:clamp(64px,11vw,156px);line-height:.88}
+header p{margin-top:18px;font-size:clamp(15px,1.4vw,18px);line-height:1.5;max-width:52ch}
+main{padding:0 var(--padx) clamp(48px,7vw,96px)}
+.grid{display:grid;grid-template-columns:1fr;gap:clamp(16px,2.5vw,28px)}
+.asset{display:flex;flex-direction:column;border:2px solid var(--blue);background:var(--paper);min-width:0}
+.asset .head{background:var(--blue);color:var(--paper);padding:14px 16px 12px;display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.asset h2{font:400 24px/1 var(--dot)}
+.asset .head span{font:500 12px/1 var(--mono);letter-spacing:.14em}
+.asset .line{padding:14px 16px 4px;font-size:15px;line-height:1.5}
+.asset .body{padding:12px 16px;min-width:0}
+.asset .foot{margin:auto 16px 16px;border-top:2px solid var(--blue);padding-top:14px;display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px}
+.asset .foot .lbl{overflow-wrap:anywhere}
+pre{overflow-x:auto;padding:14px;background:var(--ink);color:var(--paper);font:400 12.5px/1.55 var(--mono);white-space:pre;-webkit-overflow-scrolling:touch}
+pre b{color:var(--yellow);font-weight:400}
+.sprites{display:flex;flex-wrap:wrap;gap:8px}
+.walk{width:96px;height:96px;background-repeat:no-repeat;background-size:384px 384px;background-position:0 -192px;image-rendering:pixelated;animation:walk .52s steps(4) infinite;border:2px dashed var(--blue)}
+@keyframes walk{from{background-position-x:0}to{background-position-x:-384px}}
+@media (prefers-reduced-motion:reduce){.walk{animation:none}}
+.swatches{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:2px solid var(--ink)}
+.swatches div{aspect-ratio:1;display:flex;flex-direction:column;justify-content:flex-end;padding:8px;font:500 11px/1.35 var(--mono);letter-spacing:.08em}
+.fonts p{padding:8px 0;border-bottom:1px solid #3F4BA244;display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.fonts p:last-child{border-bottom:0}
+.fonts .s{font-size:30px;line-height:1.1}
+.dragon{display:block;width:min(200px,60%);margin:0 auto}
+.demo{display:block;width:100%;aspect-ratio:3/1;border:0;background:#DEDBD3}
+.wide{grid-column:1/-1}
+footer{padding:28px var(--padx);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;font:500 12px/1.4 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--grey);max-width:1280px;margin:0 auto;border-top:2px solid var(--blue)}
+footer a{text-decoration:none}
+@media (min-width:760px){ .grid{grid-template-columns:repeat(2,minmax(0,1fr))} }
+@media (min-width:1100px){ .grid{grid-template-columns:repeat(3,minmax(0,1fr))} .asset.two{grid-column:span 2} }
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="brand" href="./"><i></i><span>The Wall Arcade</span></a>
+  <p class="lbl"><a href="./builders.html">Make a game →</a></p>
+</nav>
+
+<header class="wrap">
+  <p class="lbl">For artists</p>
+  <h1 class="anton">The Wall Kit</h1>
+  <p>Everything of the wall, free to use in your game: the people and their walking sprites, the names, the colours, the fonts, the dragon.</p>
+</header>
+
+<main class="wrap grid">
+
+  <!-- a. people.json and its doc in ten lines -->
+  <article class="asset two">
+    <div class="head"><h2>PEOPLE.JSON</h2><span>LIVE</span></div>
+    <p class="line">Every person of the wall has a walking sprite. Use them.</p>
+    <div class="body"><pre>GET <b>https://wall-arcade-cards.netlify.app/people.json</b>   public, no key, CORS *, every 5 min
+[{ "panel": 342, "name": "KARP", "handle": null, "wallet": "0x…",
+   "sprite": { "id": "…", "url": "https://…/people/sprites/&lt;id&gt;.png", "cols": 4, "rows": 4, "frame": 48 },
+   "updatedAt": "2026-10-27T13:23:20.157Z" }, …]
+One object per name painted on the wall. "sprite" is null until that person makes a character.
+A sheet: PNG 192 × 192, transparent, 4 × 4 frames of 48 px.
+Row = direction: <b>0 up · 1 right · 2 down (facing you) · 3 left</b>. Column = step: 4 steps, 130 ms each.
+Draw: <b>ctx.drawImage(img, step*48, row*48, 48, 48, x, y, w, h)</b>, with img.crossOrigin = "anonymous".
+Keep the pixels sharp: ctx.imageSmoothingEnabled = false (CSS: image-rendering: pixelated).
+Display only: a sprite is never part of a score.</pre></div>
+    <div class="foot"><a class="btn" id="dlPeople" href="https://wall-arcade-cards.netlify.app/people.json" download="people.json">DOWNLOAD <span>↓</span></a><span class="lbl" id="peopleCount">people.json</span></div>
+  </article>
+
+  <!-- b. the sprites, zipped -->
+  <article class="asset">
+    <div class="head"><h2>THE SPRITES</h2><span>ZIP</span></div>
+    <p class="line">Every sprite sheet of the wall in one zip, with people.json to know who is who.</p>
+    <div class="body"><div class="sprites" id="sprites"></div></div>
+    <div class="foot"><a class="btn" href="https://wall-arcade-cards.netlify.app/people/sprites.zip" download>DOWNLOAD <span>↓</span></a><span class="lbl" id="spriteCount">—</span></div>
+  </article>
+
+  <!-- c. the names and panels of the wall -->
+  <article class="asset">
+    <div class="head"><h2>THE NAMES</h2><span>JSON</span></div>
+    <p class="line">Every brick of the wall: position, tier, name, owner, X handle. Live at otw-arcade.netlify.app/positions.</p>
+    <div class="body"><pre>{ "position": 342, "tier": "name", "idx": 341,
+  "minted": true, "name": "KARP", "owner": "0x…", "xHandle": "…" }</pre></div>
+    <div class="foot"><a class="btn" href="kit/wall.json" download="the-wall-names.json">DOWNLOAD <span>↓</span></a><span class="lbl">Snapshot of /*BUILT*/</span></div>
+  </article>
+
+  <!-- d. the palette -->
+  <article class="asset">
+    <div class="head"><h2>THE PALETTE</h2><span>SVG</span></div>
+    <p class="line">The colours of the games and the cards: concrete, ink, chalk, one blue.</p>
+    <div class="body"><div class="swatches">
+      <div style="background:#DEDBD3;color:#0B0B0B">CONCRETE<br>#DEDBD3</div>
+      <div style="background:#0B0B0B;color:#F2F0EB">INK<br>#0B0B0B</div>
+      <div style="background:#F2F0EB;color:#0B0B0B">CHALK<br>#F2F0EB</div>
+      <div style="background:#2E7FD6;color:#0B0B0B">BLUE<br>#2E7FD6</div>
+    </div></div>
+    <div class="foot"><a class="btn" href="kit/palette.svg" download="the-wall-palette.svg">DOWNLOAD <span>↓</span></a></div>
+  </article>
+
+  <!-- d. the fonts -->
+  <article class="asset">
+    <div class="head"><h2>THE FONTS</h2><span>OFL</span></div>
+    <p class="line">Three free fonts (SIL Open Font License): Anton for titles, IBM Plex Mono for labels, Inter for sentences.</p>
+    <div class="body fonts">
+      <p><span class="s" style="font-family:Anton,Impact,sans-serif">THE WALL</span><span class="lbl">Anton</span></p>
+      <p><span class="s" style="font:500 22px/1.3 'IBM Plex Mono',monospace;letter-spacing:.14em">NAMES</span><span class="lbl">IBM Plex Mono</span></p>
+      <p><span class="s" style="font:400 22px/1.3 Inter,system-ui,sans-serif">Play the wall.</span><span class="lbl">Inter</span></p>
+    </div>
+    <div class="foot"><a class="btn" href="https://fonts.google.com/share?selection.family=Anton%7CIBM+Plex+Mono:wght@400;500%7CInter:wght@300;400" target="_blank" rel="noopener">DOWNLOAD <span>↓</span></a><span class="lbl">On Google Fonts</span></div>
+  </article>
+
+  <!-- d. the dragon -->
+  <article class="asset">
+    <div class="head"><h2>THE DRAGON</h2><span>PNG</span></div>
+    <p class="line">The wall's dragon, transparent background, 360 × 530.</p>
+    <div class="body"><img class="dragon" src="dragon.png" alt="The dragon of the wall, holding a spray can"></div>
+    <div class="foot"><a class="btn" href="dragon.png" download="the-wall-dragon.png">DOWNLOAD <span>↓</span></a></div>
+  </article>
+
+  <!-- e. twenty lines: a sprite walks on a canvas -->
+  <article class="asset wide">
+    <div class="head"><h2>WALK A SPRITE</h2><span>HTML · 20 LINES</span></div>
+    <p class="line">One file: it reads people.json and makes a person of the wall walk on a canvas. Open it, or paste it into your AI.</p>
+    <div class="body"><iframe class="demo" src="kit/walk-a-sprite.html" title="A person of the wall walking" loading="lazy"></iframe></div>
+    <div class="body"><pre id="walkCode">/*WALK*/</pre></div>
+    <div class="foot"><a class="btn" href="kit/walk-a-sprite.html" download="walk-a-sprite.html">DOWNLOAD <span>↓</span></a></div>
+  </article>
+
+</main>
+
+<footer>
+  <a href="./">← The Wall Arcade</a>
+  <a href="https://onthewall.nfcsummit.com" target="_blank" rel="noopener">A Remix The Wall experiment · NFC Summit 2027 · Lisbon</a>
+</footer>
+
+<script>
+function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+/* the people of the wall (people.json, the card service): the counts and the sprites, walking */
+try {
+  fetch('https://wall-arcade-cards.netlify.app/people.json').then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function (people) {
+    if (!Array.isArray(people)) return;
+    var withSprite = people.filter(function (p) { return p && p.sprite && /^https:\/\/wall-arcade-cards\.netlify\.app\/people\/sprites\/[0-9a-f-]{36}\.png$/.test(p.sprite.url); });
+    document.getElementById('peopleCount').textContent = people.length + ' names · ' + withSprite.length + ' with a sprite';
+    document.getElementById('spriteCount').textContent = withSprite.length + (withSprite.length === 1 ? ' sprite' : ' sprites');
+    document.getElementById('sprites').innerHTML = withSprite.slice(0, 24).map(function (p) {
+      return '<div class="walk" style="background-image:url(' + p.sprite.url + ')" role="img" aria-label="' + esc(p.name) + '" title="' + esc(p.name + ' #' + p.panel) + '"></div>';
+    }).join('');
+  }).catch(function () {});
+} catch (e) {}
+/* people.json lives on another site: saved through a blob, so DOWNLOAD saves it instead of opening it */
+document.getElementById('dlPeople').addEventListener('click', function (e) {
+  if (!window.fetch || !window.URL || !URL.createObjectURL) return;
+  e.preventDefault();
+  var a = this;
+  fetch(a.href).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); }).then(function (blob) {
+    var link = document.createElement('a');
+    link.href = URL.createObjectURL(blob); link.download = 'people.json';
+    document.body.appendChild(link); link.click(); link.remove();
+    setTimeout(function () { URL.revokeObjectURL(link.href); }, 4000);
+  }).catch(function () { window.open(a.href, '_blank', 'noopener'); });
+});
+</script>
+</body>
+</html>

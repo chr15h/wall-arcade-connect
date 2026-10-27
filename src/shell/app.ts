@@ -23,6 +23,7 @@ import { Practice } from './practice.js';
 import { copyText, diag } from './diagnostics.js';
 import { lisbonWeek, WEEK_LABEL, weekEnds } from './week.js';
 import { CARD_SERVICE, wirePostLink } from '../share/post.js';
+import { captureFor, knownCapture, loadPeople, missingCharacter } from './people.js';
 
 function requiredElement<ElementType extends HTMLElement>(selector: string): ElementType {
   const element = document.querySelector<ElementType>(selector);
@@ -324,11 +325,18 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
     if (mode === 'practice-end') {
       actionButton('Play for real · 1 credit', () => void play(), 'play');
       linkButton('practice again', () => startPractice());
-      return;
+    } else {
+      const again = authenticated && credits?.balance && available() < 1 ? 'Buy credits' : 'Play again · 1 credit';
+      actionButton(again, () => void play(again === 'Buy credits'), stage.endStats ? 'ink' : 'play');
+      copyLogButton();                                 // "get on the wall" is the end screen's own small link, under the card
     }
-    const again = authenticated && credits?.balance && available() < 1 ? 'Buy credits' : 'Play again · 1 credit';
-    actionButton(again, () => void play(again === 'Buy credits'), stage.endStats ? 'ink' : 'play');
-    copyLogButton();                                   // "get on the wall" is the end screen's own small link, under the card
+    // a holder of a name with no character yet (people.json): one small link under PLAY AGAIN
+    const capture = knownCapture(address());
+    if (capture && missingCharacter(address())) {
+      const make = node('a', 'Make your character →', 'make-character');
+      make.href = capture; make.target = '_blank'; make.rel = 'noopener';
+      ui.links.append(make);
+    }
   }
   function showEnd(score: number): void {
     diag.add('end', { score, board: board.slice(0, 3).map((e) => e.score) });
@@ -508,14 +516,19 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
     const wallet = address();
     if (!wallet || wallet === peopleFor) return;
     peopleFor = wallet;
-    void fetch(`${CARD_SERVICE}/people.json`).then((r) => (r.ok ? r.json() : [])).then((people: { name?: unknown; wallet?: unknown; sprite?: unknown }[]) => {
-      if (address() !== wallet || !Array.isArray(people)) return;
-      const mine = people.filter((p) => typeof p.wallet === 'string' && p.wallet === wallet && typeof p.name === 'string');
-      const show = mine.length > 0 && !mine.some((p) => p.sprite);
-      if (show) requiredElement('#people-band-name').textContent = mine[0]?.name as string;
+    void loadPeople().then(async () => {
+      const name = address() === wallet ? missingCharacter(wallet) : null;
+      const link = name ? await captureFor(wallet) : null;          // the link only ever comes for a holder
+      if (address() !== wallet) return;
+      const show = Boolean(name && link);
+      if (name && link) {
+        requiredElement('#people-band-name').textContent = name;
+        requiredElement<HTMLAnchorElement>('#people-band-link').href = link;
+      }
       requiredElement('#people-band').hidden = !show;
       document.body.classList.toggle('has-band', show);
-    }).catch(() => undefined);
+      if (mode === 'end' || mode === 'practice-end') endActions();
+    });
   }
   function renderAuth(): void {
     renderPeopleBand();

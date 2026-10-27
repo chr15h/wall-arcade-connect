@@ -1,0 +1,23 @@
+<!doctype html>
+<canvas id="c" width="480" height="160" style="max-width:100%;background:#DEDBD3"></canvas>
+<script>
+// THE WALL KIT: a person of the wall walks across a canvas (people.json, a sprite sheet of 4 x 4 frames of 48 px).
+const c = document.getElementById('c'), g = c.getContext('2d');
+const SIZE = 96, DIR = { UP: 0, RIGHT: 1, DOWN: 2, LEFT: 3 };     // each 48 px frame drawn twice as big
+fetch('https://wall-arcade-cards.netlify.app/people.json').then((r) => r.json()).then((people) => {
+  const who = people.find((p) => p.sprite);                        // the first person who made a character
+  const img = new Image();
+  img.crossOrigin = 'anonymous';                                   // the sheets are served with CORS: canvas-safe
+  img.src = who.sprite.url;
+  let x = 0, dx = 4;
+  img.onload = () => setInterval(() => {
+    if (x < 0 || x > c.width - SIZE) dx = -dx;                     // turn around at each edge
+    x += dx;
+    const step = Math.floor(performance.now() / 130) % 4;          // 4 steps, 130 ms each
+    g.clearRect(0, 0, c.width, c.height);
+    g.imageSmoothingEnabled = false;                               // keep the pixels sharp
+    g.drawImage(img, step * 48, (dx > 0 ? DIR.RIGHT : DIR.LEFT) * 48, 48, 48, x, 44, SIZE, SIZE);
+    g.font = '14px monospace'; g.fillText(`${who.name} #${who.panel}`, x, 30);
+  }, 40);
+});
+</script>

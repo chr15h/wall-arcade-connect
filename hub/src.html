@@ -105,23 +105,30 @@ nav{position:sticky;top:0;z-index:20;background:#FBF8ECf2;backdrop-filter:blur(6
 /* the holders' line under the games */
 .holders{margin-top:24px;font-size:14px;line-height:1.5;color:var(--ink)}
 
-/* people of the wall */
-.people{border-top:2px solid var(--blue)}
-.people h2{font-size:clamp(40px,6vw,84px);line-height:.9;margin-bottom:24px}
-.scene{border:2px solid var(--blue);padding:10px;background:var(--paper)}
-.scene iframe{display:block;width:100%;aspect-ratio:16/9;border:0;background:var(--ink)}
-.people .add{display:flex;flex-wrap:wrap;align-items:center;gap:14px 24px;margin-top:24px}
-.people .add .btn{font-size:26px;padding:14px 32px}
+/* 7. people of the wall: small, at the bottom; the scene at most 480 px high, beside the words on a wide screen */
+.people{border-top:2px solid var(--blue);padding-top:clamp(40px,5vw,72px);padding-bottom:clamp(40px,5vw,72px)}
+.people .two{display:grid;grid-template-columns:1fr;gap:clamp(24px,4vw,48px);align-items:start}
+.people h2{font-size:clamp(32px,4.5vw,56px);line-height:.9}
+.people .count{margin-top:12px}
 .people .count b{color:var(--ink);font-weight:600}
-.people .hint{flex-basis:100%;font-size:14px;line-height:1.5}
-.sprites{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px;margin-top:28px}
+.gate{margin-top:20px;display:flex;flex-direction:column;align-items:flex-start;gap:12px}
+.gate > div{display:flex;flex-direction:column;align-items:flex-start;gap:12px}
+.gate .only,.gate .hint{font-size:15px;line-height:1.5;max-width:44ch}
+.gate .me{color:var(--blue);font-size:clamp(40px,6vw,72px);line-height:.9;overflow-wrap:anywhere}
+.gate .btn{font-size:22px;padding:12px 28px}
+.gate .btn:disabled{opacity:.6;cursor:wait}
+.gate .status:empty{display:none}
+.scene{border:2px solid var(--blue);padding:8px;background:var(--paper);width:100%;max-width:869px}
+.scene iframe{display:block;width:100%;aspect-ratio:16/9;max-height:480px;border:0;background:var(--ink)}
+.sprites{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px;margin-top:24px;width:100%}
 .sprites:empty{display:none}
-.who{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 8px;border:2px solid var(--blue);text-align:center}
-.who .walk{width:96px;height:96px;background-repeat:no-repeat;background-size:384px 384px;background-position:0 -192px;image-rendering:pixelated;animation:walk .52s steps(4) infinite}
-@keyframes walk{from{background-position-x:0}to{background-position-x:-384px}}
-.who .nm{font:400 16px/1.1 var(--dot);color:var(--blue);overflow-wrap:anywhere}
-.who .pn{font:500 12px/1 var(--mono);letter-spacing:.14em;color:var(--grey)}
+.who{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 6px;border:2px solid var(--blue);text-align:center}
+.who .walk{width:72px;height:72px;background-repeat:no-repeat;background-size:288px 288px;background-position:0 -144px;image-rendering:pixelated;animation:walk .52s steps(4) infinite}
+@keyframes walk{from{background-position-x:0}to{background-position-x:-288px}}
+.who .nm{font:400 14px/1.1 var(--dot);color:var(--blue);overflow-wrap:anywhere}
+.who .pn{font:500 11px/1 var(--mono);letter-spacing:.14em;color:var(--grey)}
 @media (prefers-reduced-motion:reduce){.who .walk{animation:none}}
+@media (min-width:980px){ .people .two{grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr)} }
 
 /* 5. artists of the wall: a one-line band on paper */
 .artband{padding:22px var(--padx);border-bottom:2px solid var(--blue)}
@@ -184,7 +191,7 @@ dialog::backdrop{background:rgba(20,22,31,.6)}
 <!-- 1. nav -->
 <nav>
   <a class="brand" href="#top"><i></i><span>The Wall Arcade</span></a>
-  <div class="links"><a href="#games">Games</a><a href="#jackpot">Jackpot</a><a href="#people">People</a><a href="#artists">Artists</a></div>
+  <div class="links"><a href="#games">Games</a><a href="#jackpot">Jackpot</a><a href="#artists">Artists</a><a href="#people">People</a></div>
   <div class="navr">
     <a class="btn" href="#games">PLAY</a>
     <button class="info" id="infoBtn" type="button" aria-label="How it works" aria-haspopup="dialog">i</button>
@@ -259,20 +266,6 @@ dialog::backdrop{background:rgba(20,22,31,.6)}
   </div>
 </section>
 
-<!-- people of the wall: the Sprite Party scene, the counter, ADD YOURSELF, the sprites of the wall (people.json) -->
-<section class="people" id="people">
-  <div class="wrap">
-    <h2 class="anton">People of the wall</h2>
-    <div class="scene"><iframe src="https://www.spriteparty.com/p/sp_Fr4EW5t7XNjm0E_q/composition" title="People of the wall, walking" loading="lazy" allow="fullscreen"></iframe></div>
-    <div class="add">
-      <p class="lbl count"><b id="peopleWith">—</b> <span id="peopleOf">of — names</span> <span id="peopleVerb">have</span> a character</p>
-      <a class="btn" href="https://www.spriteparty.com/p/sp_Fr4EW5t7XNjm0E_q/capture" target="_blank" rel="noopener">ADD YOURSELF <span>→</span></a>
-      <p class="hint">Player name: type your name exactly as it is painted on the wall.</p>
-    </div>
-    <div class="sprites" id="sprites"></div>
-  </div>
-</section>
-
 <!-- 5. artists of the wall: one line -->
 <div class="artband" id="artists">
   <div class="wrap">
@@ -298,8 +291,34 @@ dialog::backdrop{background:rgba(20,22,31,.6)}
   </div>
 </section>
 
+<!-- 7. people of the wall: the counter, ADD YOURSELF for a holder signed in with Connect (hub/people-gate.ts injects
+     the capture link; it is never in this page) or the SIGN IN line, the sprites of the wall, the Sprite Party scene -->
+<section class="people" id="people">
+  <div class="wrap two">
+    <div class="side">
+      <h2 class="anton">People of the wall</h2>
+      <p class="lbl count"><b id="peopleWith">—</b> <span id="peopleOf">of — names</span> <span id="peopleVerb">have</span> a character</p>
+      <div class="gate">
+        <div id="gateOut">
+          <p class="only">People of the wall only. Sign in with the wallet that holds your name.</p>
+          <button class="btn" id="signIn" type="button">SIGN IN</button>
+        </div>
+        <div id="gateIn" hidden>
+          <p class="me anton" id="myName"></p>
+          <a class="btn" id="addYourself" target="_blank" rel="noopener">ADD YOURSELF <span>→</span></a>
+          <p class="hint" id="gateHint"></p>
+        </div>
+        <p class="lbl status" id="gateStatus" aria-live="polite"></p>
+      </div>
+      <div class="sprites" id="sprites"></div>
+    </div>
+    <div class="scene"><iframe src="https://www.spriteparty.com/p/sp_Fr4EW5t7XNjm0E_q/composition" title="People of the wall, walking" loading="lazy" allow="fullscreen"></iframe></div>
+  </div>
+</section>
+
 <footer>
   <span>NFC Summit 2027 · Lisbon, May 27–29</span>
+  <a href="./assets.html">The Wall Kit →</a>
   <a class="stamp" href="https://studio.superrare.com" target="_blank" rel="noopener">Built on SuperRare Studio</a>
 </footer>
 
@@ -414,6 +433,15 @@ var how = document.getElementById('how');
 document.getElementById('infoBtn').onclick = function () { if (how.showModal) how.showModal(); else how.setAttribute('open', ''); };
 document.getElementById('howClose').onclick = function () { if (how.close) how.close(); else how.removeAttribute('open'); };
 how.addEventListener('click', function (e) { if (e.target === how && how.close) how.close(); });   // a tap on the backdrop
+</script>
+<script>
+/* the PEOPLE gate (people-gate.js, with the Connect SDK, ~500 KB) loads only when the section comes near */
+(function () {
+  var people = document.getElementById('people'), load = function () { var s = document.createElement('script'); s.type = 'module'; s.src = 'people-gate.js'; document.body.appendChild(s); };
+  if (!('IntersectionObserver' in window)) { load(); return; }
+  var seen = new IntersectionObserver(function (entries) { if (entries.some(function (e) { return e.isIntersecting; })) { seen.disconnect(); load(); } }, { rootMargin: '600px 0px' });
+  seen.observe(people);
+})();
 </script>
 </body>
 </html>

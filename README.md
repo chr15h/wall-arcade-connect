@@ -6,7 +6,7 @@ verifier the platform runs, and the server leaderboard.
 
 | | URL |
 | --- | --- |
-| Hub (the games; `builders.html`: make a game on the wall, the kit) | https://6972mvu4.srstudio.dev/ |
+| Hub (the games; `builders.html`: make a game on the wall, the kit; `assets.html`: THE WALL KIT, the wall's assets) | https://6972mvu4.srstudio.dev/ |
 | UNBREAKABLE (the reference game of this repo) | https://7x2phv5j.srstudio.dev/ |
 | FULL ROW (game #02: Block Blast rules, the names of the wall on the pieces) | https://yfq52eu3.srstudio.dev/ |
 
@@ -130,6 +130,29 @@ The origin is the exact HTTPS origin (no path, no trailing slash). Attach a game
 active group gates unpaid starts at once. Then add it to the hub's `GAMES` list (`hub/src.html`); the hub shows it as
 soon as it has an active scoring event. (CLI 0.1.0 applies `add-game` but may report "Unexpected response shape"
 because the API no longer returns `creditCost`: check the group afterwards before retrying.)
+
+## The people of the wall: walking sprites
+
+Every person of the wall has a walking sprite. Use them.
+
+People of the wall make a pixel character in 30 seconds at Sprite Party (event "PEOPLE OF THE WALL"), typing their
+name as painted on the wall. The way in is token-gated: the hub's PEOPLE section (`hub/people-gate.ts`) shows ADD
+YOURSELF only to a player signed in with Connect whose wallet holds a name of the wall, and the games' band and end link
+only to such a holder; the capture link is in no page, the card service hands it to a holder
+(`GET /people/capture?wallet=`). A sprite whose name matches no name of the wall stays out of people.json. The card
+service mirrors each sheet and matches it to its panel (`cards/src/people.ts`, `cards/people/aliases.json` for the rest):
+
+- `GET https://wall-arcade-cards.netlify.app/people.json` (public, no key, CORS *, refreshed every 5 minutes): one object
+  per name painted on the wall, `{ panel, name, handle, wallet?, sprite: { id, url, cols: 4, rows: 4, frame: 48 } | null, updatedAt }`.
+- A sheet is a PNG of 192 × 192, transparent, 4 × 4 frames of 48 px: row = direction (0 up, 1 right, 2 down, facing
+  you, 3 left), column = step (4 steps, 130 ms each). `/people/sprites.zip` holds them all.
+- In the games (`src/shell/people.ts`, `src/share/sprite.ts`, display only): FULL ROW's ROW PAINTED shows the row's
+  people walking and its card carries their sprites (resolved by the card service, never sent by the page);
+  UNBREAKABLE shows the signed-in player's character where the dragon stands; a holder without a character gets a band
+  and a "Make your character →" link.
+
+The hub's `assets.html`, THE WALL KIT, gathers what an artist can use: people.json, the sprites, the names, the palette,
+the fonts, the dragon, and a 20-line example that walks a sprite on a canvas (`hub/kit/walk-a-sprite.html`).
 
 ## The jackpot and the split
 

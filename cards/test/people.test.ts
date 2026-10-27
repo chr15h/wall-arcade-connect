@@ -88,3 +88,15 @@ test('the sprite sheets are mirrored once, served with CORS; a sheet of the wron
   assert.equal((JSON.parse(strFromU8(zip['people.json'] as Uint8Array)) as Person[]).length, 3);
   assert.equal((await get('/people/nope')).status, 404);
 });
+
+test('the capture link goes to a wallet that holds a name of the wall, and to no one else', async () => {
+  const karp = await get('/people/capture?wallet=0xAAAA000000000000000000000000000000000342');
+  assert.equal(karp.status, 200);
+  assert.equal(karp.headers.get('access-control-allow-origin'), '*');
+  assert.deepEqual(await karp.json(), { url: 'https://www.spriteparty.com/p/sp_Fr4EW5t7XNjm0E_q/capture', names: [{ name: 'KARP', panel: 342, character: true }] });
+  const stranger = await get('/people/capture?wallet=0xbbbb000000000000000000000000000000000001');
+  assert.equal(stranger.status, 404);
+  assert.ok(!(await stranger.text()).includes('spriteparty'), 'no link for a wallet without a name');
+  assert.equal((await get('/people/capture?wallet=KARP')).status, 400);
+  assert.equal((await get('/people/capture')).status, 400);
+});

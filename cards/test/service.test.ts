@@ -89,3 +89,34 @@ test('nothing else can appear on a card', async () => {
   const full = await (await post({ ...ROW, player: '0x1234567890AbcdEF1234567890aBcDeF12345678' })).json() as { id: string };
   assert.ok((await (await get(`/r/${full.id}`)).text()).includes('by 0x1234…5678'), 'a full address is shortened');
 });
+
+test('a row card carries the sprites of its names (people.json, resolved by the service, never sent by the page)', async () => {
+  const { createCanvas, loadImage } = await import('@napi-rs/canvas');
+  const sheet = createCanvas(192, 192), g = sheet.getContext('2d');       // a 4 × 4 sheet: every frame a blue figure
+  g.fillStyle = '#2E7FD6';
+  for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) g.fillRect(c * 48 + 12, r * 48 + 4, 24, 40);
+  const SPRITE = 'ffb3674b-17cb-48d9-a89d-840c48ad39b6', bytes = new Uint8Array(sheet.toBuffer('image/png'));
+  const asked: string[][] = [];
+  const people = {
+    idsOf: async (list: string[]) => { asked.push(list); return list.map((n) => (n === 'KARP' ? SPRITE : null)); },
+    sheet: async (id: string) => (id === SPRITE ? bytes : null),
+  };
+  const withPeople = { ...deps, store: memoryStore(), people };
+  const card = { kind: 'row', names: ['KARP', 'K4NCUN0'], line: 'ROW 2', score: 300, grid: ROW.grid };
+  const send = (body: unknown) => handle(new Request(`${ORIGIN}/api/cards`, { method: 'POST', body: JSON.stringify(body) }), withPeople);
+  const made = await (await send(card)).json() as { id: string };
+  assert.deepEqual(asked.at(-1), ['KARP', 'K4NCUN0']);
+  const kept = JSON.parse(withPeople.store.data.get(`${made.id}.json`) as string) as { sprites?: unknown };
+  assert.deepEqual(kept.sprites, [SPRITE, null], "the stored card holds the names' sprite ids");
+  const plain = await (await post(card)).json() as { id: string };
+  assert.notEqual(made.id, plain.id, 'a card with a sprite is another card');
+  assert.equal((await send({ ...card, sprites: [SPRITE] })).status, 400, 'a page cannot send sprites');
+  // the sprite stands right of KARP, the first name (on the line of names under the grid)
+  const png = withPeople.store.data.get(`${made.id}.png`) as ArrayBuffer;
+  save('service-row-sprite.png', png);
+  const img = await loadImage(Buffer.from(png)), cv = createCanvas(1080, 1080), cg = cv.getContext('2d');
+  cg.drawImage(img, 0, 0);
+  const row = cg.getImageData(64, 600, 700, 200).data;
+  let blue = 0; for (let i = 0; i < row.length; i += 4) if (row[i] === 0x2e && row[i + 1] === 0x7f && row[i + 2] === 0xd6) blue++;
+  assert.ok(blue > 2000, `the sprite is drawn (${blue} blue pixels)`);
+});

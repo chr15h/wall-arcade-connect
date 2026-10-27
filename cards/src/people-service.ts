@@ -5,8 +5,11 @@
 //   GET /people/sprites/<id>.png  a mirrored sprite sheet (CORS *, immutable): games draw it on a canvas
 //   GET /people/sprites.zip     every sprite sheet and people.json, rebuilt when they change
 //   GET /people/refresh         reads the sources now (also every 5 minutes, netlify/functions/people-refresh.mts)
+//   GET /people/capture?wallet=0x…  for a wallet that holds a name of the wall: { url, names } (the Sprite Party capture
+//                               link and its names, the first one without a character first); 404 for anyone else. The
+//                               pages never carry the link: they ask here once a holder is signed in.
 import { zipSync, strToU8 } from 'fflate';
-import { MANIFEST_URL, POSITIONS_URL, SPRITE_PARTY, buildPeople, isSpritePng, validSprites, type Mirrored, type Position } from './people.js';
+import { CAPTURE_URL, MANIFEST_URL, POSITIONS_URL, SPRITE_PARTY, buildPeople, isSpritePng, keyOf, validSprites, type Mirrored, type Person, type Position } from './people.js';
 
 export interface PeopleStore {
   getText(key: string): Promise<string | null>;
@@ -73,6 +76,14 @@ export async function handlePeople(request: Request, deps: PeopleDeps): Promise<
     if (body === null) { try { await refresh(deps); body = await deps.store.getText(doc); } catch { /* answered below */ } }
     return body === null ? json('{"error":"not ready"}', 'no-store', 503) : json(body);
   }
+  if (path === '/people/capture') {
+    const wallet = (new URL(request.url).searchParams.get('wallet') ?? '').toLowerCase();
+    if (!/^0x[0-9a-f]{40}$/.test(wallet)) return json('{"error":"wallet: 0x and 40 hex digits"}', 'no-store', 400);
+    const people = JSON.parse((await deps.store.getText('people.json')) ?? '[]') as Person[];
+    const mine = people.filter((p) => p.wallet === wallet).sort((a, b) => Number(Boolean(a.sprite)) - Number(Boolean(b.sprite)));
+    if (!mine.length) return json('{"error":"this wallet holds no name of the wall"}', 'no-store', 404);
+    return json(JSON.stringify({ url: CAPTURE_URL, names: mine.map((p) => ({ name: p.name, panel: p.panel, character: Boolean(p.sprite) })) }), 'private, max-age=60');
+  }
   const sprite = /^\/people\/sprites\/([0-9a-f-]{36})\.png$/.exec(path);
   if (sprite) {
     const png = await deps.store.getBytes(`sprites/${sprite[1]}.png`);
@@ -85,4 +96,21 @@ export async function handlePeople(request: Request, deps: PeopleDeps): Promise<
       : new Response('not ready', { status: 503, headers: cors });
   }
   return new Response('not found', { status: 404, headers: cors });
+}
+
+/** For the cards (src/service.ts): the sprite id of each name (people.json, read at most once a minute) and a mirrored
+ *  sheet's bytes, straight from this store. */
+export function peopleSprites(store: PeopleStore, now: () => number = Date.now): { idsOf(names: string[]): Promise<(string | null)[]>; sheet(id: string): Promise<Uint8Array | null> } {
+  let cache: { at: number; ids: Map<string, string> } | null = null;
+  return {
+    async idsOf(names) {
+      if (!cache || now() - cache.at > 60_000) {
+        const people = JSON.parse((await store.getText('people.json')) ?? '[]') as Person[];
+        cache = { at: now(), ids: new Map(people.filter((p) => p.sprite).map((p) => [keyOf(p.name), (p.sprite as NonNullable<Person['sprite']>).id])) };
+      }
+      const ids = cache.ids;
+      return names.map((n) => ids.get(keyOf(n)) ?? null);
+    },
+    sheet: (id) => (/^[0-9a-f-]{36}$/.test(id) ? store.getBytes(`sprites/${id}.png`) : Promise.resolve(null)),
+  };
 }
