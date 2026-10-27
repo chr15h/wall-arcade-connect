@@ -169,7 +169,7 @@ test('with a token: one line per app of the group, named by the usage report or 
   const kept = new Map<string, string>(), asked: string[] = [];
   const group = { id: '60faaf46-ba4b-460c-a82a-adb852371a94', slug: 'wall-arcade-nfc-50', displayName: 'THE WALL ARCADE credits', chainId: 1, currency: 'ETH', tokenAddress: null,
     treasuryAddress: '0xb6ede0158e1792ed25e1367edeec05a824d7c9ad', packPriceAtomic: '5000000000000000', packCredits: 50, purchasesPaused: false, newUsesPaused: false, paymentConfigId: null,
-    apps: [FR, UB, DSR, 'feedbeef-0000-4000-8000-000000000000'].map((productId, i) => ({ productId, origin: ['https://yfq52eu3.srstudio.dev', 'https://7x2phv5j.srstudio.dev', 'https://sy3mgnnh.srstudio.dev', 'https://zzzzzzzz.srstudio.dev'][i], creditCost: 1 })) };
+    apps: [FR, UB, '62a44855-272e-4b15-bc3b-f5fc803129ad', DSR, 'feedbeef-0000-4000-8000-000000000000'].map((productId, i) => ({ productId, origin: ['https://yfq52eu3.srstudio.dev', 'https://7x2phv5j.srstudio.dev', 'https://fgud7mby.srstudio.dev', 'https://sy3mgnnh.srstudio.dev', 'https://zzzzzzzz.srstudio.dev'][i], creditCost: 1 })) };
   const fakeFetch = (async (url: string, init?: RequestInit) => {
     if (url === 'https://studio.superrare.com/auth/cli/exchange') { asked.push('exchange'); return Response.json(JSON.parse(String(init?.body)).token === 'slk_test' ? { sessionToken: 'jwt_test' } : {}); }
     if (url.startsWith('https://studio.superrare.com')) {
@@ -183,10 +183,12 @@ test('with a token: one line per app of the group, named by the usage report or 
           { appId: DSR, title: 'Dirty Signals Radio', capturedPlays: '1', completedPlays: '1', creditsConsumed: '1' }] });
     }
     if (url === 'https://zzzzzzzz.srstudio.dev/') return new Response('<title>Next Game · Someone · The Wall Arcade</title>');
+    if (url === 'https://fgud7mby.srstudio.dev/') return new Response('<title>App not found — SuperRare Studio</title>', { status: 404 });   // TAP THE NAME, buried
     if (url.includes('/scoring/leaderboard')) return url.startsWith('https://sy3mgnnh') ? new Response('no', { status: 404 }) : Response.json({ entries: [] });
-    if (url.startsWith('https://eth.blockscout.com/')) return Response.json({ items: [], next_page_params: null });
+    if (url.startsWith('https://eth.blockscout.com/')) return new Response('Internal server error', { status: 500 });
     return new Response('no', { status: 404 });
   }) as typeof fetch;
+  kept.set('packs.json', JSON.stringify({ at: at('2026-10-27T18:45:00Z'), list: [{ t: at('2026-10-27T15:35:11Z'), wallet: OTHER, name: 'tylerguyot.eth', eth: 0.005, packs: 1 }] }));
   const deps: StatsDeps = {
     fetch: fakeFetch, now: () => at('2026-10-27T19:00:00Z'), token: 'slk_test', events: memoryStore(),
     people: { getText: async () => null, getBytes: async () => null, set: async () => {} },
@@ -196,6 +198,8 @@ test('with a token: one line per app of the group, named by the usage report or 
   const s = await refreshStats(deps);
   assert.equal(s.sources.usage, 'ok');
   assert.equal(s.sources.leaderboards, 'none for Dirty Signals Radio');
+  assert.match(s.sources.packs as string, /blockscout HTTP 500: last list read 2026-10-27T18:45:00.000Z shown/);
+  assert.equal((s.windows.today as any).money.packs, 1);                                 // Blockscout down: the last packs, not 0
   assert.deepEqual(s.games.map((g) => g.title), ['FULL ROW', 'UNBREAKABLE', 'Dirty Signals Radio', 'Next Game']);
   const today = s.windows.launch as any;
   assert.deepEqual(Object.values(today.plays.games).map((r: any) => [r.started, r.completed, r.official]), [[2, 2, true], [4, 3, true], [1, 1, true], [0, 0, true]]);
@@ -207,4 +211,17 @@ test('with a token: one line per app of the group, named by the usage report or 
   assert.match(html, /<th>Dirty Signals Radio<\/th>/);
   assert.match(html, /<th>Next Game<\/th>/);
   assert.doesNotMatch(html, /slk_test/);
+});
+
+test('this week is the leaderboard\'s week (src/shell/week.ts): week 1 to Friday 30 Oct 15:00, then Friday 15:00 to Friday 15:00', async () => {
+  const games = await import('../../src/shell/week.js');
+  for (const iso of ['2026-10-27T19:00:00Z', '2026-10-30T14:59:00Z', '2026-10-30T15:00:00Z', '2026-11-04T12:00:00Z', '2026-11-06T15:30:00Z']) {
+    const week = windows(at(iso)).find((w) => w.key === 'week') as { from: number; to: number };
+    const theirs = games.lisbonWeek(at(iso));
+    assert.deepEqual([new Date(week.from).toISOString(), new Date(week.to).toISOString()], [theirs.from, theirs.to], iso);
+  }
+  const later = windows(at('2026-11-04T12:00:00Z')).find((w) => w.key === 'week') as { from: number; to: number };
+  assert.deepEqual([new Date(later.from).toISOString(), new Date(later.to).toISOString()], ['2026-10-30T15:00:00.000Z', '2026-11-06T15:00:00.000Z']);
+  const s = buildStats({ now: at('2026-11-04T12:00:00Z'), games: [], events: [], usage: {}, holders: new Set(), packs: [], leaderboards: {}, pot: null, people: null, sources: {} });
+  assert.equal((s.windows.week as any).to, '2026-11-06T15:00:00.000Z');                 // its real end, not "now"
 });

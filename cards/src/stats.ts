@@ -13,7 +13,7 @@ export const GRANTED_WALLETS = 190;                                // the grant 
 export const PACK_PLAYS = 50;
 /** A game of the credit group: its app id, its name, its origin; `tag` is the key our own pages tag it with (events'
  *  `game`), for the arcade's own games only. The list comes from the group itself (cards/src/stats-sources.ts). */
-export type GameInfo = { id: string; title: string; origin: string; tag?: string };
+export type GameInfo = { id: string; title: string; origin: string; tag?: string; online?: false };
 
 export type Usage = { games: Record<string, { started: number; completed: number; credits: number }>; total: { started: number; completed: number; credits: number } };
 export type Pack = { t: number; wallet: string; name: string | null; eth: number; packs: number };
@@ -144,7 +144,7 @@ export function buildStats(input: StatsInputs) {
       return [g.id, rows ? { players: rows.length, top3: rows.slice(0, 3).map((r) => ({ name: r.name, score: r.score })) } : null];
     }));
     return [w.key, {
-      label: w.label, from: new Date(w.from).toISOString(), to: new Date(Math.min(w.to, now)).toISOString(),
+      label: w.label, from: new Date(w.from).toISOString(), to: new Date(w.key === 'launch' ? now : w.to).toISOString(),   // the window's real end (this week: the leaderboard's Friday 15:00)
       plays: { games, total },
       players: {
         wallets: wallets.length,

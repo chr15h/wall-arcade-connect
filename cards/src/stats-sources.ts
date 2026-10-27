@@ -23,6 +23,8 @@ export type StatsDeps = {
 /** The arcade's own games: the key our pages tag them with. Every other app of the group is listed from the group. */
 const OURS: GameInfo[] = (Object.entries(GAMES) as [string, { title: string; url: string; appId: string }][])
   .map(([tag, g]) => ({ id: g.appId, title: g.title, origin: g.url.replace(/\/$/, ''), tag }));
+/** Our own buried game, still in the group: named, and hidden while it is offline with no play. */
+const BURIED: Record<string, string> = { '62a44855-272e-4b15-bc3b-f5fc803129ad': 'TAP THE NAME' };
 const titlesSeen = new Map<string, string>();                   // app id → its name in the usage report
 
 type Client = ReturnType<typeof createProfileClient>;
@@ -87,16 +89,18 @@ async function gamesOf(deps: StatsDeps, client: Client | null): Promise<GameInfo
   const games = await Promise.all(apps.map(async ({ id, origin }): Promise<GameInfo> => {
     const ours = OURS.find((g) => g.id === id);
     if (ours) return ours;
-    let title = titlesSeen.get(id) ?? known[id];
-    if (!title && origin) {
+    // its page, each time: whether it is online (Studio answers "App not found" for an app taken down), and its name
+    let title = titlesSeen.get(id) ?? known[id] ?? BURIED[id], online: boolean | undefined;
+    if (origin) {
       try {
-        const page = await (await deps.fetch(`${origin}/`, { signal: AbortSignal.timeout(4000) })).text();
-        const t = /<title>([^<]*)<\/title>/i.exec(page)?.[1]?.split(' · ')[0]?.trim();
-        if (t && !/not found/i.test(t)) title = t.slice(0, 60);
-      } catch { /* named by its id below */ }
+        const response = await deps.fetch(`${origin}/`, { signal: AbortSignal.timeout(4000) });
+        const t = /<title>([^<]*)<\/title>/i.exec(await response.text())?.[1]?.split(' · ')[0]?.trim();
+        online = response.ok && Boolean(t) && !/not found/i.test(t as string);
+        if (online && !title) title = (t as string).slice(0, 60);
+      } catch { /* unknown: kept */ }
     }
-    if (title) known[id] = title;
-    return { id, title: title ?? `App ${id.slice(0, 8)}`, origin };
+    if (title && !BURIED[id]) known[id] = title;
+    return { id, title: title ?? `App ${id.slice(0, 8)}`, origin, ...(online === false ? { online } : {}) };
   }));
   await deps.store.set('games.json', JSON.stringify(known));
   return games.sort((a, b) => Number(!OURS.some((g) => g.id === a.id)) - Number(!OURS.some((g) => g.id === b.id)));
@@ -143,7 +147,19 @@ export async function refreshStats(deps: StatsDeps): Promise<Stats> {
 
   const [events, packs, pot, people] = await Promise.all([
     settle(sources, 'events', () => eventsBetween(deps.events, fromAll, now + 1)),
-    settle(sources, 'packs', () => packsSince(deps.fetch, Date.parse('2026-09-01T00:00:00Z'))),
+    // the packs: the last list read is kept, and served again (said in `sources`) when Blockscout fails
+    settle(sources, 'packs', async () => {
+      try {
+        const list = await packsSince(deps.fetch, Date.parse('2026-09-01T00:00:00Z'));
+        await deps.store.set('packs.json', JSON.stringify({ at: now, list }));
+        return list;
+      } catch (error) {
+        const last = JSON.parse((await deps.store.getText('packs.json')) ?? 'null') as { at: number; list: Pack[] } | null;
+        if (!last) throw error;
+        sources.packs = `${error instanceof Error ? error.message : 'error'}: last list read ${new Date(last.at).toISOString()} shown`;
+        return last.list;
+      }
+    }),
     settle(sources, 'pot', async () => (await currentPot(deps.pot)).pot),
     settle(sources, 'people', async () => {
       const list = JSON.parse((await deps.people.getText('people.json')) ?? '[]') as Person[];
@@ -153,7 +169,9 @@ export async function refreshStats(deps: StatsDeps): Promise<Stats> {
       return { list, people: { names: stats?.names ?? list.length, withSprite: stats?.withSprite ?? 0, unmatched: unmatched.length, lastSpriteAt: stats?.lastSpriteAt ?? null, mirrored } };
     }),
   ]);
-  const games = (await settle(sources, 'games', () => gamesOf(deps, client))) ?? OURS;
+  // an app taken down (TAP THE NAME) is left out while it has no play since the launch
+  const games = ((await settle(sources, 'games', () => gamesOf(deps, client))) ?? OURS)
+    .filter((g) => g.online !== false || (usage.launch?.games[g.id]?.started ?? 0) > 0);
   // one leaderboard per game and window; a game without scoring (or not online) simply has none
   const leaderboards: StatsInputs['leaderboards'] = {};
   const missing: string[] = [];

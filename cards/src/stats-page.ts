@@ -30,7 +30,9 @@ function windowBlock(key: string, w: Win, s: Stats): string {
     const b = pl.leaderboards[g.id];
     return `<div class="board"><span class="lbl">${esc(g.title)} · top 3</span>${b && b.top3.length ? `<ol>${b.top3.map((r: { name: string; score: number }) => `<li>${esc(r.name)} <i>${n(r.score)}</i></li>`).join('')}</ol><small>${n(b.players)} joueur${b.players > 1 ? 's' : ''} au classement</small>` : '<p class="note">Personne encore.</p>'}</div>`;
   }).join('');
+  const span = key === 'week' ? `Semaine du classement : ${time(w.from)} → ${time(w.to)} (Lisbonne)` : key === 'today' ? `Aujourd’hui depuis ${time(w.from)} (Lisbonne)` : `Depuis le lancement, ${time(w.from)} (Lisbonne)`;
   return `<div class="win" data-win="${key}"${key === 'today' ? '' : ' hidden'}>
+<p class="note span">${esc(span)}</p>
 <h2>Parties</h2>${playsTable(w, s.games)}
 <h2>Joueurs</h2><div class="tiles">
 ${tile('Wallets', n(pl.wallets))}${tile('Holders', n(pl.holders))}${tile('Non-holders', n(pl.nonHolders))}
