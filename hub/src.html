@@ -53,7 +53,7 @@ nav{position:sticky;top:0;z-index:20;background:#FBF8ECf2;backdrop-filter:blur(6
 .hero .base{margin-top:22px;font-size:clamp(15px,1.4vw,18px);line-height:1.5;max-width:44ch}
 .hero .base span{display:block}
 .hero .act{display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin-top:28px}
-.hero .act .btn{font-size:28px;padding:16px 36px}
+.hero .act .btn{font-size:clamp(20px,5.4vw,28px);padding:16px clamp(18px,4vw,36px);white-space:nowrap}
 .live{display:flex;align-items:center;gap:10px}
 .live i{width:8px;height:8px;background:var(--blue);display:inline-block;animation:blink 1.2s steps(1) infinite}
 .live b{color:var(--ink);font-weight:600}
@@ -81,6 +81,7 @@ nav{position:sticky;top:0;z-index:20;background:#FBF8ECf2;backdrop-filter:blur(6
 .game.yours .head{background:transparent;color:var(--blue);border-bottom:2px dashed var(--blue)}
 .game.yours .here{margin:12px;aspect-ratio:4/3;border:2px dashed var(--blue);display:flex;align-items:center;justify-content:center;font:400 22px/1.2 var(--dot);color:var(--blue);text-align:center;padding:20px}
 .game.yours .foot{border-top-style:dashed}
+.game.yours .foot .btn{font-size:clamp(15px,1.3vw,18px);padding:12px 10px;white-space:nowrap}
 
 /* 4. this week's jackpot */
 .jackpot{background:var(--blue);color:var(--paper)}
@@ -105,7 +106,7 @@ nav{position:sticky;top:0;z-index:20;background:#FBF8ECf2;backdrop-filter:blur(6
 /* the holders' line under the games */
 .holders{margin-top:24px;font-size:14px;line-height:1.5;color:var(--ink)}
 
-/* 7. people of the wall: small, at the bottom; the scene at most 480 px high, beside the words on a wide screen */
+/* 6. people of the wall: small, at the bottom; the scene at most 480 px high, beside the words on a wide screen */
 .people{border-top:2px solid var(--blue);padding-top:clamp(40px,5vw,72px);padding-bottom:clamp(40px,5vw,72px)}
 .people .two{display:grid;grid-template-columns:1fr;gap:clamp(24px,4vw,48px);align-items:start}
 .people h2{font-size:clamp(32px,4.5vw,56px);line-height:.9}
@@ -130,13 +131,7 @@ nav{position:sticky;top:0;z-index:20;background:#FBF8ECf2;backdrop-filter:blur(6
 @media (prefers-reduced-motion:reduce){.who .walk{animation:none}}
 @media (min-width:980px){ .people .two{grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr)} }
 
-/* 5. artists of the wall: a one-line band on paper */
-.artband{padding:22px var(--padx);border-bottom:2px solid var(--blue)}
-.artband .wrap{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px 24px}
-.artband p{font-size:15px;line-height:1.5}
-.artband .lbl{margin-right:14px;color:var(--blue)}
-
-/* 6. get on the wall: the live mosaic (320 px) and the words; on a phone the words first */
+/* 5. create your own game: the live mosaic (320 px) and the words; on a phone the words first */
 .wall .two{display:flex;flex-direction:column-reverse;gap:clamp(28px,5vw,64px)}
 .wall .frame{width:min(320px,100%)}
 .wall .text{display:flex;flex-direction:column;gap:12px;align-items:flex-start}
@@ -144,6 +139,7 @@ nav{position:sticky;top:0;z-index:20;background:#FBF8ECf2;backdrop-filter:blur(6
 .wall .text p{font-size:15px;line-height:1.5;max-width:44ch}
 .wall .text b{font-weight:600}
 .wall .text .btn{margin-top:12px}
+.wall .text .own{margin-top:8px;font-size:13px;color:var(--grey)}
 #wallgrid{display:grid;grid-template-columns:repeat(25,1fr);gap:3px}
 #wallgrid div{aspect-ratio:1;border:1px dashed var(--blue);opacity:.55}
 #wallgrid div.m{background:var(--blue);border-style:solid;opacity:1}
@@ -206,6 +202,7 @@ dialog::backdrop{background:rgba(20,22,31,.6)}
     <p class="base"><span>Play arcade games built on the names of a real wall in Lisbon.</span><span>Every paid play feeds the jackpot.</span><span>Every Friday, the best score on each game wins.</span></p>
     <div class="act">
       <a class="btn" href="#games">PLAY <span>→</span></a>
+      <a class="btn dashed" href="./builders.html">CREATE MY OWN GAME <span>→</span></a>
       <p class="lbl live"><i></i><span><b class="painted">—</b> names painted</span></p>
     </div>
   </div>
@@ -237,12 +234,12 @@ dialog::backdrop{background:rgba(20,22,31,.6)}
       <article class="game yours">
         <div class="head"><h3>YOUR GAME HERE</h3><span class="n">#03</span></div>
         <div class="here">YOUR GAME HERE</div>
-        <div class="foot"><a class="btn dashed" href="./builders.html">MAKE IT <span>→</span></a></div>
+        <div class="foot"><a class="btn dashed" href="./builders.html">CREATE MY OWN GAME <span>→</span></a></div>
       </article>
       <article class="game yours second">
         <div class="head"><h3>YOUR GAME HERE</h3><span class="n">#04</span></div>
         <div class="here">YOUR GAME HERE</div>
-        <div class="foot"><a class="btn dashed" href="./builders.html">MAKE IT <span>→</span></a></div>
+        <div class="foot"><a class="btn dashed" href="./builders.html">CREATE MY OWN GAME <span>→</span></a></div>
       </article>
     </div>
     <p class="holders">People of the wall: 3 free plays are in your wallet. Sign in with the wallet that holds your name.</p>
@@ -266,32 +263,24 @@ dialog::backdrop{background:rgba(20,22,31,.6)}
   </div>
 </section>
 
-<!-- 5. artists of the wall: one line -->
-<div class="artband" id="artists">
-  <div class="wrap">
-    <p><span class="lbl">Artists of the wall</span> Make your own game. 40% of every play is yours.</p>
-    <a class="btn" href="./builders.html">MAKE YOUR GAME <span>→</span></a>
-  </div>
-</div>
-
-<!-- 6. get on the wall -->
-<section class="wall">
+<!-- 5. create your own game (the nav's Artists), on the live wall; getting on the wall is the small link under it -->
+<section class="wall" id="artists">
   <div class="wrap two">
     <div class="frame">
       <div id="wallgrid" aria-hidden="true"></div>
       <img class="dragon" src="dragon.png" alt="">
     </div>
     <div class="text">
-      <h2 class="anton">Get on the wall</h2>
-      <p><b class="painted">—</b> names painted by hand in Lisbon.</p>
-      <p>Own a name: it's your ticket to NFC Summit 2027, and 3 free plays every week.</p>
-      <p>The wall closes Friday Oct 30.</p>
-      <a class="btn" href="https://onthewall.nfcsummit.com" target="_blank" rel="noopener">GET ON THE WALL <span>→</span></a>
+      <h2 class="anton">Create your own game</h2>
+      <p><b class="painted">—</b> names painted by hand in Lisbon. Turn them into a game.</p>
+      <p>Copy one file, paste it into your AI, publish on SuperRare Studio. 40% of every play is yours.</p>
+      <a class="btn" href="./builders.html">CREATE MY OWN GAME <span>→</span></a>
+      <p class="own">Own a name: your ticket to NFC Summit 2027, and 3 free plays every week. <a href="https://onthewall.nfcsummit.com" target="_blank" rel="noopener">Get on the wall →</a> The wall closes Friday Oct 30.</p>
     </div>
   </div>
 </section>
 
-<!-- 7. people of the wall: the counter, ADD YOURSELF for a holder signed in with Connect (hub/people-gate.ts injects
+<!-- 6. people of the wall: the counter, ADD YOURSELF for a holder signed in with Connect (hub/people-gate.ts injects
      the capture link; it is never in this page) or the SIGN IN line, the sprites of the wall, the Sprite Party scene -->
 <section class="people" id="people">
   <div class="wrap two">
