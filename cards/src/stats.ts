@@ -11,21 +11,22 @@ export const LAUNCH = Date.parse('2026-10-27T14:00:00Z');          // 14:00 Lisb
 export const FREE_PER_WEEK = 3;
 export const GRANTED_WALLETS = 190;                                // the grant of 3 credits a week: 190 wallets × 3
 export const PACK_PLAYS = 50;
-export const GAME_KEYS = ['full-row', 'unbreakable'] as const;
-export type Game = typeof GAME_KEYS[number];
-export const TITLES: Record<Game, string> = { 'full-row': 'FULL ROW', unbreakable: 'UNBREAKABLE' };
+/** A game of the credit group: its app id, its name, its origin; `tag` is the key our own pages tag it with (events'
+ *  `game`), for the arcade's own games only. The list comes from the group itself (cards/src/stats-sources.ts). */
+export type GameInfo = { id: string; title: string; origin: string; tag?: string };
 
-export type Usage = { games: Partial<Record<Game, { started: number; completed: number; credits: number }>>; total: { started: number; completed: number; credits: number } };
+export type Usage = { games: Record<string, { started: number; completed: number; credits: number }>; total: { started: number; completed: number; credits: number } };
 export type Pack = { t: number; wallet: string; name: string | null; eth: number; packs: number };
 export type LeaderRow = { name: string; score: number; at: number | null };
 export type WindowKey = 'today' | 'week' | 'launch';
 export type StatsInputs = {
   now: number;
+  games: GameInfo[];                                               // every app of the group, in the order shown
   events: ArcadeEvent[];                                           // since the earlier of the launch and this week's start
   usage: Partial<Record<WindowKey, Usage | null>> & { days?: Record<string, Usage | null> };
   holders: Set<string>;
   packs: Pack[];
-  leaderboards: Partial<Record<Game, Partial<Record<WindowKey, LeaderRow[]>>>>;
+  leaderboards: Record<string, Partial<Record<WindowKey, LeaderRow[]>>>;   // by app id
   pot: string | null;
   people: { names: number; withSprite: number; unmatched: number; lastSpriteAt: string | null; mirrored: Record<string, string> } | null;
   sources: Record<string, string>;
@@ -97,11 +98,11 @@ export type PlayRow = {
   free: number; paid: number; unattributed: number; practice: number; practiceDone: number;
   tagged: { started: number; completed: number; abandoned: number }; diff: number | null;
 };
-function playRow(game: Game | null, w: Window, events: ArcadeEvent[], kinds: ReturnType<typeof classify>, usage: Usage | null | undefined): PlayRow {
-  const mine = (e: ArcadeEvent): boolean => game === null || e.g === game;
+function playRow(game: GameInfo | null, w: Window, events: ArcadeEvent[], kinds: ReturnType<typeof classify>, usage: Usage | null | undefined): PlayRow {
+  const mine = (e: ArcadeEvent): boolean => game === null || (game.tag !== undefined && e.g === game.tag);
   const starts = kinds.filter((k) => inWin(k.event.t, w) && mine(k.event));
   const tagged = { started: starts.length, completed: count(events, 'paid_end', w, mine), abandoned: count(events, 'paid_abandon', w, mine) };
-  const off = usage ? (game ? usage.games[game] : usage.total) ?? { started: 0, completed: 0, credits: 0 } : null;
+  const off = usage ? (game ? usage.games[game.id] : usage.total) ?? { started: 0, completed: 0, credits: 0 } : null;
   const started = off ? off.started : tagged.started, completed = off ? off.completed : tagged.completed;
   const free = starts.filter((k) => k.kind === 'free').length, paid = starts.filter((k) => k.kind === 'paid').length;
   return {
@@ -128,7 +129,7 @@ export function buildStats(input: StatsInputs) {
 
   const perWindow = Object.fromEntries(wins.map((w) => {
     const usage = input.usage[w.key];
-    const games = Object.fromEntries(GAME_KEYS.map((g) => [g, playRow(g, w, events, kinds, usage)])) as Record<Game, PlayRow>;
+    const games = Object.fromEntries(input.games.map((g) => [g.id, playRow(g, w, events, kinds, usage)])) as Record<string, PlayRow>;
     const total = playRow(null, w, events, kinds, usage);
     const active = events.filter((e) => e.w && ACTIVE.has(e.e) && inWin(e.t, w));
     const wallets = [...new Set(active.map((e) => e.w as string))];
@@ -138,9 +139,9 @@ export function buildStats(input: StatsInputs) {
     const buyers = new Set(packs.map((p) => p.wallet));
     const fromX = (e: ArcadeEvent): boolean => e.x?.fromX === true;
     const mirrored = Object.values(input.people?.mirrored ?? {}).map(Date.parse).filter((t) => inWin(t, w)).length;
-    const board = Object.fromEntries(GAME_KEYS.map((g) => {
-      const rows = input.leaderboards[g]?.[w.key] ?? null;
-      return [g, rows ? { players: rows.length, top3: rows.slice(0, 3).map((r) => ({ name: r.name, score: r.score })) } : null];
+    const board = Object.fromEntries(input.games.map((g) => {
+      const rows = input.leaderboards[g.id]?.[w.key] ?? null;
+      return [g.id, rows ? { players: rows.length, top3: rows.slice(0, 3).map((r) => ({ name: r.name, score: r.score })) } : null];
     }));
     return [w.key, {
       label: w.label, from: new Date(w.from).toISOString(), to: new Date(Math.min(w.to, now)).toISOString(),
@@ -213,6 +214,7 @@ export function buildStats(input: StatsInputs) {
   return {
     generatedAt: new Date(now).toISOString(),
     launch: new Date(LAUNCH).toISOString(),
+    games: input.games.map(({ id, title, origin }) => ({ id, title, origin })),
     now: { pot: input.pot, weekEndsAt: lisbonWeek(now).to, playersToday: T.players.wallets, playsToday: T.plays.total.started },
     windows: perWindow,
     days, hours,

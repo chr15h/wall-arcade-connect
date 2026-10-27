@@ -1,6 +1,6 @@
 // GET /stats: the numbers of cards/src/stats.ts for John, on a phone, in French. One page, not linked from anywhere;
 // the three windows (today, this week, since the launch) are all in it and switched in the page. Lisbon time.
-import { GAME_KEYS, TITLES, type PlayRow, type Stats } from './stats.js';
+import type { PlayRow, Stats } from './stats.js';
 
 const esc = (s: string): string => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
 const n = (v: number | null | undefined): string => (v === null || v === undefined ? '—' : String(v).replace(/\B(?=(\d{3})+(?!\d))/g, ' '));
@@ -10,7 +10,7 @@ const dayLabel = (day: string): string => new Intl.DateTimeFormat('fr-FR', { tim
 
 type Win = Stats['windows'][string] & Record<string, any>;
 
-function playsTable(w: Win): string {
+function playsTable(w: Win, games: Stats['games']): string {
   const row = (label: string, r: PlayRow, total = false): string => `<tr${total ? ' class="tot"' : ''}><th>${label}</th><td class="big">${n(r.started)}</td><td>${n(r.completed)}</td><td>${n(r.abandoned)}</td><td>${n(r.free)}</td><td>${n(r.paid)}</td><td>${n(r.practice)}</td></tr>`;
   const t = w.plays.total as PlayRow;
   const notes: string[] = [];
@@ -18,7 +18,7 @@ function playsTable(w: Win): string {
   else if (t.diff) notes.push(`Nos balises comptent ${n(t.tagged.started)} parties commencées (écart ${t.diff > 0 ? '+' : ''}${t.diff} avec le rapport SuperRare).`);
   if (t.unattributed) notes.push(`${n(t.unattributed)} partie${t.unattributed > 1 ? 's' : ''} sans wallet connu (avant les balises, ou balise perdue) : ni gratuite ni payante.`);
   return `<div class="scroll"><table><thead><tr><th></th><th>Commencées</th><th>Terminées</th><th>Abandonnées</th><th>Gratuites</th><th>Payantes</th><th>Practice</th></tr></thead><tbody>
-${GAME_KEYS.map((g) => row(TITLES[g], w.plays.games[g])).join('')}${row('Total', t, true)}</tbody></table></div>
+${games.filter((g) => w.plays.games[g.id]).map((g) => row(esc(g.title), w.plays.games[g.id] as PlayRow)).join('')}${row('Total', t, true)}</tbody></table></div>
 ${notes.map((x) => `<p class="note">${esc(x)}</p>`).join('')}`;
 }
 
@@ -26,12 +26,12 @@ const tile = (label: string, value: string, sub = ''): string => `<div class="ti
 
 function windowBlock(key: string, w: Win, s: Stats): string {
   const pl = w.players, m = w.money, sh = w.share, ar = w.artists;
-  const boards = GAME_KEYS.map((g) => {
-    const b = pl.leaderboards[g];
-    return `<div class="board"><span class="lbl">${TITLES[g]} · top 3</span>${b && b.top3.length ? `<ol>${b.top3.map((r: { name: string; score: number }) => `<li>${esc(r.name)} <i>${n(r.score)}</i></li>`).join('')}</ol><small>${n(b.players)} joueur${b.players > 1 ? 's' : ''} au classement</small>` : '<p class="note">Personne encore.</p>'}</div>`;
+  const boards = s.games.filter((g) => pl.leaderboards[g.id]).map((g) => {
+    const b = pl.leaderboards[g.id];
+    return `<div class="board"><span class="lbl">${esc(g.title)} · top 3</span>${b && b.top3.length ? `<ol>${b.top3.map((r: { name: string; score: number }) => `<li>${esc(r.name)} <i>${n(r.score)}</i></li>`).join('')}</ol><small>${n(b.players)} joueur${b.players > 1 ? 's' : ''} au classement</small>` : '<p class="note">Personne encore.</p>'}</div>`;
   }).join('');
   return `<div class="win" data-win="${key}"${key === 'today' ? '' : ' hidden'}>
-<h2>Parties</h2>${playsTable(w)}
+<h2>Parties</h2>${playsTable(w, s.games)}
 <h2>Joueurs</h2><div class="tiles">
 ${tile('Wallets', n(pl.wallets))}${tile('Holders', n(pl.holders))}${tile('Non-holders', n(pl.nonHolders))}
 ${tile('Nouveaux aujourd’hui', n(pl.newToday))}${tile('Revenus (2 jours +)', n(pl.returning))}

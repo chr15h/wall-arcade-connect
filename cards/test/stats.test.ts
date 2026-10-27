@@ -6,6 +6,12 @@ import { handleEvents, handleStats } from '../src/stats-service.js';
 import { buildStats, classify, LAUNCH, paidStarts, windows } from '../src/stats.js';
 import { refreshStats, type StatsDeps } from '../src/stats-sources.js';
 
+const FR = '5932be45-7ccb-483a-916d-0dcebff40ca2', UB = 'c5285ae3-512e-464a-aceb-17571e1fe3e9', DSR = '8617e311-f5d4-4e04-9010-19298f2ff9a0';
+const GAMES3 = [
+  { id: FR, title: 'FULL ROW', origin: 'https://yfq52eu3.srstudio.dev', tag: 'full-row' },
+  { id: UB, title: 'UNBREAKABLE', origin: 'https://7x2phv5j.srstudio.dev', tag: 'unbreakable' },
+  { id: DSR, title: 'Dirty Signals Radio', origin: 'https://sy3mgnnh.srstudio.dev' },
+];
 const HOLDER = '0xaaaa000000000000000000000000000000000342', OTHER = '0xbbbb000000000000000000000000000000000001';
 const at = (iso: string): number => Date.parse(iso);
 
@@ -79,29 +85,31 @@ test('the sums: official plays, free/paid, players, packs, the funnel, three win
     ev('2026-10-27T16:30:00Z', 'card_view', { c: 'AAAAAAAAAAAAAAAA', x: { fromX: true } }),
     ev('2026-10-27T16:31:00Z', 'card_view', { c: 'AAAAAAAAAAAAAAAA', x: { fromX: false } }),
   ];
-  const usage = { games: { 'full-row': { started: 4, completed: 3, credits: 4 }, unbreakable: { started: 2, completed: 2, credits: 2 } }, total: { started: 6, completed: 5, credits: 6 } };
+  const usage = { games: { [FR]: { started: 4, completed: 3, credits: 4 }, [UB]: { started: 2, completed: 2, credits: 2 }, [DSR]: { started: 1, completed: 1, credits: 1 } }, total: { started: 7, completed: 6, credits: 7 } };
   const s = buildStats({
-    now, events, usage: { today: usage, week: usage, launch: usage, days: { '2026-10-27': usage } }, holders: new Set([HOLDER]),
+    now, games: GAMES3, events, usage: { today: usage, week: usage, launch: usage, days: { '2026-10-27': usage } }, holders: new Set([HOLDER]),
     packs: [{ t: at('2026-10-27T15:35:00Z'), wallet: OTHER, name: 'tylerguyot.eth', eth: 0.005, packs: 1 }],
-    leaderboards: { unbreakable: { today: [{ name: 'tylerguyot.eth', score: 400, at: null }] } }, pot: '0.0150',
+    leaderboards: { [UB]: { today: [{ name: 'tylerguyot.eth', score: 400, at: null }] } }, pot: '0.0150',
     people: { names: 190, withSprite: 6, unmatched: 3, lastSpriteAt: null, mirrored: { a: '2026-10-27T15:00:00Z', b: '2026-10-26T15:00:00Z' } }, sources: {},
   });
   const today = s.windows.today as any;
   assert.deepEqual(windows(now).map((w) => [w.key, new Date(w.from).toISOString()]), [['today', '2026-10-27T00:00:00.000Z'], ['week', '2026-10-21T23:00:00.000Z'], ['launch', '2026-10-27T14:00:00.000Z']]);
   assert.equal(LAUNCH, at('2026-10-27T14:00:00Z'));
-  const fr = today.plays.games['full-row'], ub = today.plays.games.unbreakable, tot = today.plays.total;
+  const fr = today.plays.games[FR], ub = today.plays.games[UB], dsr = today.plays.games[DSR], tot = today.plays.total;
+  assert.deepEqual(s.games.map((g) => g.title), ['FULL ROW', 'UNBREAKABLE', 'Dirty Signals Radio']);
+  assert.deepEqual([dsr.started, dsr.completed, dsr.free, dsr.paid, dsr.unattributed, dsr.practice], [1, 1, 0, 0, 1, 0]);   // an artist's game: not tagged by us
   assert.deepEqual([fr.started, fr.completed, fr.abandoned, fr.free, fr.paid, fr.practice, fr.official], [4, 3, 1, 3, 1, 1, true]);
   assert.deepEqual([ub.started, ub.free, ub.paid, ub.unattributed, ub.diff], [2, 0, 1, 1, -1]);       // one start not tagged
-  assert.deepEqual([tot.started, tot.completed, tot.free, tot.paid], [6, 5, 3, 2]);
+  assert.deepEqual([tot.started, tot.completed, tot.free, tot.paid], [7, 6, 3, 2]);
   assert.deepEqual([today.players.wallets, today.players.holders, today.players.nonHolders, today.players.newToday], [2, 1, 1, 2]);
   assert.deepEqual(today.players.playsPerPlayer, { avg: 2.5, max: 4 });
   assert.deepEqual([today.money.packs, today.money.conversion], [1, 50]);                    // 1 buyer of the 2 paying players
   assert.deepEqual([today.share.cards, today.share.postOnX, today.share.cardViews, today.share.fromX], [1, 1, 2, 1]);
   assert.equal(today.sprites, 1);
-  assert.deepEqual(s.funnel.map((f) => [f.count, f.pct]), [[3, null], [2, 66.7], [1, 50], [6, 600], [5, 83.3], [1, 20], [1, 100]]);
-  assert.deepEqual(s.days, [{ day: '2026-10-27', plays: 6, official: true, players: 2, packs: 1, cards: 1, sprites: 1 }]);
+  assert.deepEqual(s.funnel.map((f) => [f.count, f.pct]), [[3, null], [2, 66.7], [1, 50], [7, 700], [6, 85.7], [1, 16.7], [1, 100]]);
+  assert.deepEqual(s.days, [{ day: '2026-10-27', plays: 7, official: true, players: 2, packs: 1, cards: 1, sprites: 1 }]);
   assert.equal(s.hours[15]?.paid, 4);
-  assert.deepEqual(s.credits, { granted: 570, bought: 50, consumed: 6, inCirculation: 614 });
+  assert.deepEqual(s.credits, { granted: 570, bought: 50, consumed: 7, inCirculation: 613 });
   assert.equal(s.now.weekEndsAt, '2026-10-30T15:00:00.000Z');
 });
 
@@ -130,7 +138,7 @@ test('refreshStats without a token: the tags and the other sources still count, 
   const today = s.windows.today as any;
   assert.deepEqual([today.plays.total.started, today.plays.total.free, today.plays.total.official], [1, 1, false]);
   assert.deepEqual(today.money.buyers.map((b: { name: string }) => b.name), ['tylerguyot.eth']);   // John's test pack of the 21st is before the launch
-  assert.equal(today.players.leaderboards.unbreakable.top3[0].name, 'johnkarp.eth');
+  assert.equal(today.players.leaderboards[UB].top3[0].name, 'johnkarp.eth');
   assert.ok(kept.get('stats.json'));
   const page = await handleStats(new Request('https://cards.test/stats'), deps);
   const html = await page.text();
@@ -155,4 +163,48 @@ test('a card\'s page opened is tagged (from X when the referer is t.co / x.com),
   await open({ 'user-agent': 'Mozilla/5.0' });
   await open({ 'user-agent': 'Twitterbot/1.0' });
   assert.deepEqual(tags.map((t) => [t.e, t.g, t.c, t.x?.fromX]), [['card_view', 'unbreakable', 'AAAAAAAAAAAAAAAA', true], ['card_view', 'unbreakable', 'AAAAAAAAAAAAAAAA', false]]);
+});
+
+test('with a token: one line per app of the group, named by the usage report or its page, the official counts', async () => {
+  const kept = new Map<string, string>(), asked: string[] = [];
+  const group = { id: '60faaf46-ba4b-460c-a82a-adb852371a94', slug: 'wall-arcade-nfc-50', displayName: 'THE WALL ARCADE credits', chainId: 1, currency: 'ETH', tokenAddress: null,
+    treasuryAddress: '0xb6ede0158e1792ed25e1367edeec05a824d7c9ad', packPriceAtomic: '5000000000000000', packCredits: 50, purchasesPaused: false, newUsesPaused: false, paymentConfigId: null,
+    apps: [FR, UB, DSR, 'feedbeef-0000-4000-8000-000000000000'].map((productId, i) => ({ productId, origin: ['https://yfq52eu3.srstudio.dev', 'https://7x2phv5j.srstudio.dev', 'https://sy3mgnnh.srstudio.dev', 'https://zzzzzzzz.srstudio.dev'][i], creditCost: 1 })) };
+  const fakeFetch = (async (url: string, init?: RequestInit) => {
+    if (url === 'https://studio.superrare.com/auth/cli/exchange') { asked.push('exchange'); return Response.json(JSON.parse(String(init?.body)).token === 'slk_test' ? { sessionToken: 'jwt_test' } : {}); }
+    if (url.startsWith('https://studio.superrare.com')) {
+      if ((init?.headers as Record<string, string>).Authorization !== 'Bearer jwt_test') return Response.json({ error: 'auth' }, { status: 401 });
+      const body = JSON.parse(String(init?.body)) as { action: string; from?: string };
+      asked.push(body.action);
+      if (body.action === 'get-credit-group') return Response.json({ group });
+      if (body.action === 'get-credit-group-usage') return Response.json({ groupId: group.id, from: body.from, to: body.from, page: { hasMore: false, nextCursor: null },
+        totals: { capturedPlays: '7', completedPlays: '6', creditsConsumed: '7' },
+        games: [{ appId: FR, title: 'FULL ROW', capturedPlays: '2', completedPlays: '2', creditsConsumed: '2' }, { appId: UB, title: 'UNBREAKABLE', capturedPlays: '4', completedPlays: '3', creditsConsumed: '4' },
+          { appId: DSR, title: 'Dirty Signals Radio', capturedPlays: '1', completedPlays: '1', creditsConsumed: '1' }] });
+    }
+    if (url === 'https://zzzzzzzz.srstudio.dev/') return new Response('<title>Next Game · Someone · The Wall Arcade</title>');
+    if (url.includes('/scoring/leaderboard')) return url.startsWith('https://sy3mgnnh') ? new Response('no', { status: 404 }) : Response.json({ entries: [] });
+    if (url.startsWith('https://eth.blockscout.com/')) return Response.json({ items: [], next_page_params: null });
+    return new Response('no', { status: 404 });
+  }) as typeof fetch;
+  const deps: StatsDeps = {
+    fetch: fakeFetch, now: () => at('2026-10-27T19:00:00Z'), token: 'slk_test', events: memoryStore(),
+    people: { getText: async () => null, getBytes: async () => null, set: async () => {} },
+    pot: { store: { get: async () => null, set: async () => {} }, balance: async () => 0n },
+    store: { getText: async (k) => kept.get(k) ?? null, set: async (k, v) => { kept.set(k, v); } },
+  };
+  const s = await refreshStats(deps);
+  assert.equal(s.sources.usage, 'ok');
+  assert.equal(s.sources.leaderboards, 'none for Dirty Signals Radio');
+  assert.deepEqual(s.games.map((g) => g.title), ['FULL ROW', 'UNBREAKABLE', 'Dirty Signals Radio', 'Next Game']);
+  const today = s.windows.launch as any;
+  assert.deepEqual(Object.values(today.plays.games).map((r: any) => [r.started, r.completed, r.official]), [[2, 2, true], [4, 3, true], [1, 1, true], [0, 0, true]]);
+  assert.deepEqual([today.plays.total.started, today.plays.total.completed], [7, 6]);
+  assert.ok(asked.includes('get-credit-group'));
+  assert.equal(asked.filter((a) => a === 'exchange').length, 1);                        // one session for the whole refresh
+  assert.equal(JSON.parse(kept.get('games.json') ?? '{}')['feedbeef-0000-4000-8000-000000000000'], 'Next Game');
+  const html = await (await handleStats(new Request('https://cards.test/stats'), deps)).text();
+  assert.match(html, /<th>Dirty Signals Radio<\/th>/);
+  assert.match(html, /<th>Next Game<\/th>/);
+  assert.doesNotMatch(html, /slk_test/);
 });

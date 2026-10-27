@@ -9,7 +9,7 @@ import type { PeopleStore } from './people-service.js';
 import type { Person } from './people.js';
 import { currentPot, TREASURY, type PotDeps } from './pot.js';
 import { GAMES } from './validate.js';
-import { buildStats, GAME_KEYS, LAUNCH, lisbonDay, lisbonDayStart, windows, type Game, type LeaderRow, type Pack, type Stats, type StatsInputs, type Usage, type WindowKey } from './stats.js';
+import { buildStats, LAUNCH, lisbonDay, lisbonDayStart, windows, type GameInfo, type LeaderRow, type Pack, type Stats, type StatsInputs, type Usage, type WindowKey } from './stats.js';
 
 export const GROUP_ID = '60faaf46-ba4b-460c-a82a-adb852371a94';
 const PACK_WEI = 5_000_000_000_000_000n;
@@ -20,14 +20,22 @@ export type StatsDeps = {
   store: { getText(key: string): Promise<string | null>; set(key: string, value: string): Promise<void> };
 };
 
-async function usageOf(token: string, fetchImpl: typeof fetch, from: number, to: number): Promise<Usage> {
-  const client = createProfileClient({ baseUrl: 'https://studio.superrare.com', token, fetchImpl });
+/** The arcade's own games: the key our pages tag them with. Every other app of the group is listed from the group. */
+const OURS: GameInfo[] = (Object.entries(GAMES) as [string, { title: string; url: string; appId: string }][])
+  .map(([tag, g]) => ({ id: g.appId, title: g.title, origin: g.url.replace(/\/$/, ''), tag }));
+const titlesSeen = new Map<string, string>();                   // app id → its name in the usage report
+
+type Client = ReturnType<typeof createProfileClient>;
+/** One client per refresh: it trades the token for a session once, then reuses it. */
+const clientOf = (deps: StatsDeps): Client | null => (deps.token ? createProfileClient({ baseUrl: 'https://studio.superrare.com', token: deps.token, fetchImpl: deps.fetch }) : null);
+
+async function usageOf(client: Client, from: number, to: number): Promise<Usage> {
   const r = await client.creditGroups.usage({ groupId: GROUP_ID, from: new Date(from).toISOString(), to: new Date(to).toISOString() });
   const n = (s: string): number => Number(s) || 0;
   const games: Usage['games'] = {};
   for (const g of r.games) {
-    const key = GAME_KEYS.find((k) => GAMES[k].appId === g.appId);
-    if (key) games[key] = { started: n(g.capturedPlays), completed: n(g.completedPlays), credits: n(g.creditsConsumed) };
+    games[g.appId] = { started: n(g.capturedPlays), completed: n(g.completedPlays), credits: n(g.creditsConsumed) };
+    if (g.title) titlesSeen.set(g.appId, g.title);
   }
   return { games, total: { started: n(r.totals.capturedPlays), completed: n(r.totals.completedPlays), credits: n(r.totals.creditsConsumed) } };
 }
@@ -67,10 +75,36 @@ export async function packsSince(fetchImpl: typeof fetch, since: number): Promis
   }
 }
 
-async function leaderboard(fetchImpl: typeof fetch, game: Game, from: number, to: number): Promise<LeaderRow[]> {
-  const g = GAMES[game];
+/** Every app of the credit group, by name: ours first, then the artists' in the group's order. A name comes from the
+ *  usage report, else from the app's page title ("Dirty Signals Radio · Bully Meow · The Wall Arcade" → its first
+ *  part), kept in the stats store once found. Without a token: our two games. */
+async function gamesOf(deps: StatsDeps, client: Client | null): Promise<GameInfo[]> {
+  if (!client) return OURS;
+  const { group } = await client.creditGroups.get({ groupId: GROUP_ID });
+  const known = JSON.parse((await deps.store.getText('games.json')) ?? '{}') as Record<string, string>;
+  const apps = [...group.apps.map((a) => ({ id: a.productId, origin: a.origin })),
+    ...[...titlesSeen.keys()].filter((id) => !group.apps.some((a) => a.productId === id)).map((id) => ({ id, origin: '' }))];
+  const games = await Promise.all(apps.map(async ({ id, origin }): Promise<GameInfo> => {
+    const ours = OURS.find((g) => g.id === id);
+    if (ours) return ours;
+    let title = titlesSeen.get(id) ?? known[id];
+    if (!title && origin) {
+      try {
+        const page = await (await deps.fetch(`${origin}/`, { signal: AbortSignal.timeout(4000) })).text();
+        const t = /<title>([^<]*)<\/title>/i.exec(page)?.[1]?.split(' · ')[0]?.trim();
+        if (t && !/not found/i.test(t)) title = t.slice(0, 60);
+      } catch { /* named by its id below */ }
+    }
+    if (title) known[id] = title;
+    return { id, title: title ?? `App ${id.slice(0, 8)}`, origin };
+  }));
+  await deps.store.set('games.json', JSON.stringify(known));
+  return games.sort((a, b) => Number(!OURS.some((g) => g.id === a.id)) - Number(!OURS.some((g) => g.id === b.id)));
+}
+
+async function leaderboard(fetchImpl: typeof fetch, game: GameInfo, from: number, to: number): Promise<LeaderRow[]> {
   const q = new URLSearchParams({ from: new Date(from).toISOString(), to: new Date(to).toISOString() });
-  const r = await fetchImpl(`${g.url.replace(/\/$/, '')}/api/v1/games/${g.appId}/scoring/leaderboard?${q}`, { signal: AbortSignal.timeout(5000) });
+  const r = await fetchImpl(`${game.origin}/api/v1/games/${game.id}/scoring/leaderboard?${q}`, { signal: AbortSignal.timeout(5000) });
   if (!r.ok) throw new Error(`leaderboard HTTP ${r.status}`);
   const entries = ((await r.json()) as { entries?: { score?: string | number; achievedAt?: string; player?: { ensName?: string | null; displayName?: string } }[] }).entries ?? [];
   const short = (n: string): string => (/^0x[0-9a-fA-F]{40}$/.test(n) ? `${n.slice(0, 6)}…${n.slice(-4)}`.toLowerCase() : n);
@@ -88,18 +122,18 @@ export async function refreshStats(deps: StatsDeps): Promise<Stats> {
 
   // the official report: three windows, and every Lisbon day since the launch (a past day is kept once read)
   const usage: StatsInputs['usage'] = { days: {} };
-  if (!deps.token) sources.usage = 'no RARE_PROFILE_TOKEN';
+  const client = clientOf(deps);
+  if (!client) sources.usage = 'no RARE_PROFILE_TOKEN';
   else {
-    const token = deps.token;
     await settle(sources, 'usage', async () => {
-      for (const w of wins) usage[w.key as WindowKey] = await usageOf(token, deps.fetch, w.from, Math.min(w.to, now + 1));
+      for (const w of wins) usage[w.key as WindowKey] = await usageOf(client, w.from, Math.min(w.to, now + 1));
       const cache = JSON.parse((await deps.store.getText('usage-days.json')) ?? '{}') as Record<string, Usage>;
       const today = lisbonDay(now);
       for (let day = lisbonDay(LAUNCH); lisbonDayStart(day) <= now; day = lisbonDay(lisbonDayStart(day) + 30 * 3_600_000)) {
         const next = lisbonDayStart(lisbonDay(lisbonDayStart(day) + 30 * 3_600_000));
         const from = Math.max(LAUNCH, lisbonDayStart(day));
         if (day !== today && cache[day] && now - next > 3_600_000) { (usage.days as Record<string, Usage>)[day] = cache[day] as Usage; continue; }
-        const u = await usageOf(token, deps.fetch, from, Math.min(next, now + 1));
+        const u = await usageOf(client, from, Math.min(next, now + 1));
         (usage.days as Record<string, Usage>)[day] = u;
         if (day !== today) cache[day] = u;
       }
@@ -119,15 +153,17 @@ export async function refreshStats(deps: StatsDeps): Promise<Stats> {
       return { list, people: { names: stats?.names ?? list.length, withSprite: stats?.withSprite ?? 0, unmatched: unmatched.length, lastSpriteAt: stats?.lastSpriteAt ?? null, mirrored } };
     }),
   ]);
+  const games = (await settle(sources, 'games', () => gamesOf(deps, client))) ?? OURS;
+  // one leaderboard per game and window; a game without scoring (or not online) simply has none
   const leaderboards: StatsInputs['leaderboards'] = {};
-  await settle(sources, 'leaderboards', async () => {
-    await Promise.all(GAME_KEYS.flatMap((g) => wins.map(async (w) => {
-      (leaderboards[g] ??= {})[w.key] = await leaderboard(deps.fetch, g, w.from, Math.min(w.to, now + 1));
-    })));
-  });
+  const missing: string[] = [];
+  await Promise.all(games.filter((g) => g.origin).flatMap((g) => wins.map(async (w) => {
+    try { (leaderboards[g.id] ??= {})[w.key] = await leaderboard(deps.fetch, g, w.from, Math.min(w.to, now + 1)); } catch { if (!missing.includes(g.title)) missing.push(g.title); }
+  })));
+  sources.leaderboards = missing.length ? `none for ${missing.join(', ')}` : 'ok';
 
   const stats = buildStats({
-    now, events: events ?? [], usage, packs: (packs ?? []).filter((p) => p.t >= LAUNCH), leaderboards, pot,
+    now, games, events: events ?? [], usage, packs: (packs ?? []).filter((p) => p.t >= LAUNCH), leaderboards, pot,
     holders: new Set((people?.list ?? []).map((p) => p.wallet).filter((w): w is string => typeof w === 'string').map((w) => w.toLowerCase())),
     people: people?.people ?? null, sources,
   });
