@@ -33,6 +33,7 @@ const ASSETS: Record<string, string> = {
   'clips/unbreakable.mp4': '../hub/clips/unbreakable.mp4', 'clips/full-row.mp4': '../hub/clips/full-row.mp4',
   'teaser-1x1.mp4': '../comms/teaser/out/teaser-1x1.mp4', 'teaser-poster.png': '../comms/teaser/out/title-1x1.png',
   'kit/walk-a-sprite.html': '../hub/kit/walk-a-sprite.html', 'kit/palette.svg': '../hub/kit/palette.svg',
+  'tag.js': '../hub/tag.js',                                   // the pages' tags for /stats on the card service
 };
 const assets: Record<string, Uint8Array> = {};
 for (const [name, path] of Object.entries(ASSETS)) assets[name] = new Uint8Array(await readFile(new URL(path, import.meta.url)));
@@ -72,6 +73,7 @@ const escapeHtml = (s: string): string => s.replace(/[&<>]/g, (c) => ({ '&': '&a
 const kitPage = assetsSource.replace('/*WALK*/', () => escapeHtml(walkExample.trimEnd()))
   .replace('/*BUILT*/', () => new Date().toISOString().slice(0, 10));
 if (!kitPage.includes('href="./"')) throw new Error('hub/assets.html must link back to ./');
+for (const [name, source] of [['hub/src.html', page], ['hub/builders.html', builders], ['hub/assets.html', kitPage]] as const) if (!source.includes('<script src="./tag.js" data-view=')) throw new Error(`${name} must load ./tag.js`);
 for (const [name, source] of [['hub/src.html', page], ['hub/builders.html', builders]] as const) if (!source.includes('href="./assets.html"')) throw new Error(`${name} must link to ./assets.html`);
 
 const output = resolve(values.output);

@@ -1,6 +1,6 @@
 // Netlify entry of the card service (cards/src/service.ts): cards stored in Netlify Blobs, the wall's names from the
 // build-time snapshot plus the live public /positions of the NFC backend (read-only, cached a few minutes); a row card's
-// sprites from PEOPLE's store on the same site.
+// sprites from PEOPLE's store on the same site; a card created or opened is tagged for /stats (store "events").
 import { lisbonWeek } from '../../src/week.js';
 import { getStore } from '@netlify/blobs';
 import snapshot from '../../../src/generated/wall.json' with { type: 'json' };
@@ -8,6 +8,8 @@ import { handle, type CardStore, type LeaderEntry } from '../../src/service.js';
 import { GAMES, type GameKey } from '../../src/validate.js';
 import { peopleSprites } from '../../src/people-service.js';
 import { peopleStore } from '../../src/people-store.js';
+import { recordEvent } from '../../src/events.js';
+import { eventStore } from '../../src/stats-store.js';
 
 const SNAPSHOT_NAMES: string[] = snapshot.positions.map((p: { n: string }) => p.n);
 let live: { at: number; names: string[] } | null = null;
@@ -44,6 +46,6 @@ async function leaderboard(game: GameKey): Promise<LeaderEntry[]> {
 
 // a row card's sprites: people.json and the mirrored sheets of this very site (store "people", cards/src/people-service.ts)
 let people: ReturnType<typeof peopleSprites> | null = null;
-export default async (request: Request): Promise<Response> => handle(request, { store: cardStore(), wallNames, leaderboard, people: people ??= peopleSprites(peopleStore()) });
+export default async (request: Request): Promise<Response> => handle(request, { store: cardStore(), wallNames, leaderboard, people: people ??= peopleSprites(peopleStore()), tag: (e) => recordEvent(eventStore(), e) });
 
 export const config = { path: ['/api/cards', '/r/*'] };

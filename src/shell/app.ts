@@ -24,6 +24,7 @@ import { copyText, diag } from './diagnostics.js';
 import { lisbonWeek, WEEK_LABEL, weekEnds } from './week.js';
 import { CARD_SERVICE, wirePostLink } from '../share/post.js';
 import { captureFor, knownCapture, loadPeople, missingCharacter } from './people.js';
+import { beacon, setBeaconContext } from '../share/beacon.js';
 
 function requiredElement<ElementType extends HTMLElement>(selector: string): ElementType {
   const element = document.querySelector<ElementType>(selector);
@@ -210,6 +211,18 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
 
   const session = () => client.auth.getSession();
   const address = (): string | undefined => session()?.address.toLowerCase();
+  // our tags for /stats (src/share/beacon.ts): fire and forget, never in the way of a run
+  setBeaconContext({ game: adapter.id, wallet: address });
+  beacon('game_open');
+  let abandonTagged = '';
+  const runId = (): string => String((round as unknown as { state?: { run?: { runId?: string } } } | undefined)?.state?.run?.runId ?? '');
+  const tagAbandon = (): void => {
+    if (mode !== 'playing' || practice?.active || abandonTagged === runId()) return;
+    abandonTagged = runId();
+    beacon('paid_abandon', { extra: { run: runId() } });
+  };
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') tagAbandon(); });
+  window.addEventListener('pagehide', tagAbandon);
   const validAuthorization = (): boolean => {
     const authorization = game.getAuthorization();
     return Boolean(authorization && authorization.address.toLowerCase() === address());
@@ -327,7 +340,7 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
       linkButton('practice again', () => startPractice());
     } else {
       const again = authenticated && credits?.balance && available() < 1 ? 'Buy credits' : 'Play again · 1 credit';
-      actionButton(again, () => void play(again === 'Buy credits'), stage.endStats ? 'ink' : 'play');
+      actionButton(again, () => { beacon(again === 'Buy credits' ? 'buy_click' : 'play_again', again === 'Buy credits' ? { extra: { from: 'end' } } : {}); void play(again === 'Buy credits'); }, stage.endStats ? 'ink' : 'play');
       copyLogButton();                                 // "get on the wall" is the end screen's own small link, under the card
     }
     // a holder of a name with no character yet (people.json): one small link under PLAY AGAIN
@@ -590,15 +603,24 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
   });
   ui.buyPay.addEventListener('click', async () => {
     if (!credits) return;
+    beacon('buy_click', { extra: { from: 'pay' } });
     ui.buyPay.disabled = true;
     try { await credits.buyNow(); } finally { ui.buyPay.disabled = false; }
   });
   ui.buyRecovery.addEventListener('click', () => openHelp(true));
 
   /* ------------------------ credits and paid round ---------------------- */
+  let pendingPurchaseId: string | null = null;
   credits = new Credits({
     client, game, root: requiredElement('#credits'), storageKey: `${storageKey}:purchase`,
     changed: () => {
+      // a purchase seen pending on this page, now credited: one tag
+      const record = credits?.record;
+      if (record && credits?.pendingPurchase()) pendingPurchaseId = record.purchase.id;
+      else if (record && pendingPurchaseId === record.purchase.id && (record.credited || record.purchase.creditedAt)) {
+        pendingPurchaseId = null;
+        beacon('buy_done', { extra: { ...(record.transactionHash ? { tx: record.transactionHash } : {}) } });
+      }
       renderAuth();
       if (ui.buyPanel.open && available() >= 1) {
         ui.buyStatus.textContent = `Credits received: you have ${available()}.`;
@@ -625,7 +647,10 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
     onView: (kind: string, detail: { score?: number }) => {
       if (practice?.active) return;
       if (kind === 'playing') {
-        if (mode !== 'playing') void creditPanel.refresh().then(renderBar);     // the credit just spent
+        if (mode !== 'playing') {
+          beacon('paid_start', { extra: { run: runId(), creditsBefore: available() } });   // a reload during a run tags the same run id again
+          void creditPanel.refresh().then(renderBar);     // the credit just spent
+        }
         hideOverlay('playing');
         return;
       }
@@ -633,6 +658,7 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
       if (kind === 'recovery') { if (mode !== 'consent') showRecovery(); return; }
       if (kind === 'finished' && typeof detail.score === 'number') {
         lastScore = { score: detail.score, practice: false };
+        beacon('paid_end', { score: detail.score, extra: { run: runId() } });
         showEnd(detail.score);
         return;
       }
@@ -646,6 +672,7 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
 
   practice = new Practice(adapter, stage, (score) => {
     lastScore = { score, practice: true };
+    beacon('practice_end', { practice: true, score });
     showPracticeEnd(score);
   });
   function startPractice(): void {
@@ -653,6 +680,7 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
     paidRound.disconnectRun();
     hideOverlay('practice');
     practice.start();
+    beacon('practice_start', { practice: true });
   }
 
   creditPanel.render();

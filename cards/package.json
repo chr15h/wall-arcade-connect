@@ -17,6 +17,7 @@
   "dependencies": {
     "@napi-rs/canvas": "1.0.9",
     "@netlify/blobs": "11.1.2",
+    "@rareprotocol/rare-profile": "0.1.0",
     "fflate": "0.8.2"
   }
 }

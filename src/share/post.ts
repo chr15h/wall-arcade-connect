@@ -2,6 +2,8 @@
 // own site): it renders the image server-side and answers a link, /r/<id>, whose preview in X is the card and which
 // sends people on to the game. The button is a plain link to x.com/intent/post (the X app on a phone), filled in
 // as soon as the card exists, so the tap itself opens X: no share sheet, no download, no copy.
+import { beacon } from './beacon.js';
+
 export const CARD_SERVICE = 'https://wall-arcade-cards.netlify.app';
 
 export type RowCardRequest = { kind: 'row'; names: string[]; line?: string; score: number; grid?: number[]; rank?: number; player?: string; practice?: boolean };
@@ -53,7 +55,10 @@ export function wirePostLink(anchor: HTMLAnchorElement, card: CardRequest, textF
   anchor.target = '_blank'; anchor.rel = 'noopener';
   anchor.setAttribute('aria-disabled', 'true'); anchor.classList.add('is-preparing'); anchor.removeAttribute('href');
   anchor.textContent = preparing;
+  let cardId = '';
+  anchor.addEventListener('click', () => { if (anchor.getAttribute('aria-disabled') !== 'true') beacon('post_on_x', cardId ? { cardId } : {}); });
   const ready = (link: string): void => {
+    cardId = /\/r\/([A-Za-z0-9_-]{16})$/.exec(link)?.[1] ?? '';
     anchor.href = intentHref(textFor(link));
     anchor.removeAttribute('aria-disabled'); anchor.classList.remove('is-preparing');
     anchor.textContent = label;

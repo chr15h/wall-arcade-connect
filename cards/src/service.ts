@@ -7,6 +7,7 @@
 import { createHash } from 'node:crypto';
 import { CardError, GAMES, gameOf, player, validate, type BoardCard, type BoardRequest, type Card, type GameKey } from './validate.js';
 import { renderCard } from './render.js';
+import type { ArcadeEvent } from './events.js';
 
 export interface CardStore {
   get(key: string, type: 'json'): Promise<unknown>;
@@ -16,10 +17,14 @@ export interface CardStore {
 export type LeaderEntry = { rank: number; score: string | number; player?: { kind?: string; displayName?: string; ensName?: string | null } };
 /** The people of the wall (the PEOPLE store of this site): a name's sprite id, and a mirrored sheet's bytes. */
 export type PeopleSprites = { idsOf(names: string[]): Promise<(string | null)[]>; sheet(id: string): Promise<Uint8Array | null> };
-export type Deps = { store: CardStore; wallNames(): Promise<string[]>; leaderboard(game: GameKey): Promise<LeaderEntry[]>; people?: PeopleSprites };
+/** `tag`: our stats (cards/src/events.ts): a card created, a card's page opened (from X or not). Never blocks a card. */
+export type Deps = { store: CardStore; wallNames(): Promise<string[]>; leaderboard(game: GameKey): Promise<LeaderEntry[]>; people?: PeopleSprites; tag?: (event: ArcadeEvent) => Promise<void>; now?: () => number };
+const tagged = async (deps: Deps, event: Omit<ArcadeEvent, 't'>): Promise<void> => { try { await deps.tag?.({ t: deps.now?.() ?? Date.now(), ...event }); } catch { /* stats only */ } };
+/** Link previews (X's own crawler and the like) are not people opening a card. */
+const BOT = /bot|crawl|spider|preview|facebookexternalhit|embedly|slack|discord|whatsapp|telegram/i;
 
 const ALLOWED_ORIGINS = new Set(['https://yfq52eu3.srstudio.dev', 'https://7x2phv5j.srstudio.dev', 'https://6972mvu4.srstudio.dev']);
-const isAllowed = (origin: string | null): boolean => origin !== null && (ALLOWED_ORIGINS.has(origin) || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin));
+export const isAllowed = (origin: string | null): boolean => origin !== null && (ALLOWED_ORIGINS.has(origin) || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin));
 const cors = (request: Request): Record<string, string> => {
   const origin = request.headers.get('origin');
   return isAllowed(origin) ? { 'Access-Control-Allow-Origin': origin as string, 'Access-Control-Allow-Methods': 'POST, GET', 'Access-Control-Allow-Headers': 'Content-Type', Vary: 'Origin' } : {};
@@ -134,6 +139,7 @@ export async function handle(request: Request, deps: Deps): Promise<Response> {
       await deps.store.set(`${id}.png`, square.buffer.slice(square.byteOffset, square.byteOffset + square.byteLength) as ArrayBuffer);
       await deps.store.set(`${id}.x.png`, preview.buffer.slice(preview.byteOffset, preview.byteOffset + preview.byteLength) as ArrayBuffer);
       await deps.store.set(`${id}.json`, JSON.stringify(card));
+      await tagged(deps, { e: 'card_create', g: gameOf(card), c: id });
     }
     return json(request, 200, { id, url: `${origin}/r/${id}`, image: `${origin}/r/${id}.png` });
   }
@@ -142,7 +148,11 @@ export async function handle(request: Request, deps: Deps): Promise<Response> {
     const id = match[1] as string, ext = match[2];
     const card = await stored(deps, id);
     if (!card) return new Response('No such card', { status: 404, headers: { 'Content-Type': 'text/plain' } });
-    if (!ext) return new Response(page(origin, id, card), { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=300' } });
+    if (!ext && request.method === 'GET' && !BOT.test(request.headers.get('user-agent') ?? '')) {
+      const referer = request.headers.get('referer') ?? '';
+      await tagged(deps, { e: 'card_view', g: gameOf(card), c: id, x: { fromX: /^https?:\/\/([a-z0-9-]+\.)*(t\.co|x\.com|twitter\.com)\//i.test(referer) } });
+    }
+    if (!ext) return new Response(page(origin, id, card), { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'private, max-age=60' } });
     let png = await deps.store.get(`${id}${ext}`, 'arrayBuffer');
     if (!png) {                                                    // rendered on demand if the stored image is missing
       const { square, preview } = await renderCard(card, await deps.wallNames(), await sheetsOf(card, deps));
