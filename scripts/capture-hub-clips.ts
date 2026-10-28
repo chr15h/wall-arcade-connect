@@ -224,7 +224,7 @@ async function clipInvaders(game: 'whitewash' | 'cc0-invaders', name: string, wa
     if (!ok) { await page.close(); console.log(`${name}: seed ${seed} did not reach wave ${wave}, next seed`); continue; }
     await wait(page, 600);
     console.log(`${name}: seed ${seed}, filming wave ${wave}`);
-    await record(page, name, async (f) => { if (f % 5 === 0) await wwPlay(page); }, Math.round(FRAMES * 0.55));
+    await record(page, name, async (f) => { if (f % 5 === 0) await wwPlay(page); }, Math.round(FRAMES * 0.12));   // the poster: the formation still whole
     await page.close();
     return;
   }
