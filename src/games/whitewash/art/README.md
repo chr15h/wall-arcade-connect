@@ -25,13 +25,17 @@ Where a work sits on a black ground, that ground is cut away (`scripts/cutout.ts
 picture's edge, so the blacks inside a figure, its eyes and outlines, stay) and the figure is drawn free; a work on any
 other ground keeps a round frame.
 
-## Kept, not in the game
+## CC0 INVADERS: other CC0 collections (`../art-cc0.ts`)
 
-CC0 art from other collections, ready if the rotation ever opens up again (add them back to `COLLECTIONS` in `../art.ts`):
+**NFT INVADERS' line-up since its second release** (also CC0 INVADERS'), one collection per wave, in turn: Nouns, MAX PAIN AND
+FRENS (XCOPY), CrypToadz, TRAITORS (XCOPY), mfers, EARLY WORKS (XCOPY). **A fan-made game: it is not made by, endorsed by
+or affiliated with any of these projects or artists** (its wave banners say "NOT AFFILIATED", its (i)
+panel says it in full).
 
 - `nouns-image-data.json`: the Nouns artwork (Nouns DAO, CC0), from
   [nounsDAO/nouns-monorepo](https://github.com/nounsDAO/nouns-monorepo/blob/master/packages/nouns-assets/src/image-data.json);
-  drawing it needs a decoder for its run-length encoding (its parts are a palette byte, the bounds top/right/bottom/left
+  `../art-cc0.ts` draws a Noun on the fly from its run-length encoded parts (a palette byte, the bounds top/right/bottom/left
   of a 32 × 32 box, then length/colour runs filling it row by row).
-- `cryptoadz.json` (CrypToadz by Gremplin, CC0) and `mfers.json` (mfers by sartoshi, CC0; second-hand sources only,
-  confirm before use), built by `scripts/raiders-art.ts`.
+- `cryptoadz.json` (CrypToadz by Gremplin, CC0: "Gremplin waived all copyright and related rights") and `mfers.json`
+  (mfers by sartoshi, CC0; second-hand sources only: **confirm before launch**), built by `scripts/raiders-art.ts`, their
+  plain-colour grounds cut away when that leaves a clean figure (12 of 14 toadz, 13 of 14 mfers).

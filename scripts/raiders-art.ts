@@ -14,6 +14,8 @@ type Collection = {
   key: string; title: string; contract: string; license: string; tokens: number[];
   /** Output size in px, and whether the art is pixel art (reduced without smoothing, kept sharp). */
   size: number; pixel: boolean;
+  /** The ground cut away when it leaves a clean figure: black (XCOPY) or the plain colour of its edges. */
+  ground: 'black' | 'plain';
   /** The token really is a piece of this collection (its own metadata says so). */
   check(meta: Meta): boolean;
 };
@@ -21,13 +23,13 @@ const spread = (from: number, to: number, n: number): number[] => Array.from({ l
 const COLLECTIONS: Collection[] = [
   { key: 'grifters', title: 'Grifters by XCOPY (Async Art Blueprint)', contract: '0xc143bbfcdbdbed6d454803804752a064a622c1f3',
     license: 'CC0-1.0 (XCOPY’s dedication of his own work)', tokens: [10, 60, 110, 160, 210, 260, 310, 360, 410, 460, 510, 560, 610, 660],
-    size: 96, pixel: false, check: (m) => Boolean(m.attributes?.some((a) => a.trait_type === 'Artist' && a.value === 'XCOPY')) },
+    size: 96, pixel: false, ground: 'black', check: (m) => Boolean(m.attributes?.some((a) => a.trait_type === 'Artist' && a.value === 'XCOPY')) },
   { key: 'cryptoadz', title: 'CrypToadz by Gremplin', contract: '0x1CB1A5e65610AEFF2551A50f76a87a7d3fB649C6',
     license: 'CC0-1.0 (Gremplin waived all copyright and related rights)', tokens: spread(5, 6305, 14),
-    size: 72, pixel: true, check: (m) => /^CrypToadz #\d+$/.test(m.name) },
+    size: 72, pixel: true, ground: 'plain', check: (m) => /^CrypToadz #\d+$/.test(m.name) },
   { key: 'mfers', title: 'mfers by sartoshi', contract: '0x79FCDEF22feeD20eDDacbB2587640e45491b757f',
     license: 'CC0-1.0 (sartoshi released mfers to the public domain)', tokens: spread(5, 9105, 14),
-    size: 96, pixel: false, check: (m) => m.description === 'mfers by sartoshi' && /^mfer #\d+$/.test(m.name) },
+    size: 96, pixel: false, ground: 'plain', check: (m) => m.description === 'mfers by sartoshi' && /^mfer #\d+$/.test(m.name) },
 ];
 const RPC = 'https://ethereum-rpc.publicnode.com';
 const IPFS = ['https://gateway.pinata.cloud/ipfs', 'https://ipfs.filebase.io/ipfs', 'https://w3s.link/ipfs', 'https://4everland.io/ipfs'];
@@ -82,7 +84,7 @@ for (const c of COLLECTIONS) {
     }
     token--;
     if (!meta || !bytes) throw new Error(`${c.key}: no image near token ${wanted}`);
-    const { data, cut } = await reduceWork(await loadImage(bytes), c.size, !c.pixel, createCanvas);   // its black ground cut when clean
+    const { data, cut } = await reduceWork(await loadImage(bytes), c.size, !c.pixel, createCanvas, c.ground);   // its ground cut when clean
     items.push({ token, name: meta.name, image: meta.image, cut, src: `data:image/webp;base64,${data.toString('base64')}` });
     console.log(`${c.key}: ${meta.name} (token ${token}) ${data.length} bytes${cut ? ', cut out' : ''}`);
   }

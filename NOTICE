@@ -13,11 +13,14 @@ Copyright (c) 2026 SuperRare). Upstream license retained in LICENSE.
 UNBREAKABLE and TAP THE NAME game rules, art direction and simulation are
 original to THE WALL ARCADE (NFC Summit).
 
-NFT INVADERS' raiders are works by XCOPY, reduced and embedded: "XCOPY works are licensed under CC0 (Public Domain)"
+NFT INVADERS' raiders are CC0 works: in its first release works by XCOPY only, since then a mix (below). XCOPY's works, reduced and embedded: "XCOPY works are licensed under CC0 (Public Domain)"
 (https://xcopy.art/creative-commons); releases that may be collaborations are left out. NFT INVADERS is a fan-made game: it is not made by, endorsed by or affiliated with XCOPY.
 CC0 covers the works, not the name: the game credits XCOPY as the artist of the works and never as its maker. Grifters come from their Async Art
-Blueprint (0xc143bbfcdbdbed6d454803804752a064a622c1f3). The repository also keeps, unused by the game, CC0 art of Nouns
-(Nouns DAO), CrypToadz (Gremplin) and mfers (sartoshi).
+Blueprint (0xc143bbfcdbdbed6d454803804752a064a622c1f3).
+CC0 INVADERS' raiders are CC0 works, reduced and embedded: the Nouns artwork by Nouns DAO (on-chain image data of
+nounsDAO/nouns-monorepo), CrypToadz by Gremplin (0x1CB1A5e65610AEFF2551A50f76a87a7d3fB649C6) and mfers by sartoshi
+(0x79FCDEF22feeD20eDDacbB2587640e45491b757f), with three of the XCOPY series above: NFT INVADERS' mixed line-up. These
+games are fan-made: not made by, endorsed by or affiliated with any of these projects or artists.
 Sources and notes: src/games/whitewash/art/README.md.
 
 Runtime dependency @rareprotocol/connect is distributed under MIT.

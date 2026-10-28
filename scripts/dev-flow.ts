@@ -5,8 +5,8 @@ import { join } from 'node:path';
 import { build } from 'esbuild';
 
 const out = process.argv[2];
-const game = (['tap-the-name', 'full-row', 'signage', 'whitewash'] as const).find((id) => id === process.argv[3]) ?? 'unbreakable';
-if (!out) throw new Error('Usage: dev-flow.ts <output-dir> [unbreakable|tap-the-name|full-row|signage|whitewash]');
+const game = (['tap-the-name', 'full-row', 'signage', 'whitewash', 'cc0-invaders'] as const).find((id) => id === process.argv[3]) ?? 'unbreakable';
+if (!out) throw new Error('Usage: dev-flow.ts <output-dir> [unbreakable|tap-the-name|full-row|signage|whitewash|cc0-invaders]');
 await mkdir(join(out, 'assets'), { recursive: true });
 await build({
   entryPoints: [`src/entries/${game}.ts`], define: { __FAKE_GAME__: JSON.stringify(game), __DEV_ANY_ORIGIN__: 'true' }, outfile: join(out, 'assets/app.js'), bundle: true, format: 'esm', platform: 'browser',

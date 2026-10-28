@@ -14,7 +14,7 @@ import dragonUrl from '../../assets/dragon.jpg';
 import { loadPeople, onPeople, sheetOfWallet } from '../../shell/people.js';
 import { DIR, drawSprite, stepAt } from '../../share/sprite.js';
 import { bricksFor } from '../signage/names.js';
-import { collectionOfWave, drawRaider, onArt } from './art.js';
+import { onArt, type Art } from './art.js';
 import {
   BRICK_W, BRICK_X0, DIVING, H, IN_FORMATION, RULES, SHIP_HH, SHIP_Y, W, WALL_Y, bitCount, streakMult,
   createEngine, inputSchema, snapshotSchema, stateSchema, type Cleaner, type WwState,
@@ -34,14 +34,17 @@ const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
 type Mode = 'idle' | 'play' | 'end';
 type Spark = { x: number; y: number; vx: number; vy: number; life: number; sz: number; col: string };
 
-function createStage(host: HTMLElement, io: StageIO): Stage {
-  const hits = new HitFeed('nft-invaders');
+/** What tells the two invader games apart: their title, their Survivor feed name and their line-up of art. */
+export type InvadersOptions = { title: string; feed: string; art: Art };
+
+function createStage(host: HTMLElement, io: StageIO, opts: InvadersOptions): Stage {
+  const hits = new HitFeed(opts.feed);
   host.classList.add('ww-arena');
   host.replaceChildren();
   const canvas = document.createElement('canvas');
   canvas.className = 'ub-canvas ww-canvas';
   canvas.setAttribute('role', 'img');
-  canvas.setAttribute('aria-label', 'NFT INVADERS. Drag or touch to move the dragon left and right, or hold the arrow keys; it sprays by itself. Down the invaders before they whitewash the names.');
+  canvas.setAttribute('aria-label', `${opts.title}. Drag or touch to move the dragon left and right, or hold the arrow keys; it sprays by itself. Down the invaders before they whitewash the names.`);
   const soundButton = document.createElement('button');
   soundButton.type = 'button'; soundButton.className = 'ub-sound secondary';
   host.append(canvas, soundButton);
@@ -256,7 +259,7 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
   const RAIDER = 44;
   /** A raider: a CC0 character of its wave's collection (art.ts), whitewash dripping off it when it dives. */
   function drawEnemy(seed: number, id: number, x: number, y: number, diving: boolean, tilt: number, now: number): void {
-    drawRaider(ctx, seed, Math.floor(id / 100), id, x, y, RAIDER, tilt, now);
+    opts.art.drawRaider(ctx, seed, Math.floor(id / 100), id, x, y, RAIDER, tilt, now);
     if (diving) { ctx.fillStyle = CHALK; ctx.strokeStyle = INK; ctx.lineWidth = 1; for (const dx of [-9, 7]) { ctx.fillRect(x + dx, y + RAIDER / 2 - 2, 3, 7 + (dx > 0 ? 3 : 0)); ctx.strokeRect(x + dx - 0.5, y + RAIDER / 2 - 2.5, 4, 8 + (dx > 0 ? 3 : 0)); } }
   }
   function drawBricks(S: WwState | null, now = 0): void {
@@ -299,7 +302,7 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
     const mult = streakMult(p.streak);
     if (mult > 1) { ctx.font = `${size}px ${F_ANTON}`; anton(`×${mult}`, W / 2 + ctx.measureText(fmtScore(p.score)).width / 2 + 8, 40, 26, BLUE, 'left'); }
     mono(fmtClock(ticksLeft(S, tickNow)), W - 16, 30, 16, INK, 'right', 0.08, 500);
-    mono(`WAVE ${Math.max(1, p.wave)} · ${collectionOfWave(p.wave).title}`, W - 16, 54, 12, LABEL, 'right', 0.14, 500);
+    mono(`WAVE ${Math.max(1, p.wave)} · ${opts.art.collectionOfWave(p.wave).title}`, W - 16, 54, 12, LABEL, 'right', 0.14, 500);
     const standing = bitCount(p.bricks);                                     // left, under the page's PRACTICE tag
     mono(`NAMES ${standing}/${RULES.bricks}`, 16, 66, 12, standing <= 2 ? INK : LABEL, 'left', 0.14, 500);
     if (lostT > 0) { ctx.globalAlpha = lostT; ctx.fillStyle = INK; ctx.fillRect(16, 74, 84, 2); ctx.globalAlpha = 1; }
@@ -343,13 +346,14 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
     drawBricks(S, now);
     for (const s of sparks) { ctx.fillStyle = s.col; ctx.fillRect(s.x, s.y, s.sz, s.sz); }
     if (p.waveAt >= 0 && tickNow < p.waveAt && !S.gameOver) {                // the next wave, and whose characters it brings
-      const next = collectionOfWave(p.wave + 1);
+      const next = opts.art.collectionOfWave(p.wave + 1);
       anton(`WAVE ${p.wave + 1}`, W / 2, 290, 54, INK, 'center');
       anton(next.title, W / 2, 340, 30, BLUE, 'center');
       mono(next.by, W / 2, 372, 12, LABEL, 'center', 0.14, 500);
     }
     if (S.gameOver) {                                                        // why it ended, above the page's end card
-      const why = p.bricks === 0 ? 'ALL NAMES WHITEWASHED' : 'TIME’S UP';
+      const capped = S.startTick !== null && S.tick >= Math.min(S.rules.maxTicks, S.startTick + S.rules.roundTicks);
+      const why = p.bricks === 0 ? 'ALL NAMES WHITEWASHED' : capped ? 'TIME’S UP' : 'NO MOVE FOR 30 SECONDS';
       ctx.fillStyle = INK; ctx.fillRect(0, 96, W, 52);
       anton(why, W / 2, 123, Math.min(fitAnton(why, W - 40, 32), 32), CHALK, 'center');
     }
@@ -562,36 +566,36 @@ function createStage(host: HTMLElement, io: StageIO): Stage {
   };
 }
 
-export const whitewashAdapter: GameAdapter = {
-  id: 'whitewash',
-  title: 'NFT INVADERS',
-  by: { name: 'AIporium', url: 'https://x.com/AIporium_' },
-  heading: 'Keep the invaders off the names',
-  tagline: 'Waves of CC0 art invade the wall: down them before they whitewash its names.',
-  lede: 'Eight names of the wall stand behind the dragon. Invaders sway in formation and dive at a name to whitewash it, a different series of CC0 works by XCOPY each wave (a fan-made game, not affiliated with XCOPY). Move the dragon left and right: it sprays by itself. An invader downed mid-dive pays triple, and every 8 downed without losing a name raise the multiplier, up to ×4. Down a whole wave for a bonus on every name still standing and one name repainted. Lose all eight and the run is over. Three minutes on the server clock, one credit per run.',
-  howTo: [
-    { title: 'How to play', text: 'Waves of invaders dive at the eight names of the wall along the bottom. Keep them off: a name an invader reaches gets whitewashed.' },
-    { title: 'Controls', text: 'Drag (or move the mouse) left and right anywhere on the board, or use ← → or A D: a tap is a small step, holding walks. The dragon sprays by itself.' },
-    { title: 'Scoring', text: 'An invader in formation: 50. Caught mid-dive: 150. Every 8 downed without losing a name raises your multiplier (×2, ×3, up to ×4); losing a name resets it. A wave cleared pays 100 × names still standing × the wave number (up to ×5) and repaints one lost name.' },
-    { title: 'Watch out', text: 'Divers drip whitewash: a drip on the dragon stuns it for almost 2 seconds. The name under attack pulses blue. Each wave is bigger and faster.' },
-    { title: 'The end', text: 'The run ends when all eight names are whitewashed, after 3 minutes on the server clock, or if the page sends nothing for 30 seconds (an abandoned run; while you play, the page keeps it alive by itself). Your score is kept.' },
-    { title: 'The art', text: 'The invaders wear works by XCOPY, a different series each wave (MAX PAIN AND FRENS, GRIFTERS, TRAITORS, SUPERRARE, FRESH HELL, early works). XCOPY has dedicated his own works to the public domain: “XCOPY works are licensed under CC0 (Public Domain), free to use, remix, and build upon” (xcopy.art/creative-commons). That is what lets anyone use them; it does not mean he is involved. NFT INVADERS is a fan-made game: it is not made by, endorsed by or affiliated with XCOPY.' },
-  ],
-  stateSchema: stateSchema as never,
-  snapshotSchema: snapshotSchema as never,
-  parseSavedRound: createSavedRoundParser(stateSchema as never, inputSchema as never),
-  applyInput: (state: WwState, input: unknown, tick: number) => engine.applyInput(state, input, tick),
-  scoreOf: (state: WwState) => state.play.score,
-  statusLine(state: WwState, tick: number): string {
-    if (state.gameOver) return 'Waiting for the platform’s recorded result…';
-    if (!state.started) return 'Starting your server-validated round…';
-    let standing = 0; for (let b = 0; b < RULES.bricks; b++) if (state.play.bricks & (1 << b)) standing++;
-    return `Wave ${state.play.wave} · ${standing}/${RULES.bricks} names standing · ${fmtClock(ticksLeft(state, tick))} left on the server clock`;
-  },
-  createStage,
-  diagSummary: (state: WwState) => ({ tick: state.tick, started: state.started, gameOver: state.gameOver, wave: state.play.wave, cleaners: state.play.cleaners.length, bricks: state.play.bricks, score: state.play.score }),
-  practice: {
-    createRun: (seed: number) => engine.createRun(seed, scoringConfiguration('whitewash')),
-    advance: (state: WwState, tick: number) => engine.advance(state, tick),
-  },
-};
+/** An invader game's adapter: the shared rules and stage, its own words and art. */
+export function invadersAdapter(o: InvadersOptions & { id: 'whitewash' | 'cc0-invaders'; heading: string; tagline: string; lede: string;
+  howTo: readonly { title: string; text: string }[]; by?: { name: string; url: string } }): GameAdapter {
+  return {
+    id: o.id, title: o.title, heading: o.heading, tagline: o.tagline, lede: o.lede, howTo: o.howTo, ...(o.by ? { by: o.by } : {}),
+    stateSchema: stateSchema as never,
+    snapshotSchema: snapshotSchema as never,
+    parseSavedRound: createSavedRoundParser(stateSchema as never, inputSchema as never),
+    applyInput: (state: WwState, input: unknown, tick: number) => engine.applyInput(state, input, tick),
+    scoreOf: (state: WwState) => state.play.score,
+    statusLine(state: WwState, tick: number): string {
+      if (state.gameOver) return 'Waiting for the platform’s recorded result…';
+      if (!state.started) return 'Starting your server-validated round…';
+      let standing = 0; for (let b = 0; b < RULES.bricks; b++) if (state.play.bricks & (1 << b)) standing++;
+      return `Wave ${state.play.wave} · ${standing}/${RULES.bricks} names standing · ${fmtClock(ticksLeft(state, tick))} left on the server clock`;
+    },
+    createStage: (host: HTMLElement, io: StageIO) => createStage(host, io, o),
+    diagSummary: (state: WwState) => ({ tick: state.tick, started: state.started, gameOver: state.gameOver, wave: state.play.wave, cleaners: state.play.cleaners.length, bricks: state.play.bricks, score: state.play.score }),
+    practice: {
+      createRun: (seed: number) => engine.createRun(seed, scoringConfiguration(o.id)),
+      advance: (state: WwState, tick: number) => engine.advance(state, tick),
+    },
+  };
+}
+
+/** The rules every invader game shows in its (i) panel, before its own "The art". */
+export const INVADERS_RULES = [
+  { title: 'Controls', text: 'Drag (or move the mouse) left and right anywhere on the board, or use ← → or A D: a tap is a small step, holding walks. The dragon sprays by itself.' },
+  { title: 'Scoring', text: 'An invader in formation: 50. Caught mid-dive: 150. Every 8 downed without losing a name raises your multiplier (×2, ×3, up to ×4); losing a name resets it. A wave cleared pays 100 × names still standing × the wave number (up to ×5) and repaints one lost name.' },
+  { title: 'Watch out', text: 'Divers drip whitewash: a drip on the dragon stuns it for almost 2 seconds. The name under attack pulses blue. Each wave is bigger and faster.' },
+  { title: 'The end', text: 'The run ends when all eight names are whitewashed, after 3 minutes on the server clock, or if the page sends nothing for 30 seconds (an abandoned run; while you play, the page keeps it alive by itself). Your score is kept.' },
+] as const;
+export const AIPORIUM = { name: 'AIporium', url: 'https://x.com/AIporium_' };

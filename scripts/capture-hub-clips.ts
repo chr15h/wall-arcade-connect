@@ -4,11 +4,12 @@
 //
 //   unbreakable   a few volleys first, then an aim and the volley that paints the most bricks within the clip
 //   full-row      the pieces dragged onto the grid one by one; the last completes a line: the clip ends on ROW PAINTED
-//   nft-invaders  wave 1 played off camera, then wave 2 filmed: the Grifters sway and dive, the dragon sprays them down
+//   nft-invaders  wave 1 filmed: the Nouns sway and dive, the dragon sprays them down
+//   cc0-invaders  wave 1 filmed: the Nouns sway and dive
 //   signage       a crowd already on the plaza; signs go up under the newcomers and the people of the wall walk home
 // The two newer games also write their poster, hub/shots/<game>.jpg: the clip's middle frame, whole stage.
 //
-//   node --import tsx scripts/capture-hub-clips.ts [unbreakable,full-row,nft-invaders,signage]   (Chrome: CHROME_PATH or the usual paths)
+//   node --import tsx scripts/capture-hub-clips.ts [unbreakable,full-row,nft-invaders,cc0-invaders,signage]   (Chrome: CHROME_PATH or the usual paths)
 import { execFileSync } from 'node:child_process';
 import { existsSync, statSync } from 'node:fs';
 import { mkdir, readFile, rm } from 'node:fs/promises';
@@ -50,7 +51,7 @@ const bench = await serve('dist/preview');
 const browser = await chromium.launch({ executablePath });
 await mkdir(OUT, { recursive: true });
 
-async function openBench(game: 'unbreakable' | 'full-row' | 'whitewash' | 'signage', seed: number): Promise<Page> {
+async function openBench(game: 'unbreakable' | 'full-row' | 'whitewash' | 'cc0-invaders' | 'signage', seed: number): Promise<Page> {
   const page = await browser.newPage({ viewport: { width: STAGE_W, height: STAGE_H }, deviceScaleFactor: DPR });
   // a returning player: no first-game hints in the clip
   await page.addInitScript(() => { for (const g of ['unbreakable', 'full-row', 'whitewash', 'signage']) localStorage.setItem(`wall-arcade:${g}:hint`, '1'); });
@@ -209,25 +210,25 @@ async function wwPlay(page: Page): Promise<void> {
   const aim = diver ?? [...p.cleaners].sort((a, b) => Math.abs(a.x - p.x) - Math.abs(b.x - p.x))[0];
   if (aim && Math.abs(aim.x - p.target) > 3) await send(page, { action: 'move', x: Math.max(0, Math.min(420, Math.round(aim.x))) });
 }
-async function clipInvaders(): Promise<void> {
+/** An invader game filmed on wave `wave` (the waves before it played off camera). */
+async function clipInvaders(game: 'whitewash' | 'cc0-invaders', name: string, wave: number): Promise<void> {
   for (const seed of [12, 77, 2026, 31337, 4242]) {
-    const page = await openBench('whitewash', seed);
-    // wave 1 off camera, then on to the Grifters (wave 2) with every name still standing
+    const page = await openBench(game, seed);
     let ok = false;
     for (let k = 0; k < 900; k++) {
       const s = await state<Ww>(page);
       if (s.gameOver) break;
-      if (s.play.wave === 2 && s.play.waveAt < 0) { ok = true; break; }
+      if (s.play.wave === wave && s.play.waveAt < 0) { ok = true; break; }
       await wwPlay(page); await wait(page, 150);
     }
-    if (!ok) { await page.close(); console.log(`nft-invaders: seed ${seed} did not reach wave 2, next seed`); continue; }
+    if (!ok) { await page.close(); console.log(`${name}: seed ${seed} did not reach wave ${wave}, next seed`); continue; }
     await wait(page, 600);
-    console.log(`nft-invaders: seed ${seed}, filming wave 2`);
-    await record(page, 'nft-invaders', async (f) => { if (f % 5 === 0) await wwPlay(page); }, Math.round(FRAMES * 0.55));
+    console.log(`${name}: seed ${seed}, filming wave ${wave}`);
+    await record(page, name, async (f) => { if (f % 5 === 0) await wwPlay(page); }, Math.round(FRAMES * 0.55));
     await page.close();
     return;
   }
-  throw new Error('NFT INVADERS: no seed reached wave 2');
+  throw new Error(`${name}: no seed reached wave ${wave}`);
 }
 
 /* -------------------------------------- SIGNAGE --------------------------------------- */
@@ -256,6 +257,7 @@ async function clipSignage(): Promise<void> {
 try {
   if (WHICH.includes('unbreakable')) await clipUnbreakable();
   if (WHICH.includes('full-row')) await clipFullRow();
-  if (WHICH.includes('nft-invaders')) await clipInvaders();
+  if (WHICH.includes('nft-invaders')) await clipInvaders('whitewash', 'nft-invaders', 1);      // the Nouns, its first wave
+  if (WHICH.includes('cc0-invaders')) await clipInvaders('cc0-invaders', 'cc0-invaders', 1);     // the Nouns
   if (WHICH.includes('signage')) await clipSignage();
 } finally { await browser.close(); bench.close(); }

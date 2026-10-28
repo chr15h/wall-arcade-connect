@@ -2,7 +2,7 @@
 // shell uses to parse the coordinator's snapshots and the saved paid round. tests/whitewash.test.ts checks that these
 // schemas accept and refuse exactly what core.ts's hand-written checks do.
 import * as z from 'zod/mini';
-import { ALL_BRICKS, DIVING, H, RULES, W } from './core.js';
+import { ALL_BRICKS, DIVING, H, RULES, W, WW_GAMES } from './core.js';
 
 export * from './core.js';
 
@@ -13,7 +13,7 @@ const MAX_CLEANERS = RULES.formationCols * RULES.maxRows;
 const point = z.tuple([z.int().check(z.gte(-100), z.lte(W + 100)), z.int().check(z.gte(-200), z.lte(H + 200))]);
 
 export const configSchema = z.object({
-  game: z.literal('whitewash'),
+  game: z.enum(WW_GAMES),
   maxTicks: posInt.check(z.lte(100_000)),
   roundTicks: posInt.check(z.lte(100_000)),
 }).check(z.refine((rules) => rules.maxTicks >= rules.roundTicks, 'maxTicks must be at least roundTicks'));

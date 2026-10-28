@@ -14,7 +14,7 @@ const publicHttpsUrl = z.string().url().refine((value) => {
   return url.protocol === 'https:' && !url.username && !url.password && !url.hostname.endsWith('.invalid');
 }, 'Must be a public HTTPS URL');
 
-export const GAME_IDS = ['unbreakable', 'tap-the-name', 'full-row', 'signage', 'whitewash'] as const;
+export const GAME_IDS = ['unbreakable', 'tap-the-name', 'full-row', 'signage', 'whitewash', 'cc0-invaders'] as const;
 export type GameId = (typeof GAME_IDS)[number];
 
 export const configurationSchema = z.object({
@@ -54,13 +54,13 @@ export function parseConfiguration(value: unknown, currentOrigin?: string): Conf
  * The scoring configuration published with each deployment (scoring-config.json, pasted into the verifier version).
  * Ticks are the platform's 50 ms server ticks. A run lasts at most `roundTicks` after its explicit start and never
  * more than `maxTicks` after creation: UNBREAKABLE 3 minutes, TAP THE NAME 90 seconds, SIGNAGE 4 minutes (or until the
- * fifth lost walker), NFT INVADERS 3 minutes (or until no name stands), FULL ROW an 8-minute cap (a run normally ends
+ * fifth lost walker), NFT INVADERS and CC0 INVADERS 3 minutes (or until no name stands), FULL ROW an 8-minute cap (a run normally ends
  * before, when no piece fits; a run cut by the cap keeps its score).
  */
 export function scoringConfiguration(game: GameId): { game: GameId; maxTicks: number; roundTicks: number } {
   if (game === 'unbreakable') return { game, maxTicks: 3900, roundTicks: 3600 };
   if (game === 'full-row') return { game, maxTicks: 9900, roundTicks: 9600 };
   if (game === 'signage') return { game, maxTicks: 5100, roundTicks: 4800 };
-  if (game === 'whitewash') return { game, maxTicks: 3900, roundTicks: 3600 };
+  if (game === 'whitewash' || game === 'cc0-invaders') return { game, maxTicks: 3900, roundTicks: 3600 };
   return { game, maxTicks: 1900, roundTicks: 1800 };
 }

@@ -67,17 +67,23 @@ seed. The 8 bricks carry 8 real neighbours of one row of the wall (`names.ts`, f
 person of its brick, with their walking sprite when they made one: a client skin, never seen by the engine.
 `scripts/calibrate-signage.ts` plays three bots through the built verifier.
 
-`src/games/whitewash/` is **NFT INVADERS**, a fixed shooter: 8 names of the wall stand along the bottom, the dragon (or
-the signed-in player's walking sprite) guards them and sprays upwards by itself, and raiders sway in formation and peel off
-in dives at a name; a diver that reaches the wall whitewashes it and flies back up. The raiders wear CC0 NFT art, a client
-skin only: waves of XCOPY (CC0), one series per wave in turn (`art.ts`; sources in `art/README.md`, built by
-`scripts/xcopy-works-art.ts` from a saved copy of xcopy.art's Works page and `scripts/raiders-art.ts` from the chain). One input,
-`{action:'move', x}` (where the dragon should go). An invader downed pays 50 in formation, 150 mid-dive, × a streak factor (×1 to ×4, every 8 downed since a name was last
-whitewashed); a diver's drip on
-the dragon stuns it for 1.5 s; a wave downed pays 100 × standing names × the wave (up to ×5) and repaints one name, then a
-larger wave comes. The run ends when no name stands, or at the 3-minute server cap. Dives (who, at which name) are a pure
-function of the seed and the dive number. The names are the same client skin as SIGNAGE's. `scripts/calibrate-whitewash.ts`
-plays three bots through the built verifier.
+`src/games/whitewash/` is **NFT INVADERS** (id `whitewash`, by AIporium), a fixed shooter: 8 names of the wall stand
+along the bottom, the dragon (or the signed-in player's walking sprite) guards them and sprays upwards by itself, and
+invaders sway in formation and peel off in dives at a name; a diver that reaches the wall whitewashes it and flies back up.
+One input, `{action:'move', x}` (where the dragon should go). An invader downed pays 50 in formation, 150 mid-dive, × a
+streak factor (×1 to ×4, every 8 downed since a name was last whitewashed); a diver's drips stun the dragon for 1.8 s; a
+wave downed pays 100 × standing names × the wave (up to ×5) and repaints one name, then a larger, faster wave comes. The
+run ends when no name stands, at the 3-minute server cap, or 30 s after the last input (the page sends a keep-alive while
+played: the idle limit bounds what one verifier call simulates). Dives (who, at which name) are a pure function of the
+seed and the dive number. The invaders wear CC0 art, a client skin only, one collection per wave: a mixed line-up
+(`art-cc0.ts`: Nouns drawn from their on-chain artwork, CrypToadz, mfers and three XCOPY series; the first release was all
+XCOPY) and works by XCOPY (`art-xcopy.ts`; sources and the not-affiliated note in `art/README.md`, built by `scripts/xcopy-works-art.ts` from a saved
+copy of xcopy.art's Works page and by `scripts/raiders-art.ts` from the chain, their black grounds cut by
+`scripts/cutout.ts`). **CC0 INVADERS** (id `cc0-invaders`, `cc0-invaders.ts`) is the same game, rules and verifier (the
+engine accepts both ids) (not deployed) and the same mixed line-up;
+each game's entry imports only its own line-up, so each archive carries only its own art. `scripts/calibrate-whitewash.ts`
+plays three bots through the built verifier; `scripts/check-controls-whitewash.ts` drives the controls adversarially in
+Chrome (mouse, keys, lag).
 
 Screens follow one rule: one job, one sentence and one blue button per screen; every explanation sits behind the (i)
 of the bar ("How it works"). The entry is the title, one sentence, PLAY · 1 CREDIT, "Practice, free" and this week's

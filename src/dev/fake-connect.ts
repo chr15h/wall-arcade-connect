@@ -15,13 +15,13 @@ import { createEngine as createWhitewash } from '../games/whitewash/engine.js';
 import { scoringConfiguration } from '../shell/config.js';
 import { PACK, formatPrice } from '../shell/credits.js';
 
-declare const __FAKE_GAME__: 'unbreakable' | 'tap-the-name' | 'full-row' | 'signage' | 'whitewash';
+declare const __FAKE_GAME__: 'unbreakable' | 'tap-the-name' | 'full-row' | 'signage' | 'whitewash' | 'cc0-invaders';
 
 const params = new URLSearchParams(location.search);
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/.test(params.get('address') ?? '') ? (params.get('address') as string).toLowerCase() : '0xdec0de0000000000000000000000000000000001';
 const TREASURY = '0xb6ede0158e1792ed25e1367edeec05a824d7c9ad';
 const GAME = typeof __FAKE_GAME__ === 'string' ? __FAKE_GAME__ : 'unbreakable';
-const engine = (GAME === 'tap-the-name' ? createTap(TAP_POOL) : GAME === 'full-row' ? createFullRow() : GAME === 'signage' ? createSignage() : GAME === 'whitewash' ? createWhitewash() : createUb(ELIG)) as unknown as ReturnType<typeof createUb>;
+const engine = (GAME === 'tap-the-name' ? createTap(TAP_POOL) : GAME === 'full-row' ? createFullRow() : GAME === 'signage' ? createSignage() : GAME === 'whitewash' || GAME === 'cc0-invaders' ? createWhitewash() : createUb(ELIG)) as unknown as ReturnType<typeof createUb>;
 const lagMs = Number(params.get('lag') ?? 0);          // one-way network delay, both directions
 const runTicks = Number(params.get('ticks') ?? scoringConfiguration(typeof __FAKE_GAME__ === 'string' ? __FAKE_GAME__ : 'unbreakable').roundTicks);
 const uuid = (): string => (typeof crypto.randomUUID === 'function' ? crypto.randomUUID()

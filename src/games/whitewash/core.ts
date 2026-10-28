@@ -41,7 +41,10 @@ export const ALL_BRICKS = (1 << RULES.bricks) - 1;
 export const IN_FORMATION = 0, DIVING = 1, RETURNING = 2;
 
 /* ============================ TYPES & VALIDATION ============================= */
-export type WwConfig = { game: 'whitewash'; maxTicks: number; roundTicks: number };
+/** The games these rules run: NFT INVADERS (XCOPY) and CC0 INVADERS (other CC0 collections), the same rules and verifier. */
+export const WW_GAMES = ['whitewash', 'cc0-invaders'] as const;
+export type WwGame = (typeof WW_GAMES)[number];
+export type WwConfig = { game: WwGame; maxTicks: number; roundTicks: number };
 export type Cleaner = {
   /** wave × 100 + slot: unique in a run (the client follows a cleaner by it). */
   id: number;
@@ -88,9 +91,9 @@ const isPoint = (p: unknown): p is [number, number] => Array.isArray(p) && p.len
 export function parseSeed(seed: unknown): number { return isInt(seed, 0, 0xffffffff) ? seed : fail('seed'); }
 /** The scoring config (extra keys are dropped, like a non-strict object schema). */
 export function parseConfig(value: unknown): WwConfig {
-  if (!isObject(value) || value.game !== 'whitewash' || !isInt(value.maxTicks, 1, 100_000) || !isInt(value.roundTicks, 1, 100_000)
+  if (!isObject(value) || !WW_GAMES.includes(value.game as WwGame) || !isInt(value.maxTicks, 1, 100_000) || !isInt(value.roundTicks, 1, 100_000)
     || value.maxTicks < value.roundTicks) return fail('config');
-  return { game: 'whitewash', maxTicks: value.maxTicks, roundTicks: value.roundTicks };
+  return { game: value.game as WwGame, maxTicks: value.maxTicks, roundTicks: value.roundTicks };
 }
 /** An input, or null when it is not one (unknown action, extra field, out-of-range number). */
 export function parseInput(value: unknown): WwInput | null {

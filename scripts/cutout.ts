@@ -3,7 +3,24 @@
 // floating in the cleared ground (XCOPY's noise) is then cleared too: a pixel that the cleared ground mostly surrounds
 // goes, twice over. Returns the share of the picture made transparent (a picture on another ground loses almost none).
 export function cutBlackGround(px: Uint8ClampedArray, w: number, h: number, threshold = 34): number {
-  const dark = (i: number): boolean => 0.299 * (px[i * 4] as number) + 0.587 * (px[i * 4 + 1] as number) + 0.114 * (px[i * 4 + 2] as number) < threshold;
+  return cutGround(px, w, h, (i) => 0.299 * (px[i * 4] as number) + 0.587 * (px[i * 4 + 1] as number) + 0.114 * (px[i * 4 + 2] as number) < threshold);
+}
+/** The same cut for a picture on a plain ground of any colour (CrypToadz, mfers): the ground is the colour most of the
+ *  picture's edge has; a pixel within `tolerance` of it (RGB distance) counts as ground. */
+export function cutPlainGround(px: Uint8ClampedArray, w: number, h: number, tolerance = 36): number {
+  const counts = new Map<number, number>();
+  const edge = (i: number): void => { const k = ((px[i * 4] as number) >> 3) << 10 | ((px[i * 4 + 1] as number) >> 3) << 5 | ((px[i * 4 + 2] as number) >> 3); counts.set(k, (counts.get(k) ?? 0) + 1); };
+  for (let x = 0; x < w; x++) { edge(x); edge((h - 1) * w + x); }
+  for (let y = 1; y < h - 1; y++) { edge(y * w); edge(y * w + w - 1); }
+  const top = [...counts].sort((p, q) => q[1] - p[1])[0];
+  if (!top) return 0;
+  const r = ((top[0] >> 10) & 31) * 8 + 4, g = ((top[0] >> 5) & 31) * 8 + 4, b = (top[0] & 31) * 8 + 4;
+  return cutGround(px, w, h, (i) => {
+    const dr = (px[i * 4] as number) - r, dg = (px[i * 4 + 1] as number) - g, db = (px[i * 4 + 2] as number) - b;
+    return dr * dr + dg * dg + db * db < tolerance * tolerance;
+  });
+}
+function cutGround(px: Uint8ClampedArray, w: number, h: number, dark: (i: number) => boolean): number {
   const ground = new Uint8Array(w * h), queue: number[] = [];
   const seed = (i: number): void => { if (!ground[i] && dark(i)) { ground[i] = 1; queue.push(i); } };
   for (let x = 0; x < w; x++) { seed(x); seed((h - 1) * w + x); }
@@ -81,19 +98,21 @@ export function figureShape(px: Uint8ClampedArray, w: number, h: number): { edge
 /** A work is shown cut out when the black ground took 30–85 % of it, what is left is one figure (90 % in one piece),
  *  mostly clear of the edges (at most 24 % of them) and solid (it fills 70 % of its convex outline); otherwise it is
  *  framed. Tuned on the 74 works of the game: every Grifter and the Max Pain heads pass, no scene or glitch work does. */
-export const looksCutOut = (cut: number, piece: number, shape: { edge: number; solidity: number }): boolean =>
-  cut >= 0.3 && cut <= 0.85 && piece >= 0.9 && shape.edge <= 0.24 && shape.solidity >= 0.7;
+export const looksCutOut = (cut: number, piece: number, shape: { edge: number; solidity: number }, minSolidity = 0.7): boolean =>
+  cut >= 0.3 && cut <= 0.85 && piece >= 0.9 && shape.edge <= 0.24 && shape.solidity >= minSolidity;
 
-/** Reduces `img` (its centre square) to `size` px and cuts its black ground when that leaves a clean figure. */
+/** Reduces `img` (its centre square) to `size` px and cuts its ground (black, or `plain`: any plain colour) when that
+ *  leaves a clean figure. */
 export async function reduceWork(img: { width: number; height: number }, size: number, smooth: boolean,
-  canvasFor: (w: number, h: number) => { getContext(kind: '2d'): any; encode(format: 'webp', quality: number): Promise<Buffer> }): Promise<{ data: Buffer; cut: boolean }> {
+  canvasFor: (w: number, h: number) => { getContext(kind: '2d'): any; encode(format: 'webp', quality: number): Promise<Buffer> }, ground: 'black' | 'plain' = 'black'): Promise<{ data: Buffer; cut: boolean }> {
   const canvas = canvasFor(size, size), g = canvas.getContext('2d');
   g.imageSmoothingEnabled = smooth;
   const s = Math.min(img.width, img.height);
   g.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size);
   const pixels = g.getImageData(0, 0, size, size);
-  const cutShare = cutBlackGround(pixels.data, size, size);
-  const cut = looksCutOut(cutShare, largestPieceShare(pixels.data, size, size), figureShape(pixels.data, size, size));
+  const cutShare = ground === 'plain' ? cutPlainGround(pixels.data, size, size) : cutBlackGround(pixels.data, size, size);
+  // a figure on a plain ground has clean edges, so a thin limb (an mfer's arm, its cable) may stand out further: 0.6
+  const cut = looksCutOut(cutShare, largestPieceShare(pixels.data, size, size), figureShape(pixels.data, size, size), ground === 'plain' ? 0.6 : 0.7);
   if (cut) g.putImageData(pixels, 0, 0);
   return { data: await canvas.encode('webp', 85), cut };
 }

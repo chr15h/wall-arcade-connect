@@ -12,15 +12,16 @@ import { fullRowAdapter } from '../games/full-row/client.js';
 import { createEngine as createFullRow } from '../games/full-row/engine.js';
 import { signageAdapter } from '../games/signage/client.js';
 import { createEngine as createSignage } from '../games/signage/engine.js';
-import { whitewashAdapter } from '../games/whitewash/client.js';
+import { whitewashAdapter } from '../games/whitewash/nft-invaders.js';
 import { createEngine as createWhitewash } from '../games/whitewash/engine.js';
+import { cc0InvadersAdapter } from '../games/whitewash/cc0-invaders.js';
 
 const params = new URLSearchParams(location.search);
-const game = (['tap-the-name', 'full-row', 'signage', 'whitewash'] as const).find((id) => id === params.get('game')) ?? 'unbreakable';
+const game = (['tap-the-name', 'full-row', 'signage', 'whitewash', 'cc0-invaders'] as const).find((id) => id === params.get('game')) ?? 'unbreakable';
 const seed = Number(params.get('seed') ?? 4242) >>> 0;
 const lagMs = Number(params.get('lag') ?? 0);
-const adapter = game === 'tap-the-name' ? tapAdapter : game === 'full-row' ? fullRowAdapter : game === 'signage' ? signageAdapter : game === 'whitewash' ? whitewashAdapter : unbreakableAdapter;
-const engine = (game === 'tap-the-name' ? createTap(ELIG) : game === 'full-row' ? createFullRow() : game === 'signage' ? createSignage() : game === 'whitewash' ? createWhitewash() : createUb(ELIG)) as unknown as ReturnType<typeof createUb>;
+const adapter = game === 'tap-the-name' ? tapAdapter : game === 'full-row' ? fullRowAdapter : game === 'signage' ? signageAdapter : game === 'whitewash' ? whitewashAdapter : game === 'cc0-invaders' ? cc0InvadersAdapter : unbreakableAdapter;
+const engine = (game === 'tap-the-name' ? createTap(ELIG) : game === 'full-row' ? createFullRow() : game === 'signage' ? createSignage() : game === 'whitewash' || game === 'cc0-invaders' ? createWhitewash() : createUb(ELIG)) as unknown as ReturnType<typeof createUb>;
 
 const t0 = performance.now();
 const tick = (): number => Math.floor((performance.now() - t0) / 50);
