@@ -136,9 +136,9 @@ because the API no longer returns `creditCost`: check the group afterwards befor
 Attached to the shared group at 1 credit per play. The 40% of the jackpot that goes to the artists each Friday is paid
 to the wallet below.
 
-| Game | Artist (panel) | App ID | Origin | 40% paid to | Attached |
-|---|---|---|---|---|---|
-| Dirty Signals Radio | Bully Meow (BULLY-MEOW, panel 18) | `8617e311-f5d4-4e04-9010-19298f2ff9a0` | https://sy3mgnnh.srstudio.dev | `0x14076eFC88Ca7D53594500261AdA8185033e6D5B` | 27 Oct 2026 |
+| Game | Artist (panel) | App ID | Origin | 40% paid to | Attached | On the hub |
+|---|---|---|---|---|---|---|
+| Dirty Signals Radio | Bully Meow (BULLY-MEOW, panel 18) | `8617e311-f5d4-4e04-9010-19298f2ff9a0` | https://sy3mgnnh.srstudio.dev | `0x14076eFC88Ca7D53594500261AdA8185033e6D5B` | 27 Oct 2026 | 28 Oct 2026, card #03 and its top 3 |
 
 ## The people of the wall: walking sprites
 

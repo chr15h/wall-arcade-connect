@@ -158,13 +158,10 @@ dialog::backdrop{background:rgba(20,22,31,.6)}
 
 @media (max-width:719px){
   .links{display:none}
-  .game.yours.second{display:none}                 /* one open slot is enough on a phone */
   .brand span{font-size:12px}
 }
 @media (min-width:720px){
   .row{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .boards{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .board + .board{border-top:0;border-left:2px solid var(--paper)}
 }
 @media (min-width:720px){ .wall .two{flex-direction:row;align-items:center} }
 @media (min-width:980px){
@@ -225,18 +222,20 @@ dialog::backdrop{background:rgba(20,22,31,.6)}
         <div class="foot"><a class="btn" href="https://7x2phv5j.srstudio.dev/" target="_blank" rel="noopener">PLAY <span>→</span></a></div>
       </article>
       <article class="game">
-        <div class="head"><h3>FULL ROW</h3><span class="n">#02</span><span class="new">NEW</span></div>
+        <div class="head"><h3>FULL ROW</h3><span class="n">#02</span></div>
         <video class="shot" src="clips/full-row.mp4" poster="shots/full-row.jpg" autoplay muted loop playsinline preload="auto" disablepictureinpicture disableremoteplayback aria-label="FULL ROW, in play"></video>
         <p class="line">Place the pieces, fill a row. The names on it get painted together.</p>
         <p class="by lbl">By On The Wall</p>
         <div class="foot"><a class="btn" href="https://yfq52eu3.srstudio.dev/" target="_blank" rel="noopener">PLAY <span>→</span></a></div>
       </article>
-      <article class="game yours">
-        <div class="head"><h3>YOUR GAME HERE</h3><span class="n">#03</span></div>
-        <div class="here">YOUR GAME HERE</div>
-        <div class="foot"><a class="btn dashed" href="./builders.html">CREATE MY OWN GAME <span>→</span></a></div>
+      <article class="game">
+        <div class="head"><h3>DIRTY SIGNALS RADIO</h3><span class="n">#03</span><span class="new">NEW</span></div>
+        <video class="shot" src="clips/dirty-signals-radio.mp4" poster="shots/dirty-signals-radio.jpg" autoplay muted loop playsinline preload="auto" disablepictureinpicture disableremoteplayback aria-label="DIRTY SIGNALS RADIO, in play"></video>
+        <p class="line">Name the Bully Meow song through the static. The cover art is your clue.</p>
+        <p class="by lbl">By Bully Meow</p>
+        <div class="foot"><a class="btn" href="https://sy3mgnnh.srstudio.dev/" target="_blank" rel="noopener">PLAY <span>→</span></a></div>
       </article>
-      <article class="game yours second">
+      <article class="game yours">
         <div class="head"><h3>YOUR GAME HERE</h3><span class="n">#04</span></div>
         <div class="here">YOUR GAME HERE</div>
         <div class="foot"><a class="btn dashed" href="./builders.html">CREATE MY OWN GAME <span>→</span></a></div>
@@ -259,6 +258,7 @@ dialog::backdrop{background:rgba(20,22,31,.6)}
     <div class="boards">
       <div class="board" data-game="full-row"><div class="bh"><span>FULL ROW</span><span>Top 3</span></div><p class="empty">Loading…</p></div>
       <div class="board" data-game="unbreakable"><div class="bh"><span>UNBREAKABLE</span><span>Top 3</span></div><p class="empty">Loading…</p></div>
+      <div class="board" data-game="dirty-signals-radio"><div class="bh"><span>DIRTY SIGNALS RADIO</span><span>Top 3</span></div><p class="empty">Loading…</p></div>
     </div>
   </div>
 </section>
@@ -314,7 +314,8 @@ dialog::backdrop{background:rgba(20,22,31,.6)}
 <script>
 var GAMES = [
   { id: 'full-row', url: 'https://yfq52eu3.srstudio.dev/', appId: '5932be45-7ccb-483a-916d-0dcebff40ca2' },
-  { id: 'unbreakable', url: 'https://7x2phv5j.srstudio.dev/', appId: 'c5285ae3-512e-464a-aceb-17571e1fe3e9' }
+  { id: 'unbreakable', url: 'https://7x2phv5j.srstudio.dev/', appId: 'c5285ae3-512e-464a-aceb-17571e1fe3e9' },
+  { id: 'dirty-signals-radio', url: 'https://sy3mgnnh.srstudio.dev/', appId: '8617e311-f5d4-4e04-9010-19298f2ff9a0' }   // by Bully Meow
 ];
 function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 

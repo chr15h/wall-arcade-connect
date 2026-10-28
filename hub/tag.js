@@ -19,6 +19,7 @@
     var href = el.getAttribute('href') || '', text = (el.textContent || '').trim().toUpperCase();
     if (href.indexOf('yfq52eu3.srstudio.dev') >= 0) tag('click_play', { game: 'full-row' });
     else if (href.indexOf('7x2phv5j.srstudio.dev') >= 0) tag('click_play', { game: 'unbreakable' });
+    else if (href.indexOf('sy3mgnnh.srstudio.dev') >= 0) tag('click_play', { game: 'dirty-signals-radio' });
     else if (text.indexOf('CREATE MY OWN GAME') === 0 || text.indexOf('MAKE MY GAME') === 0) tag('click_make_my_game', { extra: { from: view === 'hub_view' ? 'hub' : 'builders' } });
     else if (el.classList.contains('copy')) tag('copy_kit');
     else if (el.hasAttribute('download') || el.id === 'dlPeople') tag('kit_download', { extra: { file: (el.getAttribute('download') || href.split('/').pop() || '').slice(0, 60) } });

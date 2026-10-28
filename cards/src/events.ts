@@ -15,7 +15,7 @@ export const EVENTS = [
 ] as const;
 export type EventName = typeof EVENTS[number];
 const FROM_PAGES = new Set<string>(EVENTS.filter((e) => e !== 'card_create' && e !== 'card_view'));
-const GAMES = new Set(['full-row', 'unbreakable']);
+const GAMES = new Set(['full-row', 'unbreakable', 'dirty-signals-radio']);   // the hub's PLAY tags each; only ours tag their own plays
 
 /** One stored event: t (ms), e, g game, w wallet (lowercase), p practice, s score, c card id, x extra, k its blob key. */
 export type ArcadeEvent = { t: number; e: EventName; g?: string; w?: string; p?: boolean; s?: number; c?: string; x?: Record<string, string | number | boolean>; k?: string };
