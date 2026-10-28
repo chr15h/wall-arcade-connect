@@ -207,6 +207,8 @@ test('with a token: one line per app of the group, named by the usage report or 
   assert.ok(asked.includes('get-credit-group'));
   assert.equal(asked.filter((a) => a === 'exchange').length, 1);                        // one session for the whole refresh
   assert.equal(JSON.parse(kept.get('games.json') ?? '{}')['feedbeef-0000-4000-8000-000000000000'], 'Next Game');
+  // the group's origins, kept for the card service's CORS (cards/src/origins.ts)
+  assert.deepEqual(JSON.parse(kept.get('origins.json') ?? '{}').origins, ['https://yfq52eu3.srstudio.dev', 'https://7x2phv5j.srstudio.dev', 'https://fgud7mby.srstudio.dev', 'https://sy3mgnnh.srstudio.dev', 'https://zzzzzzzz.srstudio.dev']);
   const html = await (await handleStats(new Request('https://cards.test/stats'), deps)).text();
   assert.match(html, /<th>Dirty Signals Radio<\/th>/);
   assert.match(html, /<th>Next Game<\/th>/);
@@ -224,4 +226,40 @@ test('this week is the leaderboard\'s week (src/shell/week.ts): week 1 to Friday
   assert.deepEqual([new Date(later.from).toISOString(), new Date(later.to).toISOString()], ['2026-10-30T15:00:00.000Z', '2026-11-06T15:00:00.000Z']);
   const s = buildStats({ now: at('2026-11-04T12:00:00Z'), games: [], events: [], usage: {}, holders: new Set(), packs: [], leaderboards: {}, pot: null, people: null, sources: {} });
   assert.equal((s.windows.week as any).to, '2026-11-06T15:00:00.000Z');                 // its real end, not "now"
+});
+
+test('who may POST: the credit group\'s apps as /stats last read them, plus our three always (cards/src/origins.ts)', async () => {
+  const { groupOrigins, OUR_ORIGINS } = await import('../src/origins.js');
+  const { handle } = await import('../src/service.js');
+  const ARTIST = 'https://k6ag9vxz.srstudio.dev';
+  let file: string | null = null, reads = 0, clock = at('2026-10-28T13:00:00Z');
+  const origins = groupOrigins({ getText: async () => { reads++; return file; } }, () => clock);
+  const events = memoryStore();
+  const post = (origin: string): Promise<Response> => handleEvents(new Request('https://cards.test/api/events', {
+    method: 'POST', body: JSON.stringify({ event: 'game_open' }), headers: { origin, 'content-type': 'text/plain' },
+  }), { events, now: () => clock, origins });
+  // never read yet: our three only (the hub included), an artist's app refused
+  for (const o of OUR_ORIGINS) assert.equal((await post(o)).status, 204, o);
+  assert.equal((await post(ARTIST)).status, 403);
+  // the refresh stored the group (an odd entry is ignored); within the minute the old list still holds, then the new one
+  file = JSON.stringify({ at: '2026-10-28T13:00:00Z', origins: ['https://yfq52eu3.srstudio.dev', ARTIST, 'javascript:alert(1)', 'https://x.srstudio.dev/path'] });
+  assert.equal((await post(ARTIST)).status, 403);
+  clock += 61_000;
+  const ok = await post(ARTIST);
+  assert.equal(ok.status, 204);
+  assert.equal(ok.headers.get('access-control-allow-origin'), ARTIST);
+  assert.equal((await post('https://6972mvu4.srstudio.dev')).status, 204);           // the hub: not in the group, still ours
+  assert.equal((await post('https://x.srstudio.dev')).status, 403);
+  assert.equal(reads, 2);                                                             // once a minute, not once a request
+  // the cards: the same list for the CORS of POST /api/cards and its preflight
+  const cards = { store: { get: async () => null, set: async () => undefined } as any, wallNames: async () => [], leaderboard: async () => [], origins };
+  const pre = await handle(new Request('https://cards.test/api/cards', { method: 'OPTIONS', headers: { origin: ARTIST } }), cards);
+  assert.equal(pre.headers.get('access-control-allow-origin'), ARTIST);
+  const bad = await handle(new Request('https://cards.test/api/cards', { method: 'POST', body: '{', headers: { origin: ARTIST } }), cards);
+  assert.equal([bad.status, bad.headers.get('access-control-allow-origin')].join(' '), `400 ${ARTIST}`);
+  const other = await handle(new Request('https://cards.test/api/cards', { method: 'POST', body: '{', headers: { origin: 'https://evil.example' } }), cards);
+  assert.equal(other.headers.get('access-control-allow-origin'), null);
+  // the store unreadable: the last list, or ours
+  const broken = groupOrigins({ getText: async () => { throw new Error('blobs down'); } });
+  assert.deepEqual([...await broken()], OUR_ORIGINS);
 });

@@ -8,6 +8,7 @@ import { createHash } from 'node:crypto';
 import { CardError, GAMES, gameOf, player, validate, type BoardCard, type BoardRequest, type Card, type GameKey } from './validate.js';
 import { renderCard } from './render.js';
 import type { ArcadeEvent } from './events.js';
+import { isAllowed, ours, type Origins } from './origins.js';
 
 export interface CardStore {
   get(key: string, type: 'json'): Promise<unknown>;
@@ -17,20 +18,19 @@ export interface CardStore {
 export type LeaderEntry = { rank: number; score: string | number; player?: { kind?: string; displayName?: string; ensName?: string | null } };
 /** The people of the wall (the PEOPLE store of this site): a name's sprite id, and a mirrored sheet's bytes. */
 export type PeopleSprites = { idsOf(names: string[]): Promise<(string | null)[]>; sheet(id: string): Promise<Uint8Array | null> };
-/** `tag`: our stats (cards/src/events.ts): a card created, a card's page opened (from X or not). Never blocks a card. */
-export type Deps = { store: CardStore; wallNames(): Promise<string[]>; leaderboard(game: GameKey): Promise<LeaderEntry[]>; people?: PeopleSprites; tag?: (event: ArcadeEvent) => Promise<void>; now?: () => number };
+/** `tag`: our stats (cards/src/events.ts): a card created, a card's page opened (from X or not). Never blocks a card.
+ *  `origins`: the pages that may POST a card (cards/src/origins.ts: the credit group's apps and ours); ours alone without it. */
+export type Deps = { store: CardStore; wallNames(): Promise<string[]>; leaderboard(game: GameKey): Promise<LeaderEntry[]>; people?: PeopleSprites; tag?: (event: ArcadeEvent) => Promise<void>; now?: () => number; origins?: Origins };
 const tagged = async (deps: Deps, event: Omit<ArcadeEvent, 't'>): Promise<void> => { try { await deps.tag?.({ t: deps.now?.() ?? Date.now(), ...event }); } catch { /* stats only */ } };
 /** Link previews (X's own crawler and the like) are not people opening a card. */
 const BOT = /bot|crawl|spider|preview|facebookexternalhit|embedly|slack|discord|whatsapp|telegram/i;
 
-const ALLOWED_ORIGINS = new Set(['https://yfq52eu3.srstudio.dev', 'https://7x2phv5j.srstudio.dev', 'https://6972mvu4.srstudio.dev']);
-export const isAllowed = (origin: string | null): boolean => origin !== null && (ALLOWED_ORIGINS.has(origin) || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin));
-const cors = (request: Request): Record<string, string> => {
+const cors = (request: Request, allowed: Set<string>): Record<string, string> => {
   const origin = request.headers.get('origin');
-  return isAllowed(origin) ? { 'Access-Control-Allow-Origin': origin as string, 'Access-Control-Allow-Methods': 'POST, GET', 'Access-Control-Allow-Headers': 'Content-Type', Vary: 'Origin' } : {};
+  return isAllowed(origin, allowed) ? { 'Access-Control-Allow-Origin': origin as string, 'Access-Control-Allow-Methods': 'POST, GET', 'Access-Control-Allow-Headers': 'Content-Type', Vary: 'Origin' } : {};
 };
-const json = (request: Request, status: number, body: unknown): Response =>
-  new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...cors(request) } });
+const json = (headers: Record<string, string>, status: number, body: unknown): Response =>
+  new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...headers } });
 const esc = (s: string): string => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
 const fmt = (n: number): string => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 
@@ -119,19 +119,21 @@ async function stored(deps: Deps, id: string): Promise<Card | null> {
 
 export async function handle(request: Request, deps: Deps): Promise<Response> {
   const url = new URL(request.url), origin = url.origin, path = url.pathname;
-  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(request) });
+  const allowed = request.method === 'OPTIONS' || path === '/api/cards' ? await (deps.origins?.() ?? Promise.resolve(ours())) : ours();
+  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(request, allowed) });
   if (path === '/api/cards') {
-    if (request.method !== 'POST') return json(request, 405, { error: 'POST a card' });
+    const headers = cors(request, allowed);
+    if (request.method !== 'POST') return json(headers, 405, { error: 'POST a card' });
     const raw = await request.text();
-    if (raw.length > 8192) return json(request, 413, { error: 'too large' });
+    if (raw.length > 8192) return json(headers, 413, { error: 'too large' });
     let card: Card;
     try {
       const wall = new Set((await deps.wallNames()).map((n) => n.trim().toUpperCase()));
       const asked = validate(JSON.parse(raw) as unknown, wall);
       card = asked.kind === 'board' ? await boardFromPlatform(asked, deps) : await withSprites(asked, deps);
     } catch (error) {
-      if (error instanceof BoardUnavailable) return json(request, 502, { error: error.message });
-      return json(request, 400, { error: error instanceof CardError ? error.message : 'invalid JSON' });
+      if (error instanceof BoardUnavailable) return json(headers, 502, { error: error.message });
+      return json(headers, 400, { error: error instanceof CardError ? error.message : 'invalid JSON' });
     }
     const id = cardId(card);
     if (!(await stored(deps, id))) {
@@ -141,7 +143,7 @@ export async function handle(request: Request, deps: Deps): Promise<Response> {
       await deps.store.set(`${id}.json`, JSON.stringify(card));
       await tagged(deps, { e: 'card_create', g: gameOf(card), c: id });
     }
-    return json(request, 200, { id, url: `${origin}/r/${id}`, image: `${origin}/r/${id}.png` });
+    return json(headers, 200, { id, url: `${origin}/r/${id}`, image: `${origin}/r/${id}.png` });
   }
   const match = /^\/r\/([A-Za-z0-9_-]{16})(\.x\.png|\.png)?$/.exec(path);
   if (match && (request.method === 'GET' || request.method === 'HEAD')) {

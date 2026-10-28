@@ -9,7 +9,8 @@ import { GAMES, type GameKey } from '../../src/validate.js';
 import { peopleSprites } from '../../src/people-service.js';
 import { peopleStore } from '../../src/people-store.js';
 import { recordEvent } from '../../src/events.js';
-import { eventStore } from '../../src/stats-store.js';
+import { eventStore, statsStore } from '../../src/stats-store.js';
+import { groupOrigins } from '../../src/origins.js';
 
 const SNAPSHOT_NAMES: string[] = snapshot.positions.map((p: { n: string }) => p.n);
 let live: { at: number; names: string[] } | null = null;
@@ -46,6 +47,8 @@ async function leaderboard(game: GameKey): Promise<LeaderEntry[]> {
 
 // a row card's sprites: people.json and the mirrored sheets of this very site (store "people", cards/src/people-service.ts)
 let people: ReturnType<typeof peopleSprites> | null = null;
-export default async (request: Request): Promise<Response> => handle(request, { store: cardStore(), wallNames, leaderboard, people: people ??= peopleSprites(peopleStore()), tag: (e) => recordEvent(eventStore(), e) });
+// who may POST a card: the credit group's apps and ours, as /stats last read the group (cards/src/origins.ts)
+let origins: ReturnType<typeof groupOrigins> | null = null;
+export default async (request: Request): Promise<Response> => handle(request, { store: cardStore(), wallNames, leaderboard, people: people ??= peopleSprites(peopleStore()), tag: (e) => recordEvent(eventStore(), e), origins: origins ??= groupOrigins(statsStore()) });
 
 export const config = { path: ['/api/cards', '/r/*'] };
