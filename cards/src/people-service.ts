@@ -2,6 +2,8 @@
 //   GET /people.json            one object per named panel of the wall, its sprite or null (CORS *, cached 60 s)
 //   GET /people/stats.json      { names, withSprite, lastSpriteAt }, for the hub's counter
 //   GET /people/unmatched.json  sprites whose "Player name" matches no panel (for John: add an alias)
+//   GET /people/all.json        every sprite of the event, newest first: the hub's grid (the matched ones with their name
+//                               of the wall and panel, the others as guests under their Sprite Party name)
 //   GET /people/sprites/<id>.png  a mirrored sprite sheet (CORS *, immutable): games draw it on a canvas
 //   GET /people/sprites.zip     every sprite sheet and people.json, rebuilt when they change
 //   GET /people/refresh         reads the sources now (also every 5 minutes, netlify/functions/people-refresh.mts)
@@ -29,7 +31,7 @@ async function getJson<T>(fetchImpl: typeof fetch, url: string): Promise<T> {
   try { return JSON.parse(text) as T; } catch { throw new Error(`${url}: not JSON (${text.slice(0, 120)})`); }
 }
 
-/** Reads the wall and the manifest, mirrors the new sprite sheets, writes people.json, stats, unmatched and the zip. */
+/** Reads the wall and the manifest, mirrors the new sprite sheets, writes people.json, stats, unmatched, all and the zip. */
 export async function refresh(deps: PeopleDeps): Promise<{ sprites: number; mirroredNow: number; withSprite: number; unmatched: number }> {
   const [raw, manifest] = await Promise.all([getJson<Position[] | { positions: Position[] }>(deps.fetch, POSITIONS_URL), getJson<unknown>(deps.fetch, MANIFEST_URL)]);
   const positions = Array.isArray(raw) ? raw : raw?.positions;      // the wall answers a list, or { positions } (both seen)
@@ -47,13 +49,14 @@ export async function refresh(deps: PeopleDeps): Promise<{ sprites: number; mirr
       mirrored[s.id] = new Date(deps.now()).toISOString(); mirroredNow++;
     } catch { /* Sprite Party slow or down: the next refresh tries again */ }
   }
-  const { people, unmatched, stats } = buildPeople(positions, sprites, deps.aliases, mirrored);
+  const { people, unmatched, stats, all } = buildPeople(positions, sprites, deps.aliases, mirrored);
   const peopleJson = JSON.stringify(people);
   const changed = mirroredNow > 0 || (await deps.store.getText('people.json')) !== peopleJson || !(await deps.store.getBytes('sprites.zip'));
   await deps.store.set('mirrored.json', JSON.stringify(mirrored));
   await deps.store.set('people.json', peopleJson);
   await deps.store.set('unmatched.json', JSON.stringify(unmatched));
   await deps.store.set('stats.json', JSON.stringify(stats));
+  await deps.store.set('all.json', JSON.stringify(all));
   if (changed) {
     const files: Record<string, Uint8Array> = { 'people.json': strToU8(JSON.stringify(people, null, 1)) };
     for (const id of Object.keys(mirrored)) { const png = await deps.store.getBytes(`sprites/${id}.png`); if (png) files[`sprites/${id}.png`] = png; }
@@ -70,7 +73,7 @@ export async function handlePeople(request: Request, deps: PeopleDeps): Promise<
     try { return json(JSON.stringify(await refresh(deps)), 'no-store'); }
     catch (error) { return json(JSON.stringify({ error: error instanceof Error ? error.message : 'refresh failed' }), 'no-store', 502); }
   }
-  const doc = ({ '/people.json': 'people.json', '/people/stats.json': 'stats.json', '/people/unmatched.json': 'unmatched.json' } as Record<string, string>)[path];
+  const doc = ({ '/people.json': 'people.json', '/people/stats.json': 'stats.json', '/people/unmatched.json': 'unmatched.json', '/people/all.json': 'all.json' } as Record<string, string>)[path];
   if (doc) {
     let body = await deps.store.getText(doc);
     if (body === null) { try { await refresh(deps); body = await deps.store.getText(doc); } catch { /* answered below */ } }

@@ -158,6 +158,11 @@ service mirrors each sheet and matches it to its panel (`cards/src/people.ts`, `
 
 - `GET https://wall-arcade-cards.netlify.app/people.json` (public, no key, CORS *, refreshed every 5 minutes): one object
   per name painted on the wall, `{ panel, name, handle, wallet?, sprite: { id, url, cols: 4, rows: 4, frame: 48 } | null, updatedAt }`.
+- `GET https://wall-arcade-cards.netlify.app/people/all.json` (same terms), for the hub's PEOPLE grid only, for now:
+  every sprite of the Sprite Party event, newest first, `{ name, panel, guest, partyName, sprite }`; one matched to a
+  name of the wall carries that name and its panel, any other is a guest under its Sprite Party name, with no panel
+  (panel null). The hub counts them as "N characters · M on the wall". Display only: matching, aliases and the games
+  still go by people.json.
 - A sheet is a PNG of 192 × 192, transparent, 4 × 4 frames of 48 px: row = direction (0 up, 1 right, 2 down, facing
   you, 3 left), column = step (4 steps, 130 ms each). `/people/sprites.zip` holds them all.
 - In the games (`src/shell/people.ts`, `src/share/sprite.ts`, display only): FULL ROW's ROW PAINTED shows the row's

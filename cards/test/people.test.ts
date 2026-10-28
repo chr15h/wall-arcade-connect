@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { unzipSync, strFromU8 } from 'fflate';
-import { MANIFEST_URL, POSITIONS_URL, keyOf, type Person } from '../src/people.js';
+import { MANIFEST_URL, POSITIONS_URL, keyOf, type Character, type Person } from '../src/people.js';
 import { handlePeople, refresh, type PeopleDeps, type PeopleStore } from '../src/people-service.js';
 
 const JOHN = 'ffb3674b-17cb-48d9-a89d-840c48ad39b6', GHOST = '0b5a6f1e-0000-4000-8000-000000000001', MONO = '0b5a6f1e-0000-4000-8000-000000000002';
@@ -69,6 +69,18 @@ test("John's sprite is KARP's, through aliases.json; a name without sprite has n
   const unmatched = await (await get('/people/unmatched.json')).json() as { name: string }[];
   assert.deepEqual(unmatched.map((u) => u.name), ['Nobody On The Wall']);
   assert.deepEqual(await (await get('/people/stats.json')).json(), { names: 3, withSprite: 1, lastSpriteAt: '2026-10-27T12:00:00.000Z' });
+});
+
+test('all.json lists every sprite of the event, newest first: on the wall with its name and panel, or a guest as named', async () => {
+  const response = await get('/people/all.json');
+  assert.equal(response.headers.get('access-control-allow-origin'), '*');
+  const all = await response.json() as Character[];
+  assert.deepEqual(all.map((c) => [c.name, c.panel, c.guest, c.partyName]), [
+    ['Nobody On The Wall', null, true, 'Nobody On The Wall'],
+    ['KARP', 342, false, 'John Karp'],
+  ]);
+  assert.equal(all[1]?.sprite.url, `https://wall-arcade-cards.netlify.app/people/sprites/${JOHN}.png`);
+  assert.equal((await (await get('/people.json')).json() as Person[]).length, 3, 'people.json unchanged: one object per named panel');
 });
 
 test('the sprite sheets are mirrored once, served with CORS; a sheet of the wrong size is refused; the zip holds them', async () => {
