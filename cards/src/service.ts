@@ -5,10 +5,10 @@
 //   GET  /r/<id>.x.png       its link preview for X (1200 × 630, the whole card visible)
 // The id is a hash of the validated card: the same card always gets the same link.
 import { createHash } from 'node:crypto';
-import { CardError, GAMES, gameOf, player, validate, type BoardCard, type BoardRequest, type Card, type GameKey } from './validate.js';
+import { CardError, GAMES, gameInfo, gameOf, player, validate, type BoardCard, type BoardRequest, type Card, type GameKey } from './validate.js';
 import { renderCard } from './render.js';
 import type { ArcadeEvent } from './events.js';
-import { isAllowed, ours, type Origins } from './origins.js';
+import { artistApp, gameKey, isAllowed, ours, type Group, type GroupSource } from './group.js';
 
 export interface CardStore {
   get(key: string, type: 'json'): Promise<unknown>;
@@ -19,15 +19,16 @@ export type LeaderEntry = { rank: number; score: string | number; player?: { kin
 /** The people of the wall (the PEOPLE store of this site): a name's sprite id, and a mirrored sheet's bytes. */
 export type PeopleSprites = { idsOf(names: string[]): Promise<(string | null)[]>; sheet(id: string): Promise<Uint8Array | null> };
 /** `tag`: our stats (cards/src/events.ts): a card created, a card's page opened (from X or not). Never blocks a card.
- *  `origins`: the pages that may POST a card (cards/src/origins.ts: the credit group's apps and ours); ours alone without it. */
-export type Deps = { store: CardStore; wallNames(): Promise<string[]>; leaderboard(game: GameKey): Promise<LeaderEntry[]>; people?: PeopleSprites; tag?: (event: ArcadeEvent) => Promise<void>; now?: () => number; origins?: Origins };
+ *  `group`: the pages that may POST a card and the games a board may name (cards/src/group.ts: the credit group's apps
+ *  and ours); ours alone without it. `leaderboard`: a game's public leaderboard, this week. */
+export type Deps = { store: CardStore; wallNames(): Promise<string[]>; leaderboard(game: { url: string; appId: string }): Promise<LeaderEntry[]>; people?: PeopleSprites; tag?: (event: ArcadeEvent) => Promise<void>; now?: () => number; group?: GroupSource };
 const tagged = async (deps: Deps, event: Omit<ArcadeEvent, 't'>): Promise<void> => { try { await deps.tag?.({ t: deps.now?.() ?? Date.now(), ...event }); } catch { /* stats only */ } };
 /** Link previews (X's own crawler and the like) are not people opening a card. */
 const BOT = /bot|crawl|spider|preview|facebookexternalhit|embedly|slack|discord|whatsapp|telegram/i;
 
-const cors = (request: Request, allowed: Set<string>): Record<string, string> => {
+const cors = (request: Request, group: Group): Record<string, string> => {
   const origin = request.headers.get('origin');
-  return isAllowed(origin, allowed) ? { 'Access-Control-Allow-Origin': origin as string, 'Access-Control-Allow-Methods': 'POST, GET', 'Access-Control-Allow-Headers': 'Content-Type', Vary: 'Origin' } : {};
+  return isAllowed(origin, group) ? { 'Access-Control-Allow-Origin': origin as string, 'Access-Control-Allow-Methods': 'POST, GET', 'Access-Control-Allow-Headers': 'Content-Type', Vary: 'Origin' } : {};
 };
 const json = (headers: Record<string, string>, status: number, body: unknown): Response =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...headers } });
@@ -45,11 +46,12 @@ export function describe(card: Card): string {
   if (card.kind === 'row') return card.names.length ? `${card.names.join(' · ')}: painted together on FULL ROW${by}. ${fmt(card.score)} points.${rank}` : `${fmt(card.score)} points on FULL ROW${by}.${rank}`;
   if (card.kind === 'bounce') return card.people ? `Bounced off ${card.people} people of the wall on UNBREAKABLE. ${fmt(card.score)} points.${rank}` : `${fmt(card.score)} points on UNBREAKABLE${by}.${rank}`;
   const me = card.rows.find((r) => r.me);
-  return me ? `#${me.rank} on ${GAMES[card.game].title} · ${fmt(me.score)} points.` : `The top 5 of ${GAMES[card.game].title}.`;
+  const title = gameInfo(card).title;
+  return me ? `#${me.rank} on ${title} · ${fmt(me.score)} points.` : `The top 5 of ${title}.`;
 }
 
 function page(origin: string, id: string, card: Card): string {
-  const game = GAMES[gameOf(card)], title = `${game.title} · THE WALL ARCADE`, text = describe(card);
+  const game = gameInfo(card), title = `${game.title} · THE WALL ARCADE`, text = describe(card);
   const image = `${origin}/r/${id}.x.png`;
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
@@ -82,9 +84,13 @@ function page(origin: string, id: string, card: Card): string {
 class BoardUnavailable extends Error {}
 /** The rows of a board card come from the platform's public leaderboard (top 10 of THIS WEEK, Friday 15:00 Lisbon): the top 5, plus the
  *  highlighted player's own line when they rank lower. */
-async function boardFromPlatform(asked: BoardRequest, deps: Deps): Promise<BoardCard> {
+async function boardFromPlatform(asked: BoardRequest, deps: Deps, group: Group): Promise<BoardCard> {
+  const key = gameKey(asked.game, group);
+  if (key === null) throw new CardError('game: not a game of the arcade');
+  const artist = artistApp(key, group);                         // an artist's card carries its game's name and link
+  const game = artist ? { url: `${artist.origin}/`, appId: artist.id } : GAMES[key as GameKey];
   let entries: LeaderEntry[];
-  try { entries = await deps.leaderboard(asked.game); } catch { throw new BoardUnavailable('the leaderboard could not be read'); }
+  try { entries = await deps.leaderboard(game); } catch { throw new BoardUnavailable('the leaderboard could not be read'); }
   const rows = entries.flatMap((e) => {
     const p = e.player ?? {}, raw = p.ensName || p.displayName || '';
     let name: string; try { name = player(raw); } catch { return []; }   // a name that is neither ENS nor an address is left out
@@ -94,7 +100,7 @@ async function boardFromPlatform(asked: BoardRequest, deps: Deps): Promise<Board
   });
   if (!rows.length) throw new BoardUnavailable('no server-verified score yet');
   const me = rows.find((r) => r.me);
-  return { kind: 'board', game: asked.game, rows: [...rows.filter((r) => r.rank <= 5), ...(me && me.rank > 5 ? [me] : [])].slice(0, 6) };
+  return { kind: 'board', game: key, ...(artist ? { title: artist.title, url: `${artist.origin}/` } : {}), rows: [...rows.filter((r) => r.rank <= 5), ...(me && me.rank > 5 ? [me] : [])].slice(0, 6) };
 }
 
 /** A row card carries the sprites of its names (when any has one): resolved here, so a card made after a person got
@@ -119,10 +125,10 @@ async function stored(deps: Deps, id: string): Promise<Card | null> {
 
 export async function handle(request: Request, deps: Deps): Promise<Response> {
   const url = new URL(request.url), origin = url.origin, path = url.pathname;
-  const allowed = request.method === 'OPTIONS' || path === '/api/cards' ? await (deps.origins?.() ?? Promise.resolve(ours())) : ours();
-  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(request, allowed) });
+  const group = request.method === 'OPTIONS' || path === '/api/cards' ? await (deps.group?.() ?? Promise.resolve(ours())) : ours();
+  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(request, group) });
   if (path === '/api/cards') {
-    const headers = cors(request, allowed);
+    const headers = cors(request, group);
     if (request.method !== 'POST') return json(headers, 405, { error: 'POST a card' });
     const raw = await request.text();
     if (raw.length > 8192) return json(headers, 413, { error: 'too large' });
@@ -130,7 +136,7 @@ export async function handle(request: Request, deps: Deps): Promise<Response> {
     try {
       const wall = new Set((await deps.wallNames()).map((n) => n.trim().toUpperCase()));
       const asked = validate(JSON.parse(raw) as unknown, wall);
-      card = asked.kind === 'board' ? await boardFromPlatform(asked, deps) : await withSprites(asked, deps);
+      card = asked.kind === 'board' ? await boardFromPlatform(asked, deps, group) : await withSprites(asked, deps);
     } catch (error) {
       if (error instanceof BoardUnavailable) return json(headers, 502, { error: error.message });
       return json(headers, 400, { error: error instanceof CardError ? error.message : 'invalid JSON' });

@@ -32,6 +32,7 @@ const ASSETS: Record<string, string> = {
   'dragon.png': '../hub/dragon.png', 'shots/full-row.jpg': '../hub/shots/full-row.jpg', 'shots/unbreakable.jpg': '../hub/shots/unbreakable.jpg',
   'clips/unbreakable.mp4': '../hub/clips/unbreakable.mp4', 'clips/full-row.mp4': '../hub/clips/full-row.mp4',
   'shots/dirty-signals-radio.jpg': '../hub/shots/dirty-signals-radio.jpg', 'clips/dirty-signals-radio.mp4': '../hub/clips/dirty-signals-radio.mp4',   // Bully Meow's: 10 s of its free practice
+  'shots/the-morning-brew.jpg': '../hub/shots/the-morning-brew.jpg', 'clips/the-morning-brew.mp4': '../hub/clips/the-morning-brew.mp4',   // osaykancuno's: 10 s of its free practice
   'teaser-1x1.mp4': '../comms/teaser/out/teaser-1x1.mp4', 'teaser-poster.png': '../comms/teaser/out/title-1x1.png',
   'kit/walk-a-sprite.html': '../hub/kit/walk-a-sprite.html', 'kit/palette.svg': '../hub/kit/palette.svg',
   'tag.js': '../hub/tag.js',                                   // the pages' tags for /stats on the card service

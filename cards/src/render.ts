@@ -4,7 +4,7 @@ import { GlobalFonts, createCanvas, loadImage } from '@napi-rs/canvas';
 import { boardCard, fullRowCard, unbreakableCard, xPreview, type CardEnv, type DragonImage } from '../../src/share/card-draw.js';
 import type { SpriteSheet } from '../../src/share/sprite.js';
 import { ANTON_400, DRAGON_JPG, MONO_400, MONO_500 } from './assets.generated.js';
-import { GAMES, gameOf, type Card } from './validate.js';
+import { gameInfo, type Card } from './validate.js';
 import { lisbonWeek, weekEnds } from './week.js';
 
 let ready: Promise<void> | null = null;
@@ -22,7 +22,7 @@ const env: CardEnv = { createCanvas: (w, h) => createCanvas(w, h) as unknown as 
 const encode = (canvas: HTMLCanvasElement): Buffer => (canvas as unknown as { toBuffer(mime: 'image/png'): Buffer }).toBuffer('image/png');
 
 function square(card: Card, wallNames: readonly string[], sprites: (SpriteSheet | null)[]): HTMLCanvasElement {
-  const game = GAMES[gameOf(card)];
+  const game = gameInfo(card);
   const base = { game: game.title, url: game.url, wallNames, dragon };
   if (card.kind === 'row') {
     return fullRowCard(env, base, { names: card.names, line: card.line, grid: card.grid, score: card.score, rank: card.rank, player: card.player, practice: card.practice, sprites });

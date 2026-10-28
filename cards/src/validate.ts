@@ -14,8 +14,9 @@ export type RowCard = { kind: 'row'; names: string[]; line?: string; score: numb
 export type BounceCard = { kind: 'bounce'; names: string[]; people: number; score: number; rank?: number; player?: string; practice: boolean };
 /** A leaderboard card as asked for: which game, and optionally which player to highlight. The rows themselves are read
  *  by the service from the platform's public leaderboard, never taken from the request. */
-export type BoardRequest = { kind: 'board'; game: GameKey; me?: string };
-export type BoardCard = { kind: 'board'; game: GameKey; rows: { rank: number; name: string; score: number; me?: boolean }[] };
+export type BoardRequest = { kind: 'board'; game: string; me?: string };
+/** `game`: our key, or an artist's app id of the credit group, then with its `title` and `url` (cards/src/group.ts). */
+export type BoardCard = { kind: 'board'; game: string; title?: string; url?: string; rows: { rank: number; name: string; score: number; me?: boolean }[] };
 export type Card = RowCard | BounceCard | BoardCard;
 
 export class CardError extends Error {}
@@ -84,11 +85,15 @@ export function validate(body: unknown, wallNames: ReadonlySet<string>): RowCard
     }
     case 'board': {
       keys(body, ['kind', 'game'], ['me']);
-      const game = body.game === 'full-row' || body.game === 'unbreakable' ? body.game : fail('game: full-row or unbreakable');
+      // our key or an app id; the service then checks it is a game of the arcade (cards/src/group.ts)
+      const game = typeof body.game === 'string' && (body.game in GAMES || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(body.game)) ? body.game : fail('game: full-row, unbreakable or the app id of a game of the arcade');
       return { kind: 'board', game, ...(body.me !== undefined ? { me: player(body.me) } : {}) };
     }
     default: return fail('kind: row, bounce or board');
   }
 }
 
-export const gameOf = (card: Card | BoardRequest): GameKey => (card.kind === 'row' ? 'full-row' : card.kind === 'bounce' ? 'unbreakable' : card.game);
+export const gameOf = (card: Card | BoardRequest): string => (card.kind === 'row' ? 'full-row' : card.kind === 'bounce' ? 'unbreakable' : card.game);
+/** The game a card is about: its name and its link (an artist's, carried by the card itself). */
+export const gameInfo = (card: Card): { title: string; url: string } =>
+  card.kind === 'board' && card.title && card.url ? { title: card.title, url: card.url } : GAMES[gameOf(card) as GameKey] ?? GAMES['full-row'];

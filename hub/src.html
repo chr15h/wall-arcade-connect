@@ -219,24 +219,31 @@ dialog::backdrop{background:rgba(20,22,31,.6)}
         <video class="shot" src="clips/unbreakable.mp4" poster="shots/unbreakable.jpg" autoplay muted loop playsinline preload="auto" disablepictureinpicture disableremoteplayback aria-label="UNBREAKABLE, in play"></video>
         <p class="line">Aim, fire, break the bricks. Every brick is a name of the wall.</p>
         <p class="by lbl">By On The Wall</p>
-        <div class="foot"><a class="btn" href="https://7x2phv5j.srstudio.dev/" target="_blank" rel="noopener">PLAY <span>→</span></a></div>
+        <div class="foot"><a class="btn" href="https://7x2phv5j.srstudio.dev/" data-app="c5285ae3-512e-464a-aceb-17571e1fe3e9" target="_blank" rel="noopener">PLAY <span>→</span></a></div>
       </article>
       <article class="game">
         <div class="head"><h3>FULL ROW</h3><span class="n">#02</span></div>
         <video class="shot" src="clips/full-row.mp4" poster="shots/full-row.jpg" autoplay muted loop playsinline preload="auto" disablepictureinpicture disableremoteplayback aria-label="FULL ROW, in play"></video>
         <p class="line">Place the pieces, fill a row. The names on it get painted together.</p>
         <p class="by lbl">By On The Wall</p>
-        <div class="foot"><a class="btn" href="https://yfq52eu3.srstudio.dev/" target="_blank" rel="noopener">PLAY <span>→</span></a></div>
+        <div class="foot"><a class="btn" href="https://yfq52eu3.srstudio.dev/" data-app="5932be45-7ccb-483a-916d-0dcebff40ca2" target="_blank" rel="noopener">PLAY <span>→</span></a></div>
       </article>
       <article class="game">
-        <div class="head"><h3>DIRTY SIGNALS RADIO</h3><span class="n">#03</span><span class="new">NEW</span></div>
+        <div class="head"><h3>DIRTY SIGNALS RADIO</h3><span class="n">#03</span></div>
         <video class="shot" src="clips/dirty-signals-radio.mp4" poster="shots/dirty-signals-radio.jpg" autoplay muted loop playsinline preload="auto" disablepictureinpicture disableremoteplayback aria-label="DIRTY SIGNALS RADIO, in play"></video>
         <p class="line">Name the Bully Meow song through the static. The cover art is your clue.</p>
         <p class="by lbl">By Bully Meow</p>
-        <div class="foot"><a class="btn" href="https://sy3mgnnh.srstudio.dev/" target="_blank" rel="noopener">PLAY <span>→</span></a></div>
+        <div class="foot"><a class="btn" href="https://sy3mgnnh.srstudio.dev/" data-app="8617e311-f5d4-4e04-9010-19298f2ff9a0" target="_blank" rel="noopener">PLAY <span>→</span></a></div>
+      </article>
+      <article class="game">
+        <div class="head"><h3>THE MORNING BREW</h3><span class="n">#04</span><span class="new">NEW</span></div>
+        <video class="shot" src="clips/the-morning-brew.mp4" poster="shots/the-morning-brew.jpg" autoplay muted loop playsinline preload="auto" disablepictureinpicture disableremoteplayback aria-label="THE MORNING BREW, in play"></video>
+        <p class="line">A pixel coffee shop on the Normies Yacht Club marina: link customers, blend, burn Normies.</p>
+        <p class="by lbl">By osaykancuno</p>
+        <div class="foot"><a class="btn" href="https://k6ag9vxz.srstudio.dev/" data-app="1c10c96c-bf88-471c-88af-7f23a992a7ea" target="_blank" rel="noopener">PLAY <span>→</span></a></div>
       </article>
       <article class="game yours">
-        <div class="head"><h3>YOUR GAME HERE</h3><span class="n">#04</span></div>
+        <div class="head"><h3>YOUR GAME HERE</h3><span class="n">#05</span></div>
         <div class="here">YOUR GAME HERE</div>
         <div class="foot"><a class="btn dashed" href="./builders.html">CREATE MY OWN GAME <span>→</span></a></div>
       </article>
@@ -259,6 +266,7 @@ dialog::backdrop{background:rgba(20,22,31,.6)}
       <div class="board" data-game="full-row"><div class="bh"><span>FULL ROW</span><span>Top 3</span></div><p class="empty">Loading…</p></div>
       <div class="board" data-game="unbreakable"><div class="bh"><span>UNBREAKABLE</span><span>Top 3</span></div><p class="empty">Loading…</p></div>
       <div class="board" data-game="dirty-signals-radio"><div class="bh"><span>DIRTY SIGNALS RADIO</span><span>Top 3</span></div><p class="empty">Loading…</p></div>
+      <div class="board" data-game="the-morning-brew"><div class="bh"><span>THE MORNING BREW</span><span>Top 3</span></div><p class="empty">Loading…</p></div>
     </div>
   </div>
 </section>
@@ -315,7 +323,8 @@ dialog::backdrop{background:rgba(20,22,31,.6)}
 var GAMES = [
   { id: 'full-row', url: 'https://yfq52eu3.srstudio.dev/', appId: '5932be45-7ccb-483a-916d-0dcebff40ca2' },
   { id: 'unbreakable', url: 'https://7x2phv5j.srstudio.dev/', appId: 'c5285ae3-512e-464a-aceb-17571e1fe3e9' },
-  { id: 'dirty-signals-radio', url: 'https://sy3mgnnh.srstudio.dev/', appId: '8617e311-f5d4-4e04-9010-19298f2ff9a0' }   // by Bully Meow
+  { id: 'dirty-signals-radio', url: 'https://sy3mgnnh.srstudio.dev/', appId: '8617e311-f5d4-4e04-9010-19298f2ff9a0' },   // by Bully Meow
+  { id: 'the-morning-brew', url: 'https://k6ag9vxz.srstudio.dev/', appId: '1c10c96c-bf88-471c-88af-7f23a992a7ea' }      // by osaykancuno
 ];
 function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 

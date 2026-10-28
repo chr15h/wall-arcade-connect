@@ -5,12 +5,11 @@ import { lisbonWeek } from '../../src/week.js';
 import { getStore } from '@netlify/blobs';
 import snapshot from '../../../src/generated/wall.json' with { type: 'json' };
 import { handle, type CardStore, type LeaderEntry } from '../../src/service.js';
-import { GAMES, type GameKey } from '../../src/validate.js';
 import { peopleSprites } from '../../src/people-service.js';
 import { peopleStore } from '../../src/people-store.js';
 import { recordEvent } from '../../src/events.js';
 import { eventStore, statsStore } from '../../src/stats-store.js';
-import { groupOrigins } from '../../src/origins.js';
+import { groupOf } from '../../src/group.js';
 
 const SNAPSHOT_NAMES: string[] = snapshot.positions.map((p: { n: string }) => p.n);
 let live: { at: number; names: string[] } | null = null;
@@ -37,8 +36,7 @@ function cardStore(): CardStore {
 }
 
 // a board card's rows: the platform's public, read-only leaderboard of that game (what the hub already shows)
-async function leaderboard(game: GameKey): Promise<LeaderEntry[]> {
-  const g = GAMES[game];
+async function leaderboard(g: { url: string; appId: string }): Promise<LeaderEntry[]> {
   const week = lisbonWeek();                                            // THIS WEEK, as on the games and the hub
   const response = await fetch(`${g.url.replace(/\/$/, '')}/api/v1/games/${g.appId}/scoring/leaderboard?${new URLSearchParams(week)}`, { signal: AbortSignal.timeout(4000) });
   if (!response.ok) throw new Error(`leaderboard HTTP ${response.status}`);
@@ -47,8 +45,8 @@ async function leaderboard(game: GameKey): Promise<LeaderEntry[]> {
 
 // a row card's sprites: people.json and the mirrored sheets of this very site (store "people", cards/src/people-service.ts)
 let people: ReturnType<typeof peopleSprites> | null = null;
-// who may POST a card: the credit group's apps and ours, as /stats last read the group (cards/src/origins.ts)
-let origins: ReturnType<typeof groupOrigins> | null = null;
-export default async (request: Request): Promise<Response> => handle(request, { store: cardStore(), wallNames, leaderboard, people: people ??= peopleSprites(peopleStore()), tag: (e) => recordEvent(eventStore(), e), origins: origins ??= groupOrigins(statsStore()) });
+// who may POST a card, and of which game: the credit group's apps and ours, as /stats last read the group (cards/src/group.ts)
+let group: ReturnType<typeof groupOf> | null = null;
+export default async (request: Request): Promise<Response> => handle(request, { store: cardStore(), wallNames, leaderboard, people: people ??= peopleSprites(peopleStore()), tag: (e) => recordEvent(eventStore(), e), group: group ??= groupOf(statsStore()) });
 
 export const config = { path: ['/api/cards', '/r/*'] };

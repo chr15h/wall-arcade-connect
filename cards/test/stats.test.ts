@@ -207,8 +207,9 @@ test('with a token: one line per app of the group, named by the usage report or 
   assert.ok(asked.includes('get-credit-group'));
   assert.equal(asked.filter((a) => a === 'exchange').length, 1);                        // one session for the whole refresh
   assert.equal(JSON.parse(kept.get('games.json') ?? '{}')['feedbeef-0000-4000-8000-000000000000'], 'Next Game');
-  // the group's origins, kept for the card service's CORS (cards/src/origins.ts)
-  assert.deepEqual(JSON.parse(kept.get('origins.json') ?? '{}').origins, ['https://yfq52eu3.srstudio.dev', 'https://7x2phv5j.srstudio.dev', 'https://fgud7mby.srstudio.dev', 'https://sy3mgnnh.srstudio.dev', 'https://zzzzzzzz.srstudio.dev']);
+  // the group, kept for the card service: its pages and its games (cards/src/group.ts)
+  assert.deepEqual(JSON.parse(kept.get('group.json') ?? '{}').apps.map((a: any) => [a.origin, a.title]), [['https://yfq52eu3.srstudio.dev', 'FULL ROW'], ['https://7x2phv5j.srstudio.dev', 'UNBREAKABLE'],
+    ['https://fgud7mby.srstudio.dev', 'TAP THE NAME'], ['https://sy3mgnnh.srstudio.dev', 'Dirty Signals Radio'], ['https://zzzzzzzz.srstudio.dev', 'Next Game']]);
   const html = await (await handleStats(new Request('https://cards.test/stats'), deps)).text();
   assert.match(html, /<th>Dirty Signals Radio<\/th>/);
   assert.match(html, /<th>Next Game<\/th>/);
@@ -228,38 +229,64 @@ test('this week is the leaderboard\'s week (src/shell/week.ts): week 1 to Friday
   assert.equal((s.windows.week as any).to, '2026-11-06T15:00:00.000Z');                 // its real end, not "now"
 });
 
-test('who may POST: the credit group\'s apps as /stats last read them, plus our three always (cards/src/origins.ts)', async () => {
-  const { groupOrigins, OUR_ORIGINS } = await import('../src/origins.js');
+test('the credit group as /stats last read it opens the card service: its pages, its games (cards/src/group.ts), ours always', async () => {
+  const { groupOf, OUR_ORIGINS } = await import('../src/group.js');
   const { handle } = await import('../src/service.js');
-  const ARTIST = 'https://k6ag9vxz.srstudio.dev';
+  const ARTIST = 'https://k6ag9vxz.srstudio.dev', BREW = '1c10c96c-bf88-471c-88af-7f23a992a7ea';
   let file: string | null = null, reads = 0, clock = at('2026-10-28T13:00:00Z');
-  const origins = groupOrigins({ getText: async () => { reads++; return file; } }, () => clock);
+  const group = groupOf({ getText: async () => { reads++; return file; } }, () => clock);
   const events = memoryStore();
-  const post = (origin: string): Promise<Response> => handleEvents(new Request('https://cards.test/api/events', {
-    method: 'POST', body: JSON.stringify({ event: 'game_open' }), headers: { origin, 'content-type': 'text/plain' },
-  }), { events, now: () => clock, origins });
-  // never read yet: our three only (the hub included), an artist's app refused
+  const post = (origin: string, body: unknown = { event: 'game_open' }): Promise<Response> => handleEvents(new Request('https://cards.test/api/events', {
+    method: 'POST', body: JSON.stringify(body), headers: { origin, 'content-type': 'text/plain' },
+  }), { events, now: () => clock, group });
+  // never read yet: our three pages only (the hub included) and our two games
   for (const o of OUR_ORIGINS) assert.equal((await post(o)).status, 204, o);
   assert.equal((await post(ARTIST)).status, 403);
-  // the refresh stored the group (an odd entry is ignored); within the minute the old list still holds, then the new one
-  file = JSON.stringify({ at: '2026-10-28T13:00:00Z', origins: ['https://yfq52eu3.srstudio.dev', ARTIST, 'javascript:alert(1)', 'https://x.srstudio.dev/path'] });
+  assert.equal((await post('https://6972mvu4.srstudio.dev', { event: 'click_play', game: BREW })).status, 400);
+  // the refresh stored the group (odd entries ignored); within the minute the old list still holds, then the new one
+  file = JSON.stringify({ at: '2026-10-28T13:00:00Z', apps: [{ id: '5932be45-7ccb-483a-916d-0dcebff40ca2', origin: 'https://yfq52eu3.srstudio.dev', title: 'FULL ROW' },
+    { id: BREW, origin: ARTIST, title: 'THE MORNING BREW' }, { id: 'nope', origin: 'https://a.srstudio.dev', title: 'x' }, { id: '00000000-0000-4000-8000-000000000000', origin: 'javascript:alert(1)' }] });
   assert.equal((await post(ARTIST)).status, 403);
   clock += 61_000;
   const ok = await post(ARTIST);
-  assert.equal(ok.status, 204);
-  assert.equal(ok.headers.get('access-control-allow-origin'), ARTIST);
+  assert.equal([ok.status, ok.headers.get('access-control-allow-origin')].join(' '), `204 ${ARTIST}`);
   assert.equal((await post('https://6972mvu4.srstudio.dev')).status, 204);           // the hub: not in the group, still ours
-  assert.equal((await post('https://x.srstudio.dev')).status, 403);
+  assert.equal((await post('https://a.srstudio.dev')).status, 403);
+  // the hub's PLAY sends the app id: an artist's stays its id, ours becomes its key (as our games tag themselves)
+  const before = events.data.size;
+  assert.equal((await post('https://6972mvu4.srstudio.dev', { event: 'click_play', game: BREW })).status, 204);
+  assert.equal((await post('https://6972mvu4.srstudio.dev', { event: 'click_play', game: '5932be45-7ccb-483a-916d-0dcebff40ca2' })).status, 204);
+  assert.equal((await post('https://6972mvu4.srstudio.dev', { event: 'click_play', game: '00000000-0000-4000-8000-000000000000' })).status, 400);
+  assert.equal((await post('https://6972mvu4.srstudio.dev', { event: 'click_play', game: 'dirty-signals-radio' })).status, 400);   // no name in the code any more
+  const fresh = [...events.data.entries()].filter(([k]) => k.startsWith('raw/')).slice(before - 0).map(([, v]) => JSON.parse(v as string));
+  assert.deepEqual(fresh.filter((e) => e.e === 'click_play').map((e) => e.g), [BREW, 'full-row']);
+  // an artist's own page: its tags are its game's, whatever it names it
+  assert.equal((await post(ARTIST, { event: 'game_open', game: 'morning-brew' })).status, 204);
+  const last = [...events.data.entries()].filter(([k]) => k.startsWith('raw/')).map(([, v]) => JSON.parse(v as string)).pop();
+  assert.deepEqual([last.e, last.g], ['game_open', BREW]);
   assert.equal(reads, 2);                                                             // once a minute, not once a request
-  // the cards: the same list for the CORS of POST /api/cards and its preflight
-  const cards = { store: { get: async () => null, set: async () => undefined } as any, wallNames: async () => [], leaderboard: async () => [], origins };
+  // the cards: the same list for the CORS of POST /api/cards and its preflight, and a board card of an artist's game
+  const asked: string[] = [], stored = new Map<string, unknown>();
+  const cards = {
+    store: { get: async (k: string, type: string) => { const v = stored.get(k); return v === undefined ? null : type === 'json' ? JSON.parse(v as string) : v; }, set: async (k: string, v: unknown) => { stored.set(k, v); } } as any, wallNames: async () => [],
+    leaderboard: async (g: { url: string; appId: string }) => { asked.push(`${g.url} ${g.appId}`); return [{ rank: 1, score: '28462', player: { displayName: '0x62ec00000000000000000000000000000000ad3f', ensName: null } }]; },
+    group,
+  };
   const pre = await handle(new Request('https://cards.test/api/cards', { method: 'OPTIONS', headers: { origin: ARTIST } }), cards);
   assert.equal(pre.headers.get('access-control-allow-origin'), ARTIST);
-  const bad = await handle(new Request('https://cards.test/api/cards', { method: 'POST', body: '{', headers: { origin: ARTIST } }), cards);
-  assert.equal([bad.status, bad.headers.get('access-control-allow-origin')].join(' '), `400 ${ARTIST}`);
+  const card = await handle(new Request('https://cards.test/api/cards', { method: 'POST', body: JSON.stringify({ kind: 'board', game: BREW }), headers: { origin: ARTIST } }), cards);
+  assert.equal(card.status, 200);
+  assert.deepEqual(asked, [`${ARTIST}/ ${BREW}`]);
+  const id = ((await card.json()) as { id: string }).id;
+  assert.deepEqual(JSON.parse(stored.get(`${id}.json`) as string), { kind: 'board', game: BREW, title: 'THE MORNING BREW', url: `${ARTIST}/`, rows: [{ rank: 1, name: '0x62ec…ad3f', score: 28462 }] });
+  const page = await (await handle(new Request(`https://cards.test/r/${id}`, { headers: { 'user-agent': 'Twitterbot' } }), cards)).text();
+  assert.match(page, /THE MORNING BREW · THE WALL ARCADE/);
+  assert.match(page, /url=https:\/\/k6ag9vxz\.srstudio\.dev\//);
+  const unknown = await handle(new Request('https://cards.test/api/cards', { method: 'POST', body: JSON.stringify({ kind: 'board', game: '00000000-0000-4000-8000-000000000000' }), headers: { origin: ARTIST } }), cards);
+  assert.equal(unknown.status, 400);
   const other = await handle(new Request('https://cards.test/api/cards', { method: 'POST', body: '{', headers: { origin: 'https://evil.example' } }), cards);
   assert.equal(other.headers.get('access-control-allow-origin'), null);
-  // the store unreadable: the last list, or ours
-  const broken = groupOrigins({ getText: async () => { throw new Error('blobs down'); } });
-  assert.deepEqual([...await broken()], OUR_ORIGINS);
+  // the store unreadable: ours
+  const broken = groupOf({ getText: async () => { throw new Error('blobs down'); } });
+  assert.deepEqual([...(await broken()).origins], OUR_ORIGINS);
 });

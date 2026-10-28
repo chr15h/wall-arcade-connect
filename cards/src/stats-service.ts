@@ -1,24 +1,26 @@
 // The stats' routes, independent of Netlify (netlify/functions/events.mts and stats.mts plug in Netlify Blobs):
-//   POST /api/events   a tag from the hub or a game (cards/src/events.ts) -> 204; only from the arcade's pages (cards/src/origins.ts)
+//   POST /api/events   a tag from the hub or a game (cards/src/events.ts) -> 204; only from the arcade's pages, about its games (cards/src/group.ts)
 //   GET  /stats        the page (cards/src/stats-page.ts)       GET /stats.json   the same numbers
 // Both read stats.json, written every 15 minutes (netlify/functions/stats-refresh.mts); ?refresh=1 sums again now,
 // at most once a minute.
 import { EventError, parseEvent, recordEvent, type EventStore } from './events.js';
-import { isAllowed, ours, type Origins } from './origins.js';
+import { artistOf, gameKey, isAllowed, ours, type GroupSource } from './group.js';
 import { statsPage } from './stats-page.js';
 import { refreshStats, type StatsDeps } from './stats-sources.js';
 import type { Stats } from './stats.js';
 
-export async function handleEvents(request: Request, deps: { events: EventStore; now(): number; origins?: Origins }): Promise<Response> {
-  const origin = request.headers.get('origin'), allowed = await (deps.origins?.() ?? Promise.resolve(ours()));
-  const headers: Record<string, string> = isAllowed(origin, allowed) ? { 'Access-Control-Allow-Origin': origin as string, 'Access-Control-Allow-Methods': 'POST', 'Access-Control-Allow-Headers': 'Content-Type', Vary: 'Origin' } : {};
+export async function handleEvents(request: Request, deps: { events: EventStore; now(): number; group?: GroupSource }): Promise<Response> {
+  const origin = request.headers.get('origin'), group = await (deps.group?.() ?? Promise.resolve(ours()));
+  const headers: Record<string, string> = isAllowed(origin, group) ? { 'Access-Control-Allow-Origin': origin as string, 'Access-Control-Allow-Methods': 'POST', 'Access-Control-Allow-Headers': 'Content-Type', Vary: 'Origin' } : {};
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers });
   if (request.method !== 'POST') return new Response('POST an event', { status: 405, headers });
-  if (!isAllowed(origin, allowed)) return new Response('Not from the arcade', { status: 403, headers });
+  if (!isAllowed(origin, group)) return new Response('Not from the arcade', { status: 403, headers });
   const raw = await request.text();
   if (raw.length > 2048) return new Response('Too large', { status: 413, headers });
   try {
-    await recordEvent(deps.events, parseEvent(JSON.parse(raw) as unknown, deps.now()));
+    // an artist's page tags its own game, whatever it calls it (a game made from our template sends its own key)
+    const app = artistOf(origin, group);
+    await recordEvent(deps.events, parseEvent(JSON.parse(raw) as unknown, deps.now(), app ? () => app.id : (g) => gameKey(g, group)));
   } catch (error) {
     return new Response(error instanceof EventError ? error.message : 'invalid JSON', { status: 400, headers });
   }

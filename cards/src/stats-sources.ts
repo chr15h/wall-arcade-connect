@@ -83,8 +83,6 @@ export async function packsSince(fetchImpl: typeof fetch, since: number): Promis
 async function gamesOf(deps: StatsDeps, client: Client | null): Promise<GameInfo[]> {
   if (!client) return OURS;
   const { group } = await client.creditGroups.get({ groupId: GROUP_ID });
-  // the same list opens the card service to every app of the group (cards/src/origins.ts)
-  await deps.store.set('origins.json', JSON.stringify({ at: new Date(deps.now()).toISOString(), origins: group.apps.map((a) => a.origin) }));
   const known = JSON.parse((await deps.store.getText('games.json')) ?? '{}') as Record<string, string>;
   const apps = [...group.apps.map((a) => ({ id: a.productId, origin: a.origin })),
     ...[...titlesSeen.keys()].filter((id) => !group.apps.some((a) => a.productId === id)).map((id) => ({ id, origin: '' }))];
@@ -105,6 +103,9 @@ async function gamesOf(deps: StatsDeps, client: Client | null): Promise<GameInfo
     return { id, title: title ?? `App ${id.slice(0, 8)}`, origin, ...(online === false ? { online } : {}) };
   }));
   await deps.store.set('games.json', JSON.stringify(known));
+  // the same list opens the card service to every app of the group, its pages and its games (cards/src/group.ts)
+  await deps.store.set('group.json', JSON.stringify({ at: new Date(deps.now()).toISOString(),
+    apps: games.filter((g) => group.apps.some((a) => a.productId === g.id)).map(({ id, origin, title }) => ({ id, origin, title })) }));
   return games.sort((a, b) => Number(!OURS.some((g) => g.id === a.id)) - Number(!OURS.some((g) => g.id === b.id)));
 }
 

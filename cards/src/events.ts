@@ -14,8 +14,8 @@ export const EVENTS = [
   'card_create', 'card_view',
 ] as const;
 export type EventName = typeof EVENTS[number];
+import { gameKey } from './group.js';
 const FROM_PAGES = new Set<string>(EVENTS.filter((e) => e !== 'card_create' && e !== 'card_view'));
-const GAMES = new Set(['full-row', 'unbreakable', 'dirty-signals-radio']);   // the hub's PLAY tags each; only ours tag their own plays
 
 /** One stored event: t (ms), e, g game, w wallet (lowercase), p practice, s score, c card id, x extra, k its blob key. */
 export type ArcadeEvent = { t: number; e: EventName; g?: string; w?: string; p?: boolean; s?: number; c?: string; x?: Record<string, string | number | boolean>; k?: string };
@@ -24,14 +24,15 @@ export class EventError extends Error {}
 const fail = (why: string): never => { throw new EventError(why); };
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
-/** A page's event, checked field by field (unknown fields refused), stamped with `now`. */
-export function parseEvent(raw: unknown, now: number): ArcadeEvent {
+/** A page's event, checked field by field (unknown fields refused), stamped with `now`. `game`: our key or an app id of
+ *  the credit group (cards/src/group.ts: the hub's PLAY sends the app id); ours alone when no group is given. */
+export function parseEvent(raw: unknown, now: number, games: (raw: unknown) => string | null = gameKey): ArcadeEvent {
   if (!isObject(raw)) return fail('an object');
   for (const k of Object.keys(raw)) if (!['event', 'game', 'wallet', 'practice', 'score', 'cardId', 'extra'].includes(k)) fail(`unexpected field ${k}`);
   const { event, game, wallet, practice, score, cardId, extra } = raw;
   if (typeof event !== 'string' || !FROM_PAGES.has(event)) return fail('unknown event');
   const out: ArcadeEvent = { t: now, e: event as EventName };
-  if (game !== undefined) { if (typeof game !== 'string' || !GAMES.has(game)) fail('unknown game'); out.g = game as string; }
+  if (game !== undefined) { const g = games(game); if (g === null) fail('unknown game'); out.g = g as string; }
   if (wallet !== undefined && wallet !== null) { if (typeof wallet !== 'string' || !/^0x[0-9a-fA-F]{40}$/.test(wallet)) fail('wallet'); out.w = (wallet as string).toLowerCase(); }
   if (practice !== undefined) { if (typeof practice !== 'boolean') fail('practice'); out.p = practice as boolean; }
   if (score !== undefined) { if (!Number.isSafeInteger(score) || (score as number) < 0 || (score as number) > 1e9) fail('score'); out.s = score as number; }

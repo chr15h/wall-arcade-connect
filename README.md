@@ -127,10 +127,12 @@ rare-profile credit-group add-game 60faaf46-ba4b-460c-a82a-adb852371a94 --app <A
 ```
 
 The origin is the exact HTTPS origin (no path, no trailing slash). Attach a game only once its paid flow is ready: an
-active group gates unpaid starts at once. Then add it to the hub's `GAMES` list (`hub/src.html`); the hub shows it as
-soon as it has an active scoring event. The card service lets it in by itself (CORS of `POST /api/cards` and `POST /api/events`):
-it reads the group's apps where `/stats` does, at the next refresh (every 15 minutes, or `/stats?refresh=1`), with our three
-origins always allowed (`cards/src/origins.ts`). (CLI 0.1.0 applies `add-game` but may report "Unexpected response shape"
+active group gates unpaid starts at once. Then add it to the hub (`hub/src.html`: its card, with its PLAY link's
+`data-app`, its board, and the `GAMES` list); the hub shows its top 3 as soon as it has an active scoring event. The card
+service lets it in by itself: it reads the group's apps (id, origin, name) where `/stats` does, at the next refresh (every
+15 minutes, or `/stats?refresh=1`), with our three origins and our two games always (`cards/src/group.ts`). Its page may
+then `POST /api/cards` and `/api/events` (its tags are counted as its game's), the hub's PLAY is counted with its app id,
+and a board card (`{ kind: 'board', game: <app id> }`) shows its top 5 under its own name. (CLI 0.1.0 applies `add-game` but may report "Unexpected response shape"
 because the API no longer returns `creditCost`: check the group afterwards before retrying.)
 
 ### The artists' games
@@ -141,7 +143,7 @@ to the wallet below.
 | Game | Artist (panel) | App ID | Origin | 40% paid to | Attached | On the hub |
 |---|---|---|---|---|---|---|
 | Dirty Signals Radio | Bully Meow (BULLY-MEOW, panel 18) | `8617e311-f5d4-4e04-9010-19298f2ff9a0` | https://sy3mgnnh.srstudio.dev | `0x14076eFC88Ca7D53594500261AdA8185033e6D5B` | 27 Oct 2026 | 28 Oct 2026, card #03 and its top 3 |
-| THE MORNING BREW | osaykancuno (K4NCUN0, panel 33) | `1c10c96c-bf88-471c-88af-7f23a992a7ea` | https://k6ag9vxz.srstudio.dev | `0x41b199A5194c58b29559A482E919331E1c8EEF85` (the wallet holding K4NCUN0, unless the artist gives another) | 28 Oct 2026 | not yet |
+| THE MORNING BREW | osaykancuno (K4NCUN0, panel 33) | `1c10c96c-bf88-471c-88af-7f23a992a7ea` | https://k6ag9vxz.srstudio.dev | `0x41b199A5194c58b29559A482E919331E1c8EEF85` (the wallet holding K4NCUN0, unless the artist gives another) | 28 Oct 2026 | 28 Oct 2026, card #04 and its top 3 |
 
 ## The people of the wall: walking sprites
 
