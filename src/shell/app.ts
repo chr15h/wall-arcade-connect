@@ -52,6 +52,7 @@ const ui = {
   board: requiredElement('#overlay-board'),
   boardList: requiredElement<HTMLOListElement>('#board-list'),
   credit: requiredElement('#overlay-credit'),
+  by: requiredElement('#overlay-by'),
   banner: requiredElement('#practice-banner'),
   cornerBack: requiredElement<HTMLAnchorElement>('#corner-back'),
   balance: requiredElement<HTMLButtonElement>('#balance-badge'),
@@ -97,6 +98,22 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
   ui.buyPay.textContent = `Pay ${packPriceLabel()}`;
   requiredElement('#buy-explain').textContent = `SuperRare Connect opens and your wallet asks you to approve ${packPriceLabel()} on Ethereum mainnet, plus the network fee: nothing is sent before you confirm there. Pay from the wallet shown, because another wallet cannot claim the credits. The ${EXPECTED_PACK_CREDITS} credits arrive on this wallet a moment later.`;
   requiredElement('#info-price').textContent = `${pack}, paid on Ethereum mainnet. One credit per paid run, and one balance for every game of the arcade.`;
+  // an artist's game: "A game by <artist>", linked, under the entry's title
+  if (adapter.by) {
+    const link = Object.assign(document.createElement('a'), { href: adapter.by.url, target: '_blank', rel: 'noopener', textContent: adapter.by.name });
+    ui.by.replaceChildren('A game by ', link);
+  }
+  // the game's own rules come first in "How it works" (its howTo, else its lede); an artist's game says who made it
+  requiredElement('#info-game').replaceChildren(...(adapter.howTo ?? [{ title: 'How to play', text: adapter.lede }]).flatMap((part) => {
+    const h = document.createElement('h3'), p = document.createElement('p');
+    h.textContent = part.title; p.textContent = part.text;
+    return [h, p];
+  }), ...(adapter.by ? (() => {
+    const h = document.createElement('h3'), p = document.createElement('p');
+    h.textContent = 'Made by';
+    p.append(`${adapter.title} is a game by `, Object.assign(document.createElement('a'), { href: adapter.by.url, target: '_blank', rel: 'noopener', textContent: adapter.by.name }), ' for THE WALL ARCADE.');
+    return [h, p];
+  })() : []));
   if (configuration.diagnostics) {
     diag.rotate();
     diag.enable({ game: adapter.id, appId: configuration.appId, groupId: configuration.groupId, display: configuration.display });
@@ -212,7 +229,8 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
   const session = () => client.auth.getSession();
   const address = (): string | undefined => session()?.address.toLowerCase();
   // our tags for /stats (src/share/beacon.ts): fire and forget, never in the way of a run
-  setBeaconContext({ game: adapter.id, wallet: address });
+  // the card service knows our first games by name, any other by its app id in the credit group (cards/src/group.ts)
+  setBeaconContext({ game: adapter.id === 'unbreakable' || adapter.id === 'full-row' ? adapter.id : configuration.appId, wallet: address });
   beacon('game_open');
   let abandonTagged = '';
   const runId = (): string => String((round as unknown as { state?: { run?: { runId?: string } } } | undefined)?.state?.run?.runId ?? '');
@@ -277,6 +295,7 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
     ui.roundActions.hidden = next !== 'recovery';
     ui.board.hidden = content.showBoard === false;
     ui.credit.hidden = next !== 'entry';
+    ui.by.hidden = next !== 'entry' || !adapter.by;
   }
   function scoreGrid(cells: { label: string; value: string; main?: boolean }[]): void {
     ui.score.replaceChildren(...cells.map(({ label, value, main }) => {
@@ -479,7 +498,7 @@ export async function startApp(adapter: GameAdapter): Promise<void> {
     const mine = myEntry(wallet);
     const top = board.slice(0, 3);
     if (mine && mine.rank > 3) top.push(mine);
-    boardPost.hidden = !top.length || adapter.id === 'tap-the-name';
+    boardPost.hidden = !top.length || (adapter.id !== 'unbreakable' && adapter.id !== 'full-row');   // the card service draws boards of these two only
     if (!boardPost.hidden) prepareBoardPost();
     if (!top.length) {
       ui.boardList.replaceChildren(node('li', boardFailed ? 'Scores could not be loaded right now.' : boardLoaded ? 'No scores yet this week. Be the first.' : 'Loading scores…', 'empty'));

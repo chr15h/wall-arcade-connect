@@ -59,6 +59,8 @@ body.is-playing.has-band .stage-frame { top: env(safe-area-inset-top); }
 .overlay-card { margin: auto 0; width: 100%; max-width: 380px; padding: 20px 18px 14px; border: 1px solid var(--ink); background: var(--chalk); }
 .overlay h1 { margin: 0; font: 400 clamp(44px, 13vw, 64px)/.92 var(--anton); text-transform: uppercase; }
 .overlay-line { margin: 10px 0 16px; font: 300 16px/1.45 var(--inter); }
+.overlay-by { margin: 4px 0 0; font: 500 12px/1.4 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--label); }
+.overlay-by a { color: var(--ink); }
 .overlay-score { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin: 0 0 14px; background: var(--rule); border: 1px solid var(--rule); }
 .overlay-score div { padding: 8px 6px; background: var(--chalk); }
 .overlay-score span { display: block; font: 500 13px/1.3 var(--mono); color: var(--label); }

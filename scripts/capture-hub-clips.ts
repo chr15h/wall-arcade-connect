@@ -4,8 +4,11 @@
 //
 //   unbreakable   a few volleys first, then an aim and the volley that paints the most bricks within the clip
 //   full-row      the pieces dragged onto the grid one by one; the last completes a line: the clip ends on ROW PAINTED
+//   nft-invaders  wave 1 played off camera, then wave 2 filmed: the Grifters sway and dive, the dragon sprays them down
+//   signage       a crowd already on the plaza; signs go up under the newcomers and the people of the wall walk home
+// The two newer games also write their poster, hub/shots/<game>.jpg: the clip's middle frame, whole stage.
 //
-//   node --import tsx scripts/capture-hub-clips.ts [unbreakable,full-row]        (Chrome: CHROME_PATH or the usual paths)
+//   node --import tsx scripts/capture-hub-clips.ts [unbreakable,full-row,nft-invaders,signage]   (Chrome: CHROME_PATH or the usual paths)
 import { execFileSync } from 'node:child_process';
 import { existsSync, statSync } from 'node:fs';
 import { mkdir, readFile, rm } from 'node:fs/promises';
@@ -24,7 +27,7 @@ const FPS = 30, FRAMES = 10 * FPS;
 // it, its top at 22% of the spare height (object-position: center 22%): 567 × 425 from y = 144, rounded to even sizes
 const STAGE_W = 504, STAGE_H = 960, DPR = 1080 / STAGE_H;
 const CROP = 'crop=566:424:0:144';
-const CHROMES = [process.env.CHROME_PATH, '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+const CHROMES = [process.env.CHROME_PATH, 'C:/Program Files/Google/Chrome/Application/chrome.exe', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
   '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', '/usr/bin/google-chrome', '/usr/bin/chromium'].filter(Boolean) as string[];
 const LAUNCH_DAY = new Date('2026-10-22T14:00:00Z');       // FULL ROW's names move with the ISO week: the launch week's
 
@@ -47,10 +50,10 @@ const bench = await serve('dist/preview');
 const browser = await chromium.launch({ executablePath });
 await mkdir(OUT, { recursive: true });
 
-async function openBench(game: 'unbreakable' | 'full-row', seed: number): Promise<Page> {
+async function openBench(game: 'unbreakable' | 'full-row' | 'whitewash' | 'signage', seed: number): Promise<Page> {
   const page = await browser.newPage({ viewport: { width: STAGE_W, height: STAGE_H }, deviceScaleFactor: DPR });
   // a returning player: no first-game hints in the clip
-  await page.addInitScript(() => { localStorage.setItem('wall-arcade:unbreakable:hint', '1'); localStorage.setItem('wall-arcade:full-row:hint', '1'); });
+  await page.addInitScript(() => { for (const g of ['unbreakable', 'full-row', 'whitewash', 'signage']) localStorage.setItem(`wall-arcade:${g}:hint`, '1'); });
   await page.clock.install({ time: LAUNCH_DAY }); await page.clock.pauseAt(new Date(LAUNCH_DAY.getTime() + 100));   // frozen: only runFor moves time
   await page.goto(`${bench.origin}/?game=${game}&seed=${seed}`);
   await page.addStyleTag({ content: `html,body{margin:0;background:#DEDBD3} main{margin:0;padding:0} .eyebrow,#status,.ub-sound{display:none!important}
@@ -68,8 +71,9 @@ async function toPage(page: Page, x: number, y: number): Promise<[number, number
   return [box.x + x / 420 * box.width, box.y + y / 800 * box.height];
 }
 
-/** Records FRAMES frames of virtual time; before each frame, `script(f)` may act. Encodes the 4:3 window. */
-async function record(page: Page, name: string, script: (f: number) => Promise<void>): Promise<void> {
+/** Records FRAMES frames of virtual time; before each frame, `script(f)` may act. Encodes the 4:3 window (and, with
+ *  `poster`, writes that frame, whole stage, as hub/shots/<name>.jpg). */
+async function record(page: Page, name: string, script: (f: number) => Promise<void>, poster?: number, crop = CROP): Promise<void> {
   const dir = join(OUT, `.${name}`), arena = page.locator('#arena');
   await rm(dir, { recursive: true, force: true }); await mkdir(dir, { recursive: true });
   let elapsed = 0;
@@ -78,9 +82,13 @@ async function record(page: Page, name: string, script: (f: number) => Promise<v
     const target = Math.round((f + 1) * 1000 / FPS); await page.clock.runFor(target - elapsed); elapsed = target;
     await arena.screenshot({ path: join(dir, `${String(f).padStart(4, '0')}.png`) });
   }
+  if (poster !== undefined) {
+    execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', join(dir, `${String(poster).padStart(4, '0')}.png`), '-q:v', '4', join('hub/shots', `${name}.jpg`)]);
+    console.log(`hub/shots/${name}.jpg: ${(statSync(join('hub/shots', `${name}.jpg`)).size / 1024).toFixed(0)} KB`);
+  }
   const file = join(OUT, `${name}.mp4`);
   for (const crf of [26, 29, 32]) {                       // light: under 1.5 MB
-    execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-framerate', String(FPS), '-i', join(dir, '%04d.png'), '-vf', CROP,
+    execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-framerate', String(FPS), '-i', join(dir, '%04d.png'), '-vf', crop,
       '-c:v', 'libx264', '-preset', 'slow', '-crf', String(crf), '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-an', file]);
     if (statSync(file).size < 1.5 * 1024 * 1024) break;
   }
@@ -191,7 +199,63 @@ async function clipFullRow(): Promise<void> {
   await page.close();
 }
 
+/* ------------------------------------ NFT INVADERS ------------------------------------ */
+// A player who follows the lowest diver, else the raider nearest its column: a move every 3 ticks at most.
+type Ww = { gameOver: boolean; play: { x: number; target: number; wave: number; waveAt: number; cleaners: { x: number; y: number; mode: number }[] } };
+async function wwPlay(page: Page): Promise<void> {
+  const s = await state<Ww>(page), p = s.play;
+  if (s.gameOver) return;
+  const diver = p.cleaners.filter((c) => c.mode === 1).sort((a, b) => b.y - a.y)[0];
+  const aim = diver ?? [...p.cleaners].sort((a, b) => Math.abs(a.x - p.x) - Math.abs(b.x - p.x))[0];
+  if (aim && Math.abs(aim.x - p.target) > 3) await send(page, { action: 'move', x: Math.max(0, Math.min(420, Math.round(aim.x))) });
+}
+async function clipInvaders(): Promise<void> {
+  for (const seed of [12, 77, 2026, 31337, 4242]) {
+    const page = await openBench('whitewash', seed);
+    // wave 1 off camera, then on to the Grifters (wave 2) with every name still standing
+    let ok = false;
+    for (let k = 0; k < 900; k++) {
+      const s = await state<Ww>(page);
+      if (s.gameOver) break;
+      if (s.play.wave === 2 && s.play.waveAt < 0) { ok = true; break; }
+      await wwPlay(page); await wait(page, 150);
+    }
+    if (!ok) { await page.close(); console.log(`nft-invaders: seed ${seed} did not reach wave 2, next seed`); continue; }
+    await wait(page, 600);
+    console.log(`nft-invaders: seed ${seed}, filming wave 2`);
+    await record(page, 'nft-invaders', async (f) => { if (f % 5 === 0) await wwPlay(page); }, Math.round(FRAMES * 0.55));
+    await page.close();
+    return;
+  }
+  throw new Error('NFT INVADERS: no seed reached wave 2');
+}
+
+/* -------------------------------------- SIGNAGE --------------------------------------- */
+// A careful player who steers in the middle rows (the hub card's 4:3 window shows the top of the plaza): a walker
+// reaching row 6 gets a sign towards its column there; on its column, a sign up.
+type Sg = { gameOver: boolean; play: { signs: [number, number][]; walkers: { x: number; y: number; dir: number; to: number }[] } };
+async function sgPlay(page: Page): Promise<void> {
+  const s = await state<Sg>(page);
+  if (s.gameOver) return;
+  const signAt = (x: number, y: number): number => s.play.signs.find((g) => g[0] === y * 8 + x)?.[1] ?? -1;
+  for (const w of s.play.walkers) {
+    const want = w.x === w.to ? 0 : (w.to > w.x ? 1 : 3), head = signAt(w.x, w.y) >= 0 ? signAt(w.x, w.y) : w.dir;
+    if ((w.y === 6 || w.x === w.to) && w.y <= 6 && head !== want) { await send(page, { action: 'sign', x: w.x, y: w.y, dir: want }); return; }
+  }
+}
+async function clipSignage(): Promise<void> {
+  const page = await openBench('signage', 4242);
+  for (let k = 0; k < 900; k++) { await sgPlay(page); await wait(page, 100); }     // 90 s: walkers come every 2 s, a crowd on the plaza
+  console.log('signage: seed 4242, filming after 90 s of play');
+  // the whole board (wall, plaza, street) fitted in the 4:3 card on the concrete: the top slice alone would miss the play
+  const WHOLE = 'crop=567:800:0:120,pad=1066:800:249:0:0xDEDBD3,scale=566:424';
+  await record(page, 'signage', async (f) => { if (f % 3 === 0) await sgPlay(page); }, Math.round(FRAMES * 0.6), WHOLE);
+  await page.close();
+}
+
 try {
   if (WHICH.includes('unbreakable')) await clipUnbreakable();
   if (WHICH.includes('full-row')) await clipFullRow();
+  if (WHICH.includes('nft-invaders')) await clipInvaders();
+  if (WHICH.includes('signage')) await clipSignage();
 } finally { await browser.close(); bench.close(); }

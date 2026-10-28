@@ -5,8 +5,8 @@ import { join } from 'node:path';
 import { build } from 'esbuild';
 
 const out = process.argv[2];
-const game = process.argv[3] === 'tap-the-name' || process.argv[3] === 'full-row' ? process.argv[3] : 'unbreakable';
-if (!out) throw new Error('Usage: dev-flow.ts <output-dir> [unbreakable|tap-the-name|full-row]');
+const game = (['tap-the-name', 'full-row', 'signage', 'whitewash'] as const).find((id) => id === process.argv[3]) ?? 'unbreakable';
+if (!out) throw new Error('Usage: dev-flow.ts <output-dir> [unbreakable|tap-the-name|full-row|signage|whitewash]');
 await mkdir(join(out, 'assets'), { recursive: true });
 await build({
   entryPoints: [`src/entries/${game}.ts`], define: { __FAKE_GAME__: JSON.stringify(game), __DEV_ANY_ORIGIN__: 'true' }, outfile: join(out, 'assets/app.js'), bundle: true, format: 'esm', platform: 'browser',
@@ -17,7 +17,7 @@ await build({
 const config = await readFile(`deploy/${game}.config.json`, 'utf8').then((text) => JSON.parse(text)).catch(() => ({
   appId: '00000000-0000-4000-8000-00000000f001', groupId: '00000000-0000-4000-8000-00000000f002',
   studioUrl: 'https://studio.superrare.com', apiUrl: 'https://api.superrare.com', connectUrl: 'https://connect.superrare.com',
-  appOrigin: 'https://full-row.example.com', display: 'embed', game, hubUrl: 'https://6972mvu4.srstudio.dev/',
+  appOrigin: `https://${game}.example.com`, display: 'embed', game, hubUrl: 'https://6972mvu4.srstudio.dev/',
 }));
 await writeFile(join(out, 'config.json'), JSON.stringify(config, null, 2));
 await writeFile(join(out, 'assets/styles.css'), await readFile('src/shell/styles.css'));

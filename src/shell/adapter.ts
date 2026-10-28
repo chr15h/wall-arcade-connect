@@ -3,7 +3,7 @@ import type * as z from 'zod/mini';
 /** What PaidRound (the paid-start / server-run state machine) needs from one game. */
 export interface GameAdapter {
   /** Matches the public config's `game` and the state's `rules.game`. */
-  id: 'unbreakable' | 'tap-the-name' | 'full-row';
+  id: 'unbreakable' | 'tap-the-name' | 'full-row' | 'signage' | 'whitewash';
   /** Page and arena label. */
   title: string;
   /** Section heading above the game card. */
@@ -12,6 +12,12 @@ export interface GameAdapter {
   lede: string;
   /** One line for the entry overlay; falls back to `lede`. */
   tagline?: string;
+  /** The artist who made the game (an artist's game of the arcade): "A game by <name>" under the title of the entry,
+   *  linked to `url`, and "Made by" in the (i) panel. */
+  by?: { name: string; url: string };
+  /** "How to play", first in the (i) panel: the game's own rules, one short paragraph per topic (goal, controls,
+   *  scoring, the end). Absent: the panel shows `lede` under that title. */
+  howTo?: readonly { title: string; text: string }[];
   /** The verifier's own validation of a run state / of the coordinator's socket packets. */
   stateSchema: z.ZodMiniType;
   snapshotSchema: z.ZodMiniType;

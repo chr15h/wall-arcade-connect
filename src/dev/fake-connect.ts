@@ -10,16 +10,18 @@ import { ELIG, TAP_POOL } from '../generated/wall.js';
 import { createEngine as createUb } from '../games/unbreakable/engine.js';
 import { createEngine as createTap } from '../games/tap-the-name/engine.js';
 import { createEngine as createFullRow } from '../games/full-row/engine.js';
+import { createEngine as createSignage } from '../games/signage/engine.js';
+import { createEngine as createWhitewash } from '../games/whitewash/engine.js';
 import { scoringConfiguration } from '../shell/config.js';
 import { PACK, formatPrice } from '../shell/credits.js';
 
-declare const __FAKE_GAME__: 'unbreakable' | 'tap-the-name' | 'full-row';
+declare const __FAKE_GAME__: 'unbreakable' | 'tap-the-name' | 'full-row' | 'signage' | 'whitewash';
 
 const params = new URLSearchParams(location.search);
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/.test(params.get('address') ?? '') ? (params.get('address') as string).toLowerCase() : '0xdec0de0000000000000000000000000000000001';
 const TREASURY = '0xb6ede0158e1792ed25e1367edeec05a824d7c9ad';
 const GAME = typeof __FAKE_GAME__ === 'string' ? __FAKE_GAME__ : 'unbreakable';
-const engine = (GAME === 'tap-the-name' ? createTap(TAP_POOL) : GAME === 'full-row' ? createFullRow() : createUb(ELIG)) as unknown as ReturnType<typeof createUb>;
+const engine = (GAME === 'tap-the-name' ? createTap(TAP_POOL) : GAME === 'full-row' ? createFullRow() : GAME === 'signage' ? createSignage() : GAME === 'whitewash' ? createWhitewash() : createUb(ELIG)) as unknown as ReturnType<typeof createUb>;
 const lagMs = Number(params.get('lag') ?? 0);          // one-way network delay, both directions
 const runTicks = Number(params.get('ticks') ?? scoringConfiguration(typeof __FAKE_GAME__ === 'string' ? __FAKE_GAME__ : 'unbreakable').roundTicks);
 const uuid = (): string => (typeof crypto.randomUUID === 'function' ? crypto.randomUUID()

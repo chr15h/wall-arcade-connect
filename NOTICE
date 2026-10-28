@@ -13,6 +13,13 @@ Copyright (c) 2026 SuperRare). Upstream license retained in LICENSE.
 UNBREAKABLE and TAP THE NAME game rules, art direction and simulation are
 original to THE WALL ARCADE (NFC Summit).
 
+NFT INVADERS' raiders are works by XCOPY, reduced and embedded: "XCOPY works are licensed under CC0 (Public Domain)"
+(https://xcopy.art/creative-commons); releases that may be collaborations are left out. NFT INVADERS is a fan-made game: it is not made by, endorsed by or affiliated with XCOPY.
+CC0 covers the works, not the name: the game credits XCOPY as the artist of the works and never as its maker. Grifters come from their Async Art
+Blueprint (0xc143bbfcdbdbed6d454803804752a064a622c1f3). The repository also keeps, unused by the game, CC0 art of Nouns
+(Nouns DAO), CrypToadz (Gremplin) and mfers (sartoshi).
+Sources and notes: src/games/whitewash/art/README.md.
+
 Runtime dependency @rareprotocol/connect is distributed under MIT.
 Other dependencies retain their own package license notices in node_modules.
 

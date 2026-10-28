@@ -9,7 +9,7 @@ import { scoringConfiguration, type Configuration } from '../src/shell/config.js
 
 export type GameFiles = Record<string, Uint8Array>;
 const root = fileURLToPath(new URL('../', import.meta.url));
-const TITLES: Record<Configuration['game'], string> = { unbreakable: 'UNBREAKABLE', 'tap-the-name': 'TAP THE NAME', 'full-row': 'FULL ROW' };
+const TITLES: Record<Configuration['game'], string> = { unbreakable: 'UNBREAKABLE', 'tap-the-name': 'TAP THE NAME', 'full-row': 'FULL ROW', signage: 'SIGNAGE', whitewash: 'NFT INVADERS' };
 
 const common = { absWorkingDir: root, bundle: true, format: 'esm', platform: 'browser', target: 'es2022', minify: true, write: false, legalComments: 'inline' } as const;
 
